@@ -45,6 +45,7 @@ import { FinalInspection } from './components/inspection/FinalInspection';
 import { ReportCenter } from './components/reports/ReportCenter';
 import { SupabaseModal } from './components/common/SupabaseModal';
 import { NotificationDrawer } from './components/common/NotificationDrawer';
+import { ProjectSettingsModal } from './components/common/ProjectSettingsModal';
 import { generatePDFReport } from './utils/exportEngine';
 import { calculatePhysicalProgress, calculateTargetProgress, calculateDeviation } from './utils/calculations';
 
@@ -57,6 +58,19 @@ export default function App() {
   // Modals & Drawers
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+  const [userNameMap, setUserNameMap] = useState<Record<UserRole, string>>(() => {
+    const saved = localStorage.getItem('FORESYNDO_V3_USER_NAMES');
+    return saved
+      ? JSON.parse(saved)
+      : {
+          Direktur: 'H. Bambang S., M.T.',
+          'Site Manager': 'Ir. Agus Pratama',
+          Admin: 'Siti Rahmawati, S.T.',
+          Viewer: 'Tamu Pengawas',
+        };
+  });
 
   // Core Data State (Loaded from LocalStorage if available, fallback to initial)
   const [project, setProject] = useState<ProjectInfo>(() => {
@@ -150,6 +164,10 @@ export default function App() {
     localStorage.setItem('FORESYNDO_V3_NOTIFICATIONS', JSON.stringify(notifications));
   }, [notifications]);
 
+  useEffect(() => {
+    localStorage.setItem('FORESYNDO_V3_USER_NAMES', JSON.stringify(userNameMap));
+  }, [userNameMap]);
+
   // Handle Dark Mode toggle on <html> element
   useEffect(() => {
     if (darkMode) {
@@ -205,6 +223,48 @@ export default function App() {
   const handleReorderWorkItems = (reorderedItems: WorkItem[]) => {
     setWorkItems(reorderedItems);
     addAuditLog('Re-order Time Schedule', 'Mengubah urutan sekuensi tahapan pekerjaan (Drag & Drop / Re-sequence)');
+  };
+
+  const handleApplyProgress25Percent = () => {
+    setWorkItems((prev) =>
+      prev.map((item) => {
+        if (item.id === 'WI-01' || item.no === 1) {
+          return {
+            ...item,
+            realizedProgressPercent: 100,
+            volumeRealized: item.volumeTarget,
+            status: 'Selesai',
+            updatedAt: new Date().toISOString().split('T')[0],
+          };
+        }
+        if (item.id === 'WI-02' || item.no === 2) {
+          return {
+            ...item,
+            realizedProgressPercent: 100,
+            volumeRealized: item.volumeTarget,
+            status: 'Selesai',
+            updatedAt: new Date().toISOString().split('T')[0],
+          };
+        }
+        if (item.id === 'WI-03' || item.no === 3) {
+          return {
+            ...item,
+            realizedProgressPercent: 83.45,
+            volumeRealized: Math.round(item.volumeTarget * 0.8345),
+            status: 'Dalam Proses',
+            updatedAt: new Date().toISOString().split('T')[0],
+          };
+        }
+        return item;
+      })
+    );
+
+    setProject((prev) => ({ ...prev, status: 'Dalam Pengerjaan' }));
+
+    addAuditLog(
+      'Audit RAB & Penerapan Progress 25%',
+      'Capaian fisik proyek disesuaikan ke target milestone 25.0% (Termin 1 - Rp 3.615.440.245) berdasarkan Audit RAB Resmi.'
+    );
   };
 
   // Termin Payment Handlers
@@ -337,6 +397,8 @@ export default function App() {
         onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
         onQuickExport={() => generatePDFReport('Progress', project, workItems, paymentTerms, dailyLogs, materials)}
         onResetProject={handleResetProject}
+        onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+        activeUserName={userNameMap[currentRole]}
       />
 
       {/* Main Body Layout with Sidebar + Content Area */}
@@ -346,6 +408,9 @@ export default function App() {
           activeTab={activeTab}
           onSelectTab={setActiveTab}
           hasDeviasiWarning={deviation < -5}
+          onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+          activeUserName={userNameMap[currentRole]}
+          projectName={project.name}
         />
 
         {/* Dynamic Tab Content View */}
@@ -397,6 +462,7 @@ export default function App() {
               workItems={workItems}
               userRole={currentRole}
               onUpdateTermStatus={handleUpdateTermStatus}
+              onApplyProgress25={handleApplyProgress25Percent}
             />
           )}
 
@@ -447,6 +513,17 @@ export default function App() {
         onClose={() => setIsNotificationsOpen(false)}
         notifications={notifications}
         onMarkAllRead={handleMarkAllNotificationsRead}
+      />
+
+      <ProjectSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        project={project}
+        onUpdateProject={setProject}
+        currentRole={currentRole}
+        userNameMap={userNameMap}
+        onUpdateUserNameMap={setUserNameMap}
+        onAddAuditLog={addAuditLog}
       />
     </div>
   );

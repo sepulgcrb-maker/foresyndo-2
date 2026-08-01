@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
   AlertTriangle,
   ShieldCheck,
+  Settings,
 } from 'lucide-react';
 
 export type ActiveTab =
@@ -33,6 +34,9 @@ interface SidebarProps {
   activeTab: ActiveTab;
   onSelectTab: (tab: ActiveTab) => void;
   hasDeviasiWarning?: boolean;
+  onOpenSettingsModal?: () => void;
+  activeUserName?: string;
+  projectName?: string;
 }
 
 interface NavItem {
@@ -42,7 +46,14 @@ interface NavItem {
   hasAlert?: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab, hasDeviasiWarning = false }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  activeTab,
+  onSelectTab,
+  hasDeviasiWarning = false,
+  onOpenSettingsModal,
+  activeUserName = 'Site Manager',
+  projectName = 'FORESYNDO 2',
+}) => {
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard Utama', icon: LayoutDashboard },
     { id: 'schedule', label: 'Time Schedule', icon: CalendarDays },
@@ -105,16 +116,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab, hasDev
         </div>
       </div>
 
-      {/* Role Footer */}
-      <div className="hidden md:block p-3 rounded-xl bg-slate-800/40 border border-slate-800/80">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-orange-500/20 border border-orange-500/30 text-orange-400 flex items-center justify-center font-bold text-xs shrink-0">
-            FGI
+      {/* Role Footer / Settings Trigger */}
+      <div className="hidden md:block p-3 rounded-xl bg-slate-800/40 border border-slate-800/80 hover:bg-slate-800/80 transition-all">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="w-8 h-8 rounded-lg bg-orange-500/20 border border-orange-500/30 text-orange-400 flex items-center justify-center font-bold text-xs shrink-0">
+              FGI
+            </div>
+            <div className="overflow-hidden text-left">
+              <p className="text-xs font-bold text-slate-200 truncate">{activeUserName}</p>
+              <p className="text-[10px] text-slate-400 truncate">{projectName}</p>
+            </div>
           </div>
-          <div className="overflow-hidden text-left">
-            <p className="text-xs font-bold text-slate-200 truncate">Site Management</p>
-            <p className="text-[10px] text-slate-400 truncate">PT. FORESYNDO 2</p>
-          </div>
+          {onOpenSettingsModal && (
+            <button
+              onClick={onOpenSettingsModal}
+              className="p-1.5 rounded-lg bg-slate-700/60 hover:bg-orange-500 hover:text-white text-slate-300 transition-all shrink-0"
+              title="Pengaturan Nama & Identitas Proyek"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
     </nav>

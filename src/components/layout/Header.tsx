@@ -10,6 +10,8 @@ import {
   Activity,
   UserCheck,
   RotateCcw,
+  Settings,
+  Pencil,
 } from 'lucide-react';
 import { ProjectInfo, UserRole, NotificationItem } from '../../types';
 import { RoleBadge } from '../common/RoleBadge';
@@ -26,6 +28,8 @@ interface HeaderProps {
   onOpenSupabaseModal: () => void;
   onQuickExport: () => void;
   onResetProject?: () => void;
+  onOpenSettingsModal?: () => void;
+  activeUserName?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -39,6 +43,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSupabaseModal,
   onQuickExport,
   onResetProject,
+  onOpenSettingsModal,
+  activeUserName,
 }) => {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const connected = isSupabaseConnected();
@@ -69,6 +75,15 @@ export const Header: React.FC<HeaderProps> = ({
                   <Activity className="w-3 h-3 animate-pulse" /> {project.status.toUpperCase()}
                 </span>
               </h1>
+              {onOpenSettingsModal && (
+                <button
+                  onClick={onOpenSettingsModal}
+                  className="p-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-orange-400 transition-colors"
+                  title="Ubah Nama & Identitas Proyek"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
             <p className="text-[11px] text-slate-400 truncate max-w-xs sm:max-w-md">
               {project.owner} &bull; {project.location}
@@ -76,8 +91,19 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Right: Actions, Role Selector & Notifications */}
+        {/* Right: Actions, Settings, Role Selector & Notifications */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Settings / Edit Name Button */}
+          {onOpenSettingsModal && (
+            <button
+              onClick={onOpenSettingsModal}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/40 text-xs font-bold transition-all shadow-sm"
+              title="Pengaturan Nama & Identitas Proyek"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Ubah Nama</span>
+            </button>
+          )}
           {/* Supabase Status Pill */}
           <button
             onClick={onOpenSupabaseModal}

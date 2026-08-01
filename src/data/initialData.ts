@@ -20,6 +20,18 @@ export interface RABDetailItem {
   totalPrice: number;
 }
 
+export interface RABDetailItem {
+  code: string;
+  sectorNumber: number;
+  description: string;
+  volume: number;
+  unit: string;
+  unitPrice: number;
+  totalPrice: number;
+  bobotPercent: number;
+  targetProgress25Percent?: number; // Capaian % pada milestone 25%
+}
+
 export interface RABSector {
   sectorNumber: number;
   name: string;
@@ -54,33 +66,94 @@ export const OFFICIAL_RAB_DOCUMENT: OfficialRABDocument = {
   nib: '9120003482711',
   totalNominal: 14461760981,
   sectors: [
-    { sectorNumber: 1, name: 'Pekerjaan Persiapan', budget: 229621500, percentage: 1.6 },
-    { sectorNumber: 2, name: 'Pekerjaan Pondasi Substruktur', budget: 1300030000, percentage: 9.0 },
-    { sectorNumber: 3, name: 'Pekerjaan Superstruktur', budget: 2499690112, percentage: 17.3 },
-    { sectorNumber: 4, name: 'Pekerjaan Arsitektur', budget: 1721070000, percentage: 11.9 },
-    { sectorNumber: 5, name: 'Pekerjaan Finishing Kamar Mandi', budget: 807714000, percentage: 5.6 },
-    { sectorNumber: 6, name: 'Pekerjaan MEP - Listrik', budget: 1543370100, percentage: 10.7 },
-    { sectorNumber: 7, name: 'Pekerjaan MEP - Plumbing', budget: 1188940000, percentage: 8.2 },
-    { sectorNumber: 8, name: 'Pekerjaan MEP - Fire Fighting', budget: 2294690000, percentage: 15.9 },
-    { sectorNumber: 9, name: 'Pekerjaan MEP - HVAC', budget: 475175784, percentage: 3.3 },
-    { sectorNumber: 10, name: 'Pekerjaan Kolam Renang', budget: 120375000, percentage: 0.8 },
+    { sectorNumber: 1, name: 'Pekerjaan Persiapan', budget: 229621500, percentage: 1.59 },
+    { sectorNumber: 2, name: 'Pekerjaan Pondasi Substruktur', budget: 1300030000, percentage: 8.99 },
+    { sectorNumber: 3, name: 'Pekerjaan Superstruktur', budget: 2499690112, percentage: 17.28 },
+    { sectorNumber: 4, name: 'Pekerjaan Arsitektur', budget: 1721070000, percentage: 11.90 },
+    { sectorNumber: 5, name: 'Pekerjaan Finishing Kamar Mandi', budget: 807714000, percentage: 5.59 },
+    { sectorNumber: 6, name: 'Pekerjaan MEP - Listrik', budget: 1543370100, percentage: 10.67 },
+    { sectorNumber: 7, name: 'Pekerjaan MEP - Plumbing', budget: 1188940000, percentage: 8.22 },
+    { sectorNumber: 8, name: 'Pekerjaan MEP - Fire Fighting', budget: 2294690000, percentage: 15.87 },
+    { sectorNumber: 9, name: 'Pekerjaan MEP - HVAC', budget: 475175784, percentage: 3.29 },
+    { sectorNumber: 10, name: 'Pekerjaan Kolam Renang', budget: 120375000, percentage: 0.83 },
     { sectorNumber: 11, name: 'Pekerjaan Cafe', budget: 5625000, percentage: 0.04 },
-    { sectorNumber: 12, name: 'Pekerjaan Luar', budget: 97312000, percentage: 0.7 },
-    { sectorNumber: 13, name: 'Testing & Commissioning', budget: 10000000, percentage: 0.1 },
-    { sectorNumber: 14, name: 'Sewa Mobil Crane', budget: 735000000, percentage: 5.1 },
+    { sectorNumber: 12, name: 'Pekerjaan Luar', budget: 97312000, percentage: 0.67 },
+    { sectorNumber: 13, name: 'Testing & Commissioning', budget: 10000000, percentage: 0.07 },
+    { sectorNumber: 14, name: 'Sewa Mobil Crane', budget: 735000000, percentage: 5.08 },
   ],
   detailItems: [
-    { code: 'A.1', description: 'Pembersihan lahan (land clearing)', volume: 240, unit: 'm2', unitPrice: 9000, totalPrice: 2160000 },
-    { code: 'A.2', description: 'Pemagaran sementara proyek (Seng 2m Tinggi)', volume: 84, unit: 'm1', unitPrice: 271000, totalPrice: 22764000 },
-    { code: 'A.3', description: 'Direksi keet & Kantor Lapangan (4x 6 m, semi permanen)', volume: 1, unit: 'unit', unitPrice: 33000000, totalPrice: 33000000 },
-    { code: 'A.4', description: 'Gudang material sementara (3x 4 m, semi permanen)', volume: 1, unit: 'unit', unitPrice: 10200000, totalPrice: 10200000 },
-    { code: 'A.5', description: 'Mobilisasi alat berat (excavator, dump truck)', volume: 1, unit: 'ls', unitPrice: 15750000, totalPrice: 15750000 },
-    { code: 'A.6', description: 'Pembuatan jalan kerja sementara (batu belah, 3 x 30 m)', volume: 90, unit: 'm2', unitPrice: 462000, totalPrice: 41580000 },
-    { code: 'A.7', description: 'Pembuangan sampah/limbah lahan ke TPA', volume: 30, unit: 'm3', unitPrice: 175000, totalPrice: 5250000 },
-    { code: 'A.08', description: 'Papan nama proyek (1,5 x 2 m, besi hollow + ACP)', volume: 1, unit: 'unit', unitPrice: 7500000, totalPrice: 7500000 },
-    { code: 'A.9', description: 'Alat pengaman & APD awal (helm, rompi, sepatu, rambu)', volume: 1, unit: 'ls', unitPrice: 10000000, totalPrice: 10000000 },
-    { code: 'A.10', description: 'Instalasi listrik sementara (kWh proyek + Panel + Kabel) Asumsi 160 kVA', volume: 1, unit: 'ls', unitPrice: 65880000, totalPrice: 65880000 },
-    { code: 'A.11', description: 'Instalasi air bersih sementara (toren 1000 L + pipa)', volume: 1, unit: 'ls', unitPrice: 15537500, totalPrice: 15537500 },
+    // Sektor 1: Pekerjaan Persiapan (1.59%)
+    { code: 'A.1', sectorNumber: 1, description: 'Pembersihan lahan & pematangan tanah (land clearing)', volume: 240, unit: 'm2', unitPrice: 9000, totalPrice: 2160000, bobotPercent: 0.015, targetProgress25Percent: 100 },
+    { code: 'A.2', sectorNumber: 1, description: 'Pemagaran sementara proyek (Seng 2m Tinggi)', volume: 84, unit: 'm1', unitPrice: 271000, totalPrice: 22764000, bobotPercent: 0.157, targetProgress25Percent: 100 },
+    { code: 'A.3', sectorNumber: 1, description: 'Direksi keet & Kantor Lapangan (4x 6 m, semi permanen)', volume: 1, unit: 'unit', unitPrice: 33000000, totalPrice: 33000000, bobotPercent: 0.228, targetProgress25Percent: 100 },
+    { code: 'A.4', sectorNumber: 1, description: 'Gudang material sementara (3x 4 m, semi permanen)', volume: 1, unit: 'unit', unitPrice: 10200000, totalPrice: 10200000, bobotPercent: 0.071, targetProgress25Percent: 100 },
+    { code: 'A.5', sectorNumber: 1, description: 'Mobilisasi alat berat (excavator, dump truck)', volume: 1, unit: 'ls', unitPrice: 15750000, totalPrice: 15750000, bobotPercent: 0.109, targetProgress25Percent: 100 },
+    { code: 'A.6', sectorNumber: 1, description: 'Pembuatan jalan kerja sementara (batu belah, 3 x 30 m)', volume: 90, unit: 'm2', unitPrice: 462000, totalPrice: 41580000, bobotPercent: 0.288, targetProgress25Percent: 100 },
+    { code: 'A.7', sectorNumber: 1, description: 'Pembuangan sampah/limbah lahan ke TPA', volume: 30, unit: 'm3', unitPrice: 175000, totalPrice: 5250000, bobotPercent: 0.036, targetProgress25Percent: 100 },
+    { code: 'A.8', sectorNumber: 1, description: 'Papan nama proyek (1,5 x 2 m, besi hollow + ACP)', volume: 1, unit: 'unit', unitPrice: 7500000, totalPrice: 7500000, bobotPercent: 0.052, targetProgress25Percent: 100 },
+    { code: 'A.9', sectorNumber: 1, description: 'Alat pengaman & APD awal (helm, rompi, sepatu, rambu K3)', volume: 1, unit: 'ls', unitPrice: 10000000, totalPrice: 10000000, bobotPercent: 0.069, targetProgress25Percent: 100 },
+    { code: 'A.10', sectorNumber: 1, description: 'Instalasi listrik sementara (kWh proyek + Panel 160 kVA)', volume: 1, unit: 'ls', unitPrice: 65880000, totalPrice: 65880000, bobotPercent: 0.456, targetProgress25Percent: 100 },
+    { code: 'A.11', sectorNumber: 1, description: 'Instalasi air bersih sementara (toren 1000 L + pipa)', volume: 1, unit: 'ls', unitPrice: 15537500, totalPrice: 15537500, bobotPercent: 0.107, targetProgress25Percent: 100 },
+
+    // Sektor 2: Pekerjaan Pondasi Substruktur (8.99%)
+    { code: 'B.1', sectorNumber: 2, description: 'Galian tanah pondasi tiang pancang & pile cap', volume: 1250, unit: 'm3', unitPrice: 125000, totalPrice: 156250000, bobotPercent: 1.080, targetProgress25Percent: 100 },
+    { code: 'B.2', sectorNumber: 2, description: 'Pemancangan tiang spun pile dia 400mm (kedalaman 18m)', volume: 140, unit: 'titik', unitPrice: 4200000, totalPrice: 588000000, bobotPercent: 4.066, targetProgress25Percent: 100 },
+    { code: 'B.3', sectorNumber: 2, description: 'Pembesian pile cap & tie beam (Besi D16/D19)', volume: 22500, unit: 'kg', unitPrice: 16500, totalPrice: 371250000, bobotPercent: 2.567, targetProgress25Percent: 100 },
+    { code: 'B.4', sectorNumber: 2, description: 'Pengecoran beton ready mix K-350 pile cap & tie beam', volume: 120, unit: 'm3', unitPrice: 1537750, totalPrice: 184530000, bobotPercent: 1.276, targetProgress25Percent: 100 },
+
+    // Sektor 3: Pekerjaan Superstruktur (17.28%)
+    { code: 'C.1', sectorNumber: 3, description: 'Pembesian kolom lantai 1-3 (Besi D22/D25 Ulir)', volume: 38000, unit: 'kg', unitPrice: 16800, totalPrice: 638400000, bobotPercent: 4.414, targetProgress25Percent: 100 },
+    { code: 'C.2', sectorNumber: 3, description: 'Pengecoran kolom beton ready mix K-400 lantai 1-3', volume: 220, unit: 'm3', unitPrice: 1650000, totalPrice: 363000000, bobotPercent: 2.510, targetProgress25Percent: 100 },
+    { code: 'C.3', sectorNumber: 3, description: 'Bekisting & pembesian balok & pelat lantai 1-2', volume: 42000, unit: 'kg', unitPrice: 16800, totalPrice: 705600000, bobotPercent: 4.879, targetProgress25Percent: 100 },
+    { code: 'C.4', sectorNumber: 3, description: 'Pengecoran pelat lantai 1 & 2 (Ready mix K-350 + bondek)', volume: 350, unit: 'm3', unitPrice: 1580000, totalPrice: 553000000, bobotPercent: 3.824, targetProgress25Percent: 68.3 },
+    { code: 'C.5', sectorNumber: 3, description: 'Pengecoran core lift & dinding geser shearwall basement-L3', volume: 150, unit: 'm3', unitPrice: 1597934, totalPrice: 239690112, bobotPercent: 1.657, targetProgress25Percent: 0 },
+
+    // Sektor 4: Pekerjaan Arsitektur (11.90%)
+    { code: 'D.1', sectorNumber: 4, description: 'Pemasangan dinding bata ringan hebel t=10cm L1-L4', volume: 3200, unit: 'm2', unitPrice: 185000, totalPrice: 592000000, bobotPercent: 4.094, targetProgress25Percent: 0 },
+    { code: 'D.2', sectorNumber: 4, description: 'Plesteran & acuan semen instan interior L1-L4', volume: 6400, unit: 'm2', unitPrice: 92000, totalPrice: 588800000, bobotPercent: 4.071, targetProgress25Percent: 0 },
+    { code: 'D.3', sectorNumber: 4, description: 'Pemasangan kusen alumunium powder coating 4 inch', volume: 850, unit: 'm1', unitPrice: 280000, totalPrice: 238000000, bobotPercent: 1.646, targetProgress25Percent: 0 },
+    { code: 'D.4', sectorNumber: 4, description: 'Pengecatan interior & eksterior cat weather shield', volume: 4500, unit: 'm2', unitPrice: 67171, totalPrice: 302270000, bobotPercent: 2.090, targetProgress25Percent: 0 },
+
+    // Sektor 5: Pekerjaan Finishing Kamar Mandi (5.59%)
+    { code: 'E.1', sectorNumber: 5, description: 'Waterproofing membrane bakar kamar mandi & atap', volume: 1200, unit: 'm2', unitPrice: 215000, totalPrice: 258000000, bobotPercent: 1.784, targetProgress25Percent: 0 },
+    { code: 'E.2', sectorNumber: 5, description: 'Pemasangan keramik lantai & dinding granitoid 60x60', volume: 1400, unit: 'm2', unitPrice: 285000, totalPrice: 399000000, bobotPercent: 2.759, targetProgress25Percent: 0 },
+    { code: 'E.3', sectorNumber: 5, description: 'Pemasangan sanitary closet duduk Toto & shower set', volume: 42, unit: 'set', unitPrice: 3588428, totalPrice: 150714000, bobotPercent: 1.042, targetProgress25Percent: 0 },
+
+    // Sektor 6: Pekerjaan MEP - Listrik (10.67%)
+    { code: 'F.1', sectorNumber: 6, description: 'Panel Utama LVMDP 800A + komponen Schneider', volume: 1, unit: 'unit', unitPrice: 420000000, totalPrice: 420000000, bobotPercent: 2.904, targetProgress25Percent: 0 },
+    { code: 'F.2', sectorNumber: 6, description: 'Pengkabelan feader NYY 4x120mm2 trafo ke LVMDP', volume: 380, unit: 'm1', unitPrice: 850000, totalPrice: 323000000, bobotPercent: 2.233, targetProgress25Percent: 0 },
+    { code: 'F.3', sectorNumber: 6, description: 'Instalasi titik lampu & stopkontak Supreme 3x2.5mm', volume: 1250, unit: 'titik', unitPrice: 380000, totalPrice: 475000000, bobotPercent: 3.285, targetProgress25Percent: 0 },
+    { code: 'F.4', sectorNumber: 6, description: 'Lampu LED Downlight 12W Phillips & Armatur', volume: 1100, unit: 'unit', unitPrice: 295791, totalPrice: 325370100, bobotPercent: 2.250, targetProgress25Percent: 0 },
+
+    // Sektor 7: Pekerjaan MEP - Plumbing (8.22%)
+    { code: 'G.1', sectorNumber: 7, description: 'Pompa Transfer Air Bersih Grundfos + Panel Otomatis', volume: 2, unit: 'unit', unitPrice: 185000000, totalPrice: 370000000, bobotPercent: 2.558, targetProgress25Percent: 0 },
+    { code: 'G.2', sectorNumber: 7, description: 'Pipa PPR PN-16 air bersih dia 2 inch - 4 inch', volume: 850, unit: 'm1', unitPrice: 480000, totalPrice: 408000000, bobotPercent: 2.821, targetProgress25Percent: 0 },
+    { code: 'G.3', sectorNumber: 7, description: 'Pipa PVC AW air kotor & bekas dia 3 - 6 inch Wavin', volume: 1100, unit: 'm1', unitPrice: 373581, totalPrice: 410940000, bobotPercent: 2.842, targetProgress25Percent: 0 },
+
+    // Sektor 8: Pekerjaan MEP - Fire Fighting (15.87%)
+    { code: 'H.1', sectorNumber: 8, description: 'Pompa Fire Hydrant Main Electric Pump Torishima', volume: 1, unit: 'unit', unitPrice: 680000000, totalPrice: 680000000, bobotPercent: 4.702, targetProgress25Percent: 0 },
+    { code: 'H.2', sectorNumber: 8, description: 'Pipa Pipa Black Steel Sch 40 dia 4 inch - 6 inch', volume: 1400, unit: 'm1', unitPrice: 820000, totalPrice: 1148000000, bobotPercent: 7.938, targetProgress25Percent: 0 },
+    { code: 'H.3', sectorNumber: 8, description: 'Head Sprinkler Pendet Type & Box Hydrant Indoor', volume: 480, unit: 'unit', unitPrice: 972270, totalPrice: 466690000, bobotPercent: 3.227, targetProgress25Percent: 0 },
+
+    // Sektor 9: Pekerjaan MEP - HVAC (3.29%)
+    { code: 'I.1', sectorNumber: 9, description: 'Pengadaan AC VRV / VRF Outdoor Unit Daikin 32 PK', volume: 2, unit: 'unit', unitPrice: 185000000, totalPrice: 370000000, bobotPercent: 2.558, targetProgress25Percent: 0 },
+    { code: 'I.2', sectorNumber: 9, description: 'Instalasi pipa tembaga & ducting exhaust fan', volume: 350, unit: 'm1', unitPrice: 300502, totalPrice: 105175784, bobotPercent: 0.727, targetProgress25Percent: 0 },
+
+    // Sektor 10: Pekerjaan Kolam Renang (0.83%)
+    { code: 'J.1', sectorNumber: 10, description: 'Pompa sirkulasi kolam renang Hayward & filter pasir', volume: 1, unit: 'set', unitPrice: 75000000, totalPrice: 75000000, bobotPercent: 0.519, targetProgress25Percent: 0 },
+    { code: 'J.2', sectorNumber: 10, description: 'Finishing mosaik kolam renang & piting подвод lighting', volume: 120, unit: 'm2', unitPrice: 378125, totalPrice: 45375000, bobotPercent: 0.314, targetProgress25Percent: 0 },
+
+    // Sektor 11: Pekerjaan Cafe (0.04%)
+    { code: 'K.1', sectorNumber: 11, description: 'Pemasangan meja bar cafe & exhaust hood stainless', volume: 1, unit: 'ls', unitPrice: 5625000, totalPrice: 5625000, bobotPercent: 0.039, targetProgress25Percent: 0 },
+
+    // Sektor 12: Pekerjaan Luar (0.67%)
+    { code: 'L.1', sectorNumber: 12, description: 'Paving block K-300 area parkir & saluran drainase u-ditch', volume: 380, unit: 'm2', unitPrice: 256084, totalPrice: 97312000, bobotPercent: 0.673, targetProgress25Percent: 0 },
+
+    // Sektor 13: Testing & Commissioning (0.07%)
+    { code: 'M.1', sectorNumber: 13, description: 'Testing & Commissioning kelistrikan, pompa & K3', volume: 1, unit: 'ls', unitPrice: 10000000, totalPrice: 10000000, bobotPercent: 0.069, targetProgress25Percent: 0 },
+
+    // Sektor 14: Sewa Mobil Crane (5.08%)
+    { code: 'N.1', sectorNumber: 14, description: 'Sewa & operasional mobil crane 50 ton (3 Bulan)', volume: 3, unit: 'bulan', unitPrice: 245000000, totalPrice: 735000000, bobotPercent: 5.082, targetProgress25Percent: 100 },
   ],
   estimatorSignatureId: 'EST-RABID-WZWY2',
   pmSignatureId: 'PM-RABID-PN1CU',

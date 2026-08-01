@@ -28,6 +28,7 @@ interface TerminPaymentsProps {
     proofUrl?: string,
     approvedBy?: string
   ) => void;
+  onApplyProgress25?: () => void;
 }
 
 export const TerminPayments: React.FC<TerminPaymentsProps> = ({
@@ -36,6 +37,7 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
   workItems,
   userRole,
   onUpdateTermStatus,
+  onApplyProgress25,
 }) => {
   const [selectedVoucherTerm, setSelectedVoucherTerm] = useState<PaymentTerm | null>(null);
   const [uploadProofModalTerm, setUploadProofModalTerm] = useState<PaymentTerm | null>(null);
@@ -387,8 +389,16 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
       {/* Official RAB Document Modal */}
       {showRABModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-4 overflow-y-auto flex items-center justify-center">
-          <div className="w-full max-w-5xl my-8">
-            <OfficialRABViewer onClose={() => setShowRABModal(false)} />
+          <div className="w-full max-w-6xl my-8">
+            <OfficialRABViewer
+              onClose={() => setShowRABModal(false)}
+              onApplyProgress25={() => {
+                if (onApplyProgress25) {
+                  onApplyProgress25();
+                  setShowRABModal(false);
+                }
+              }}
+            />
           </div>
         </div>
       )}
