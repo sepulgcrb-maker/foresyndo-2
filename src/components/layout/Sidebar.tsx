@@ -99,19 +99,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => onSelectTab(item.id as ActiveTab)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                   isActive
-                    ? 'bg-orange-500/10 border-l-4 border-orange-500 text-orange-500 font-bold'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                    ? 'bg-orange-500 text-white font-bold shadow-md shadow-orange-500/20'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-orange-500' : 'text-slate-400'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                 <span>{item.label}</span>
                 {item.hasAlert && !isActive && (
                   <span className="ml-auto w-2 h-2 rounded-full bg-red-500 animate-ping" />
                 )}
                 {item.hasAlert && isActive && (
-                  <AlertTriangle className="ml-auto w-3.5 h-3.5 text-yellow-500" />
+                  <AlertTriangle className="ml-auto w-3.5 h-3.5 text-amber-200" />
                 )}
               </button>
             );
