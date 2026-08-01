@@ -112,6 +112,23 @@ export interface MaterialItem {
   minAlertStock: number;
 }
 
+export interface WorkerAllocation {
+  id: string;
+  workerId: string;
+  workerName: string;
+  workerRole: string;
+  workItemId: string;
+  workItemName: string;
+  workItemCategory?: string;
+  allocatedHours: number;
+  assignedDate: string;
+  targetOutput: number;
+  actualOutput: number;
+  unit: string;
+  status: 'Dalam Pengerjaan' | 'Selesai' | 'Di Bawah Target' | 'Tertunda';
+  notes?: string;
+}
+
 export interface WorkerItem {
   id: string;
   name: string;
@@ -166,4 +183,26 @@ export interface SCurveDataPoint {
   targetCumulativePercent: number;
   realizedCumulativePercent: number;
   deviationPercent: number;
+}
+
+export type CalendarEventType =
+  | 'milestone'
+  | 'payment'
+  | 'inspection'
+  | 'material'
+  | 'meeting';
+
+export type CalendarEventStatus = 'Kritis' | 'Mendatang' | 'Selesai' | 'Perlu Perhatian';
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  endDate?: string;
+  type: CalendarEventType;
+  status: CalendarEventStatus;
+  description?: string;
+  location?: string;
+  assignedRole?: string;
+  isCustom?: boolean;
 }

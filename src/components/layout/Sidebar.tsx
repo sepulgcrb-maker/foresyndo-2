@@ -14,11 +14,13 @@ import {
   AlertTriangle,
   ShieldCheck,
   Settings,
+  Calendar,
 } from 'lucide-react';
 
 export type ActiveTab =
   | 'dashboard'
   | 'schedule'
+  | 'calendar'
   | 'scurve'
   | 'gantt'
   | 'daily'
@@ -57,6 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard Utama', icon: LayoutDashboard },
     { id: 'schedule', label: 'Time Schedule', icon: CalendarDays },
+    { id: 'calendar', label: 'Kalender Proyek', icon: Calendar },
     { id: 'scurve', label: 'Grafik Progress (Kurva S)', icon: LineChart, hasAlert: hasDeviasiWarning },
     { id: 'gantt', label: 'Gantt Chart', icon: BarChart3 },
     { id: 'daily', label: 'Monitoring Harian', icon: ClipboardList },

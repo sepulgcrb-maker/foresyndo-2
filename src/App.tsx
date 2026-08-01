@@ -12,10 +12,12 @@ import {
   PhotoItem,
   MaterialItem,
   WorkerItem,
+  WorkerAllocation,
   EquipmentItem,
   AuditLog,
   NotificationItem,
   UserRole,
+  CalendarEvent,
 } from './types';
 import {
   INITIAL_PROJECT_INFO,
@@ -25,14 +27,17 @@ import {
   INITIAL_DAILY_LOGS,
   INITIAL_MATERIALS,
   INITIAL_WORKERS,
+  INITIAL_WORKER_ALLOCATIONS,
   INITIAL_EQUIPMENT,
   INITIAL_AUDIT_LOGS,
   INITIAL_NOTIFICATIONS,
+  INITIAL_CALENDAR_EVENTS,
 } from './data/initialData';
 import { Header } from './components/layout/Header';
 import { Sidebar, ActiveTab } from './components/layout/Sidebar';
 import { ExecutiveDashboard } from './components/dashboard/ExecutiveDashboard';
 import { TimeScheduleTable } from './components/schedule/TimeScheduleTable';
+import { ProjectCalendar } from './components/calendar/ProjectCalendar';
 import { SCurveChart } from './components/schedule/SCurveChart';
 import { GanttChart } from './components/schedule/GanttChart';
 import { DailyMonitoring } from './components/monitoring/DailyMonitoring';
@@ -108,6 +113,11 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_WORKERS;
   });
 
+  const [allocations, setAllocations] = useState<WorkerAllocation[]>(() => {
+    const saved = localStorage.getItem('FORESYNDO_V3_ALLOCATIONS');
+    return saved ? JSON.parse(saved) : INITIAL_WORKER_ALLOCATIONS;
+  });
+
   const [equipments, setEquipments] = useState<EquipmentItem[]>(() => {
     const saved = localStorage.getItem('FORESYNDO_V3_EQUIPMENT');
     return saved ? JSON.parse(saved) : INITIAL_EQUIPMENT;
@@ -121,6 +131,11 @@ export default function App() {
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
     const saved = localStorage.getItem('FORESYNDO_V3_NOTIFICATIONS');
     return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
+  });
+
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(() => {
+    const saved = localStorage.getItem('FORESYNDO_V3_CALENDAR_EVENTS');
+    return saved ? JSON.parse(saved) : INITIAL_CALENDAR_EVENTS;
   });
 
   // Persist State Updates to LocalStorage
@@ -153,6 +168,10 @@ export default function App() {
   }, [workers]);
 
   useEffect(() => {
+    localStorage.setItem('FORESYNDO_V3_ALLOCATIONS', JSON.stringify(allocations));
+  }, [allocations]);
+
+  useEffect(() => {
     localStorage.setItem('FORESYNDO_V3_EQUIPMENT', JSON.stringify(equipments));
   }, [equipments]);
 
@@ -163,6 +182,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('FORESYNDO_V3_NOTIFICATIONS', JSON.stringify(notifications));
   }, [notifications]);
+
+  useEffect(() => {
+    localStorage.setItem('FORESYNDO_V3_CALENDAR_EVENTS', JSON.stringify(calendarEvents));
+  }, [calendarEvents]);
 
   useEffect(() => {
     localStorage.setItem('FORESYNDO_V3_USER_NAMES', JSON.stringify(userNameMap));
@@ -339,7 +362,7 @@ export default function App() {
     addAuditLog('Tambah Stok Material', `Menambahkan material baru: ${matData.name} dari ${matData.supplier}`);
   };
 
-  // Worker Handler
+  // Worker & Allocation Handler
   const handleAddWorker = (workerData: Omit<WorkerItem, 'id'>) => {
     const newWrk: WorkerItem = {
       ...workerData,
@@ -347,6 +370,28 @@ export default function App() {
     };
     setWorkers((prev) => [...prev, newWrk]);
     addAuditLog('Tambah Tenaga Kerja', `Menambahkan pekerja baru: ${workerData.name} (${workerData.role})`);
+  };
+
+  const handleAddAllocation = (allocData: Omit<WorkerAllocation, 'id'>) => {
+    const newAlloc: WorkerAllocation = {
+      ...allocData,
+      id: `ALLOC-${Date.now()}`,
+    };
+    setAllocations((prev) => [newAlloc, ...prev]);
+    addAuditLog('Alokasi Pekerja Baru', `Mengalokasikan ${allocData.workerName} ke ${allocData.workItemName}`);
+  };
+
+  const handleUpdateAllocation = (updated: WorkerAllocation) => {
+    setAllocations((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+    addAuditLog('Update Alokasi Pekerja', `Memperbarui output/status alokasi ${updated.workerName}`);
+  };
+
+  const handleDeleteAllocation = (id: string) => {
+    const target = allocations.find((a) => a.id === id);
+    setAllocations((prev) => prev.filter((a) => a.id !== id));
+    if (target) {
+      addAuditLog('Hapus Alokasi Pekerja', `Menghapus alokasi ${target.workerName} dari ${target.workItemName}`);
+    }
   };
 
   // Equipment Handler
@@ -357,6 +402,30 @@ export default function App() {
     };
     setEquipments((prev) => [...prev, newEq]);
     addAuditLog('Tambah Unit Alat', `Menambahkan alat berat baru: ${eqData.name}`);
+  };
+
+  // Calendar Event Handlers
+  const handleAddCalendarEvent = (eData: Omit<CalendarEvent, 'id'>) => {
+    const newEvt: CalendarEvent = {
+      ...eData,
+      id: `CAL-${Date.now()}`,
+      isCustom: true,
+    };
+    setCalendarEvents((prev) => [newEvt, ...prev]);
+    addAuditLog('Tambah Event Kalender', `Menambahkan event baru: ${eData.title} (${eData.date})`);
+  };
+
+  const handleDeleteCalendarEvent = (id: string) => {
+    const target = calendarEvents.find((e) => e.id === id);
+    setCalendarEvents((prev) => prev.filter((e) => e.id !== id));
+    if (target) {
+      addAuditLog('Hapus Event Kalender', `Menghapus event: ${target.title}`);
+    }
+  };
+
+  const handleUpdateCalendarEvent = (updated: CalendarEvent) => {
+    setCalendarEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    addAuditLog('Update Event Kalender', `Memperbarui event: ${updated.title}`);
   };
 
   const handleMarkAllNotificationsRead = () => {
@@ -372,9 +441,11 @@ export default function App() {
       setPhotos(INITIAL_PHOTOS);
       setMaterials(INITIAL_MATERIALS);
       setWorkers(INITIAL_WORKERS);
+      setAllocations(INITIAL_WORKER_ALLOCATIONS);
       setEquipments(INITIAL_EQUIPMENT);
       setAuditLogs(INITIAL_AUDIT_LOGS);
       setNotifications(INITIAL_NOTIFICATIONS);
+      setCalendarEvents(INITIAL_CALENDAR_EVENTS);
       localStorage.clear();
     }
   };
@@ -437,6 +508,20 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'calendar' && (
+            <ProjectCalendar
+              project={project}
+              workItems={workItems}
+              paymentTerms={paymentTerms}
+              materials={materials}
+              calendarEvents={calendarEvents}
+              userRole={currentRole}
+              onAddCalendarEvent={handleAddCalendarEvent}
+              onDeleteCalendarEvent={handleDeleteCalendarEvent}
+              onUpdateCalendarEvent={handleUpdateCalendarEvent}
+            />
+          )}
+
           {activeTab === 'scurve' && <SCurveChart workItems={workItems} />}
 
           {activeTab === 'gantt' && (
@@ -476,7 +561,16 @@ export default function App() {
           )}
 
           {activeTab === 'workforce' && (
-            <WorkforceMonitoring workers={workers} userRole={currentRole} onAddWorker={handleAddWorker} />
+            <WorkforceMonitoring
+              workers={workers}
+              workItems={workItems}
+              allocations={allocations}
+              userRole={currentRole}
+              onAddWorker={handleAddWorker}
+              onAddAllocation={handleAddAllocation}
+              onUpdateAllocation={handleUpdateAllocation}
+              onDeleteAllocation={handleDeleteAllocation}
+            />
           )}
 
           {activeTab === 'equipment' && (
