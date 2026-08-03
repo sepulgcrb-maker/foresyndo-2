@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Building2,
   MapPin,
@@ -12,10 +12,26 @@ import {
   Users,
   ShieldCheck,
   CheckCircle2,
+  Sparkles,
+  BarChart3,
+  LineChart as LineChartIcon,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Area,
+  Line,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from 'recharts';
 import { ProjectInfo, WorkItem, PaymentTerm, AuditLog, NotificationItem } from '../../types';
 import { CircularProgress } from './CircularProgress';
 import { MLForecastingModule } from './MLForecastingModule';
+import { WeatherWidget } from './WeatherWidget';
 import { DeviasiBadge } from '../common/DeviasiBadge';
 import {
   formatIDR,
@@ -24,6 +40,7 @@ import {
   calculateDeviation,
   calculateProjectDuration,
   calculateFinancialSummary,
+  generateSCurveData,
 } from '../../utils/calculations';
 import { ActiveTab } from '../layout/Sidebar';
 
@@ -44,6 +61,8 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   notifications,
   onNavigateTab,
 }) => {
+  const [chartMode, setChartMode] = useState<'cumulative' | 'weekly'>('cumulative');
+
   const physicalProgress = calculatePhysicalProgress(workItems);
   const targetProgress = calculateTargetProgress(workItems);
   const deviation = calculateDeviation(physicalProgress, targetProgress);
@@ -51,6 +70,31 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   const finance = calculateFinancialSummary(project.contractValue, paymentTerms);
 
   const isSevereDeviation = deviation < -5;
+
+  // Generate Recharts data points for weekly vs target comparison
+  const rawSCurve = useMemo(() => generateSCurveData(workItems), [workItems]);
+
+  const chartData = useMemo(() => {
+    return rawSCurve.map((pt, idx, arr) => {
+      const prevTarget = idx > 0 ? arr[idx - 1].targetCumulativePercent : 0;
+      const prevRealized =
+        idx > 0 && arr[idx - 1].realizedCumulativePercent !== undefined
+          ? arr[idx - 1].realizedCumulativePercent
+          : 0;
+
+      const targetWeeklyRate = Number((pt.targetCumulativePercent - prevTarget).toFixed(2));
+      const realizedWeeklyRate =
+        pt.realizedCumulativePercent !== undefined
+          ? Number((pt.realizedCumulativePercent - (prevRealized || 0)).toFixed(2))
+          : undefined;
+
+      return {
+        ...pt,
+        targetWeeklyRate: Math.max(0, targetWeeklyRate),
+        realizedWeeklyRate: realizedWeeklyRate !== undefined ? Math.max(0, realizedWeeklyRate) : undefined,
+      };
+    });
+  }, [rawSCurve]);
 
   return (
     <div className="space-y-6">
@@ -131,6 +175,150 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
       </div>
 
+      {/* Executive High-Level KPI Summary Card */}
+      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-orange-500/10 text-orange-500 border border-orange-500/20">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                Ringkasan Eksekutif KPI Proyek
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-extrabold text-[10px] border border-emerald-500/20">
+                  LIVE SUMMARY
+                </span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Ikhtisar anggaran vs realisasi pengeluaran dan sisa durasi masa pelaksanaan proyek
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400">
+            <Calendar className="w-4 h-4 text-orange-500" />
+            Target Selesai: <span className="text-slate-900 dark:text-white font-black">{project.targetEndDate}</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* KPI Item 1: Total Budget vs Actual Spend */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Total Anggaran vs Realisasi
+              </span>
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+                <DollarSign className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xl font-black text-slate-900 dark:text-white">
+                {formatIDR(project.contractValue)}
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center justify-between">
+                <span>Realisasi Pencairan:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                  {formatIDR(finance.totalPaidGross)}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-1">
+              <div className="flex justify-between text-[11px] font-bold">
+                <span className="text-slate-500 dark:text-slate-400">Terpakai ({finance.financialProgressPercent}%)</span>
+                <span className="text-slate-700 dark:text-slate-300">
+                  Sisa: {formatIDR(finance.remainingContractValue)}
+                </span>
+              </div>
+              <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-amber-500 to-emerald-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, finance.financialProgressPercent)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* KPI Item 2: Remaining Work Days */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Sisa Hari Kerja Pelaksanaan
+              </span>
+              <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500">
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xl font-black text-orange-500">
+                {duration.remainingDays} Hari Lagi
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center justify-between">
+                <span>Total Durasi Kontrak:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{duration.totalDays} Hari</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-1">
+              <div className="flex justify-between text-[11px] font-bold">
+                <span className="text-slate-500 dark:text-slate-400">Waktu Berjalan ({duration.timePercentage}%)</span>
+                <span className="text-slate-700 dark:text-slate-300">{duration.elapsedDays} Hari Terlewati</span>
+              </div>
+              <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-orange-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, duration.timePercentage)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* KPI Item 3: Physical Performance vs Schedule */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3 md:col-span-2 lg:col-span-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Performa Fisik vs Plan
+              </span>
+              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                {physicalProgress}%
+                <span className="text-xs text-slate-400 font-normal">vs Target {targetProgress}%</span>
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center justify-between">
+                <span>Deviasi Jadwal:</span>
+                <span className={`font-black ${deviation >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                  {deviation >= 0 ? `+${deviation}% (Surplus)` : `${deviation}% (Terlambat)`}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-1">
+              <div className="flex justify-between text-[11px] font-bold">
+                <span className="text-slate-500 dark:text-slate-400">Status Capaian</span>
+                <span className="text-slate-700 dark:text-slate-300">
+                  {workItems.length} Sektor Pekerjaan
+                </span>
+              </div>
+              <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    deviation >= 0 ? 'bg-emerald-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${Math.min(100, physicalProgress)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 3 Large Circular Progress Indicators */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <CircularProgress
@@ -152,6 +340,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           color="orange"
         />
       </div>
+
+      {/* Weather Widget Component (Search Grounded Weather for Majalengka / Jatitujuh) */}
+      <WeatherWidget />
 
       {/* Quick Metric KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -221,6 +412,213 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               ? 'Syarat Termin 1: Progress 25%'
               : 'Termin Selanjutnya Siap Diproses'}
           </span>
+        </div>
+      </div>
+
+      {/* Visualisasi Data Recharts: Progress Mingguan vs Target */}
+      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-orange-500/10 text-orange-500 border border-orange-500/20">
+              <BarChart3 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                Visualisasi Performa Progress Mingguan vs Target
+                <span className="px-2.5 py-0.5 rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400 font-extrabold text-[10px] border border-orange-500/20">
+                  RECHARTS GRAPH
+                </span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Grafik perbandingan capaian progress riil versus target kurva S kumulatif dan kecepatan mingguan
+              </p>
+            </div>
+          </div>
+
+          {/* Metric Switcher Toggle Buttons */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
+            <button
+              onClick={() => setChartMode('cumulative')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                chartMode === 'cumulative'
+                  ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <LineChartIcon className="w-3.5 h-3.5" /> Progress Kumulatif (%)
+            </button>
+            <button
+              onClick={() => setChartMode('weekly')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                chartMode === 'weekly'
+                  ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" /> Laju Mingguan (%/Wk)
+            </button>
+          </div>
+        </div>
+
+        {/* Recharts Render Container */}
+        <div className="h-72 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="targetGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#f97316" stopOpacity={0.0} />
+                </linearGradient>
+                <linearGradient id="realizedGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
+
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.25} vertical={false} />
+              <XAxis dataKey="weekLabel" stroke="#94a3b8" fontSize={10} tickLine={false} />
+              <YAxis
+                stroke="#94a3b8"
+                fontSize={10}
+                tickLine={false}
+                unit="%"
+                domain={chartMode === 'cumulative' ? [0, 100] : [0, 'auto']}
+              />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    const dataPoint = payload[0].payload;
+                    return (
+                      <div className="bg-slate-900 border border-slate-700 text-white p-3 rounded-xl shadow-2xl text-xs space-y-1.5">
+                        <div className="font-extrabold text-orange-400 border-b border-slate-800 pb-1 flex justify-between gap-4">
+                          <span>Minggu Ke-{label} ({dataPoint.date})</span>
+                          <span className="text-[10px] text-slate-400 font-normal">S-Curve Analysis</span>
+                        </div>
+                        {chartMode === 'cumulative' ? (
+                          <>
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-slate-300 flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-orange-500" /> Target Kumulatif:
+                              </span>
+                              <span className="font-bold text-orange-400">{dataPoint.targetCumulativePercent}%</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-slate-300 flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500" /> Realisasi Kumulatif:
+                              </span>
+                              <span className="font-bold text-emerald-400">
+                                {dataPoint.realizedCumulativePercent !== undefined
+                                  ? `${dataPoint.realizedCumulativePercent}%`
+                                  : 'Belum Terjadi'}
+                              </span>
+                            </div>
+                            {dataPoint.realizedCumulativePercent !== undefined && (
+                              <div className="flex items-center justify-between gap-4 border-t border-slate-800 pt-1 font-semibold">
+                                <span className="text-slate-400">Deviasi Lapangan:</span>
+                                <span
+                                  className={`font-black ${
+                                    dataPoint.deviationPercent >= 0 ? 'text-emerald-400' : 'text-red-400'
+                                  }`}
+                                >
+                                  {dataPoint.deviationPercent >= 0
+                                    ? `+${dataPoint.deviationPercent}%`
+                                    : `${dataPoint.deviationPercent}%`}
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-slate-300 flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-orange-500" /> Target Laju Minggu Ini:
+                              </span>
+                              <span className="font-bold text-orange-400">+{dataPoint.targetWeeklyRate}% / minggu</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="text-slate-300 flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500" /> Realisasi Laju Minggu Ini:
+                              </span>
+                              <span className="font-bold text-emerald-400">
+                                {dataPoint.realizedWeeklyRate !== undefined
+                                  ? `+${dataPoint.realizedWeeklyRate}% / minggu`
+                                  : 'Belum Ada Data'}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Legend
+                wrapperStyle={{ paddingTop: '10px', fontSize: '11px', fontWeight: 'bold' }}
+                formatter={(value) => <span className="text-slate-700 dark:text-slate-300">{value}</span>}
+              />
+
+              {chartMode === 'cumulative' ? (
+                <>
+                  <Area
+                    type="monotone"
+                    dataKey="targetCumulativePercent"
+                    name="Target Kumulatif Rencana (%)"
+                    stroke="#f97316"
+                    strokeWidth={2}
+                    fill="url(#targetGrad)"
+                    strokeDasharray="4 4"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="realizedCumulativePercent"
+                    name="Realisasi Kumulatif Lapangan (%)"
+                    stroke="#10b981"
+                    strokeWidth={3}
+                    fill="url(#realizedGrad)"
+                    connectNulls
+                  />
+                </>
+              ) : (
+                <>
+                  <Bar
+                    dataKey="targetWeeklyRate"
+                    name="Target Laju per Minggu (%)"
+                    fill="#f97316"
+                    opacity={0.6}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="realizedWeeklyRate"
+                    name="Realisasi Laju per Minggu (%)"
+                    stroke="#10b981"
+                    strokeWidth={3}
+                    dot={{ r: 3, fill: '#10b981' }}
+                    connectNulls
+                  />
+                </>
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Chart Summary Indicators Footnote */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200 dark:border-slate-800 text-xs">
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Target Progress Rencana:</span>
+            <span className="font-black text-orange-500">{targetProgress}%</span>
+          </div>
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Capaian Progress Lapangan:</span>
+            <span className="font-black text-emerald-500">{physicalProgress}%</span>
+          </div>
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Schedule Performance Index (SPI):</span>
+            <span className={`font-black ${deviation >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+              {(physicalProgress / (targetProgress || 1)).toFixed(2)} ({deviation >= 0 ? 'On Track' : 'Terlambat'})
+            </span>
+          </div>
         </div>
       </div>
 

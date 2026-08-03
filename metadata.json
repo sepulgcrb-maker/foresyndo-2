@@ -1,5 +1,5 @@
 {
-  "name": "FORESYNDO 2 - Monitoring Proyek",
+  "name": "Foresyndo 2",
   "description": "Aplikasi Sistem Monitoring Pembangunan Proyek Gedung PT. FORESYNDO GLOBAL INDONESIA - Jatitujuh, Majalengka",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
