@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { OFFICIAL_RAB_DOCUMENT, RABDetailItem } from '../../data/initialData';
 import { formatIDR } from '../../utils/calculations';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   FileText,
   ShieldCheck,
@@ -459,8 +460,8 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
             <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col items-center text-center space-y-2">
               <span className="text-[10px] font-bold text-slate-500 uppercase">DIRESTRUKTURISASI &amp; DISIAPKAN OLEH</span>
               <span className="font-black text-slate-900">Tim Estimator Proyek PT FGI</span>
-              <div className="p-2 bg-white rounded-lg border border-slate-300 shadow-sm flex items-center justify-center my-1">
-                <QrCode className="w-16 h-16 text-slate-800" />
+              <div className="p-2.5 bg-white rounded-xl border border-slate-300 shadow-sm flex items-center justify-center my-1">
+                <QRCodeSVG value={`FORESYNDO-RAB-SIGN:${rab.contractNumber}:${rab.estimatorSignatureId}`} size={64} level="M" />
               </div>
               <span className="font-mono text-[10px] text-slate-500">ID: {rab.estimatorSignatureId}</span>
               <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
@@ -471,8 +472,8 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
             <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col items-center text-center space-y-2">
               <span className="text-[10px] font-bold text-slate-500 uppercase">DITINJAU &amp; DISETUJUI OLEH</span>
               <span className="font-black text-slate-900">Project Manager / Direktur</span>
-              <div className="p-2 bg-white rounded-lg border border-slate-300 shadow-sm flex items-center justify-center my-1">
-                <QrCode className="w-16 h-16 text-slate-800" />
+              <div className="p-2.5 bg-white rounded-xl border border-slate-300 shadow-sm flex items-center justify-center my-1">
+                <QRCodeSVG value={`FORESYNDO-RAB-SIGN:${rab.contractNumber}:${rab.pmSignatureId}`} size={64} level="M" />
               </div>
               <span className="font-mono text-[10px] text-slate-500">ID: {rab.pmSignatureId}</span>
               <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">

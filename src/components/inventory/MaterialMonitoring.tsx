@@ -19,8 +19,13 @@ import {
   Check,
   PackageCheck,
   Tag,
+  Download,
+  Barcode as BarcodeIcon,
+  Upload,
+  Sparkles,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { BarcodeSVG } from '../common/BarcodeSVG';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { formatIDR } from '../../utils/calculations';
 
@@ -42,9 +47,11 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
   
   // QR Code Modals & State
   const [selectedQrMaterial, setSelectedQrMaterial] = useState<MaterialItem | null>(null);
+  const [activeCodeTab, setActiveCodeTab] = useState<'qr' | 'barcode' | 'both'>('both');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannedInput, setScannedInput] = useState('');
   const [isScanning, setIsScanning] = useState(false);
+  const [simulatedCameraFacing, setSimulatedCameraFacing] = useState<'environment' | 'user'>('environment');
 
   // Stock Adjustment State inside QR Modal
   const [adjustType, setAdjustType] = useState<'use' | 'add' | 'set'>('use');
@@ -360,20 +367,25 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
         </div>
       </div>
 
-      {/* QR CODE BADGE & STOCK UPDATE MODAL */}
+      {/* QR CODE & BARCODE BADGE & STOCK UPDATE MODAL */}
       {selectedQrMaterial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl p-6 shadow-2xl relative space-y-6 my-8 print:p-0 print:border-none print:shadow-none">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-3xl p-6 shadow-2xl relative space-y-6 my-8 print:p-0 print:border-none print:shadow-none">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 print:hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 print:hidden">
               <div className="flex items-center gap-2.5">
                 <div className="p-2.5 rounded-2xl bg-orange-500/10 text-orange-500">
                   <QrCode className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white">Label QR Material &amp; Kelola Stok</h3>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    Label QR &amp; Barcode Material (Dual Tagged)
+                    <span className="px-2 py-0.5 rounded-md bg-orange-500/20 text-orange-600 dark:text-orange-400 text-[10px] font-black">
+                      CODE128 + QR 2D
+                    </span>
+                  </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Gunakan kode QR ini untuk identifikasi fisik gudang &amp; pembaruan stok cepat
+                    Sistem identifikasi fisik standar pergudangan &amp; pemindaian logistik lapangan
                   </p>
                 </div>
               </div>
@@ -381,46 +393,99 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={handlePrintQRBadge}
-                  className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-300 dark:border-slate-700 transition-all"
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-300 dark:border-slate-700 transition-all"
                 >
-                  <Printer className="w-4 h-4 text-orange-500" /> Cetak Label
+                  <Printer className="w-4 h-4 text-orange-500" /> Cetak Label Badge
                 </button>
                 <button
                   onClick={() => setSelectedQrMaterial(null)}
-                  className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                  className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-white transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
+            {/* Code Selector Tabs */}
+            <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl print:hidden">
+              <button
+                onClick={() => setActiveCodeTab('both')}
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  activeCodeTab === 'both'
+                    ? 'bg-orange-500 text-white shadow-md'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" /> Kombinasi (QR + Barcode)
+              </button>
+              <button
+                onClick={() => setActiveCodeTab('qr')}
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  activeCodeTab === 'qr'
+                    ? 'bg-orange-500 text-white shadow-md'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <QrCode className="w-3.5 h-3.5" /> QR Code 2D
+              </button>
+              <button
+                onClick={() => setActiveCodeTab('barcode')}
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  activeCodeTab === 'barcode'
+                    ? 'bg-orange-500 text-white shadow-md'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <BarcodeIcon className="w-3.5 h-3.5" /> Barcode 1D (CODE128)
+              </button>
+            </div>
+
             {/* Printable Badge Asset Tag Layout */}
             <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white border border-slate-800 shadow-xl grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-              {/* QR Render Column */}
-              <div className="md:col-span-5 flex flex-col items-center justify-center p-4 bg-white text-slate-900 rounded-2xl shadow-md border-4 border-orange-500">
-                <span className="text-[9px] font-black tracking-widest text-orange-600 uppercase mb-2">
+              {/* QR / Barcode Render Column */}
+              <div className="md:col-span-6 flex flex-col items-center justify-center p-4 bg-white text-slate-900 rounded-2xl shadow-md border-4 border-orange-500 space-y-3">
+                <span className="text-[9px] font-black tracking-widest text-orange-600 uppercase text-center block">
                   PT FORESYNDO GLOBAL INDONESIA
                 </span>
-                <QRCodeSVG
-                  value={`FORESYNDO-MAT:${selectedQrMaterial.id}`}
-                  size={160}
-                  level="H"
-                  includeMargin={true}
-                />
-                <span className="font-mono text-xs font-bold text-slate-900 mt-2">
-                  ID: {selectedQrMaterial.id}
-                </span>
-                <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">
-                  OFFICIAL MATERIAL ASSET TAG
-                </span>
+
+                {(activeCodeTab === 'both' || activeCodeTab === 'qr') && (
+                  <div id={`qr-code-svg-${selectedQrMaterial.id}`} className="p-2 bg-white rounded-xl border border-slate-200">
+                    <QRCodeSVG
+                      value={`FORESYNDO-MAT:${selectedQrMaterial.id}`}
+                      size={150}
+                      level="H"
+                      includeMargin={true}
+                    />
+                  </div>
+                )}
+
+                {(activeCodeTab === 'both' || activeCodeTab === 'barcode') && (
+                  <div id={`barcode-svg-${selectedQrMaterial.id}`} className="w-full flex justify-center overflow-hidden py-1">
+                    <BarcodeSVG
+                      value={`FORESYNDO-MAT:${selectedQrMaterial.id}`}
+                      height={45}
+                      showText={true}
+                      barColor="#0f172a"
+                    />
+                  </div>
+                )}
+
+                <div className="text-center">
+                  <span className="font-mono text-xs font-black text-slate-900 block">
+                    ID MATERIAL: {selectedQrMaterial.id}
+                  </span>
+                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">
+                    OFFICIAL CONSTRUCTION MATERIAL TAG
+                  </span>
+                </div>
               </div>
 
               {/* Material Details Column */}
-              <div className="md:col-span-7 space-y-3">
+              <div className="md:col-span-6 space-y-3">
                 <div className="border-b border-slate-800 pb-2">
                   <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest block">NAMA MATERIAL</span>
                   <h2 className="text-xl font-black text-white">{selectedQrMaterial.name}</h2>
-                  <span className="text-xs text-slate-400 font-medium">{selectedQrMaterial.supplier}</span>
+                  <span className="text-xs text-slate-400 font-medium">Supplier: {selectedQrMaterial.supplier}</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
@@ -454,7 +519,7 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                 </div>
 
                 <div className="text-[10px] text-slate-400 italic">
-                  * Tgl Kedatangan: {selectedQrMaterial.arrivalDate} | Batas Reorder Min: {selectedQrMaterial.minAlertStock} {selectedQrMaterial.unit}
+                  * Tgl Kedatangan: {selectedQrMaterial.arrivalDate} | Reorder Min: {selectedQrMaterial.minAlertStock} {selectedQrMaterial.unit}
                 </div>
               </div>
             </div>
@@ -539,16 +604,23 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
         </div>
       )}
 
-      {/* QR SCANNER SIMULATOR MODAL */}
+      {/* ENHANCED QR & BARCODE SCANNER SIMULATOR MODAL */}
       {isScannerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl relative space-y-5">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl relative space-y-5">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500">
                   <Camera className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-black text-slate-900 dark:text-white">Scanner QR Material Lapangan</h3>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    Scanner QR &amp; Barcode Material
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Mode Kamera Aktif | Auto-Detect CODE128 &amp; QR Tag
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setIsScannerOpen(false)}
@@ -558,7 +630,7 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
               </button>
             </div>
 
-            {/* Simulated Viewfinder */}
+            {/* Simulated Viewfinder with Controls */}
             <div className="relative h-64 bg-slate-950 rounded-2xl overflow-hidden border-2 border-orange-500/50 flex flex-col items-center justify-center text-center p-4">
               {/* Corner Frame Accents */}
               <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-orange-500"></div>
@@ -566,31 +638,71 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
               <div className="absolute bottom-3 left-3 w-6 h-6 border-b-2 border-l-2 border-orange-500"></div>
               <div className="absolute bottom-3 right-3 w-6 h-6 border-b-2 border-r-2 border-orange-500"></div>
 
+              {/* Top Camera Controls Overlay */}
+              <div className="absolute top-3 inset-x-4 flex justify-between items-center z-20">
+                <span className="px-2.5 py-0.5 rounded-full bg-red-500/80 text-white font-mono text-[9px] font-black uppercase flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-white animate-ping"></span> LIVE CAMERA
+                </span>
+                <button
+                  onClick={() =>
+                    setSimulatedCameraFacing(simulatedCameraFacing === 'environment' ? 'user' : 'environment')
+                  }
+                  className="px-2 py-1 rounded-lg bg-slate-900/80 border border-slate-700 text-slate-200 text-[10px] font-bold flex items-center gap-1 hover:bg-slate-800"
+                >
+                  <RefreshCw className="w-3 h-3 text-orange-400" />
+                  {simulatedCameraFacing === 'environment' ? 'Kamera Belakang' : 'Kamera Depan'}
+                </button>
+              </div>
+
               {/* Animated Laser Scanning Beam */}
               <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-orange-500 to-transparent shadow-[0_0_15px_#f97316] animate-pulse top-1/2 -translate-y-1/2"></div>
 
               {isScanning ? (
                 <div className="space-y-2 z-10">
                   <RefreshCw className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
-                  <span className="text-xs font-bold text-white block">Membaca Kode QR Material...</span>
+                  <span className="text-xs font-bold text-white block">Memindai Kode Material...</span>
                 </div>
               ) : (
                 <div className="space-y-2 z-10">
-                  <QrCode className="w-12 h-12 text-slate-600 mx-auto" />
-                  <span className="text-xs font-semibold text-slate-400 block">
-                    Arahkan kamera ke QR Code material atau pilih dari daftar di bawah
+                  <div className="flex items-center justify-center gap-3">
+                    <QrCode className="w-10 h-10 text-orange-400" />
+                    <BarcodeIcon className="w-10 h-10 text-sky-400" />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-300 block max-w-xs mx-auto">
+                    Arahkan kamera ke QR Code atau Barcode 1D material, atau ketik ID di bawah
                   </span>
                 </div>
               )}
             </div>
 
-            {/* Fast Select / Direct Lookup */}
+            {/* Manual Code Input & Fast Select */}
             <div className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Ketik Kode/ID (Contoh: MAT-01 atau FORESYNDO-MAT:MAT-01)..."
+                  value={scannedInput}
+                  onChange={(e) => setScannedInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && scannedInput.trim()) {
+                      handleSimulateScan(scannedInput.trim());
+                    }
+                  }}
+                  className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white"
+                />
+                <button
+                  onClick={() => scannedInput.trim() && handleSimulateScan(scannedInput.trim())}
+                  className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs flex items-center gap-1 shadow-md"
+                >
+                  <Scan className="w-4 h-4" /> Cari
+                </button>
+              </div>
+
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                Simulasi Pemindaian QR Material:
+                Atau Pilih dari Daftar Material Aktif:
               </label>
 
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                 {materials.map((m) => (
                   <button
                     key={m.id}

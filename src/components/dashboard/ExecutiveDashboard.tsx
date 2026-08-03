@@ -15,6 +15,9 @@ import {
   Sparkles,
   BarChart3,
   LineChart as LineChartIcon,
+  Gauge,
+  Zap,
+  Activity,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -68,6 +71,16 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   const deviation = calculateDeviation(physicalProgress, targetProgress);
   const duration = calculateProjectDuration(project);
   const finance = calculateFinancialSummary(project.contractValue, paymentTerms);
+
+  // Velocity and completion projection calculations
+  const dailyVelocity = physicalProgress / Math.max(1, duration.elapsedDays); // % progress per elapsed day
+  const remainingProgressNeeded = Math.max(0, 100 - physicalProgress);
+  const estimatedDaysToComplete = dailyVelocity > 0 ? remainingProgressNeeded / dailyVelocity : (physicalProgress >= 100 ? 0 : 9999);
+  const isProjectedOverdue = physicalProgress < 100 && (
+    estimatedDaysToComplete > duration.remainingDays ||
+    (deviation < 0 && (dailyVelocity * duration.remainingDays) < remainingProgressNeeded)
+  );
+  const projectedDelayDays = Math.max(0, Math.ceil(estimatedDaysToComplete - duration.remainingDays));
 
   const isSevereDeviation = deviation < -5;
 
@@ -175,6 +188,178 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
       </div>
 
+      {/* Featured Top Card: Project Performance KPI */}
+      <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 text-white border-2 border-orange-500/30 shadow-2xl relative overflow-hidden space-y-6">
+        {/* Subtle background glow */}
+        <div className="absolute -right-10 -top-10 w-60 h-60 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -left-10 -bottom-10 w-60 h-60 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4 relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-orange-500/20 text-orange-400 border border-orange-500/30 shadow-inner">
+              <Gauge className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-black text-white tracking-tight">
+                  PROJECT PERFORMANCE KPI
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-extrabold text-[10px] border border-emerald-500/30 uppercase tracking-widest flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  REAL-TIME METRICS
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Dashboard indikator kinerja utama: Total anggaran terpakai, sisa hari kerja, dan status efisiensi proyek
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 bg-slate-800/80 px-3.5 py-2 rounded-2xl border border-slate-700/80 text-xs font-bold text-slate-300">
+            <Zap className="w-4 h-4 text-orange-400" />
+            Status Efisiensi:
+            <span className={`font-black px-2 py-0.5 rounded-lg ${deviation >= 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+              {deviation >= 0 ? 'OPTIMAL & ON TRACK' : 'PERLU AKSELERASI'}
+            </span>
+          </div>
+        </div>
+
+        {/* 3 Metric Column Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-10">
+          {/* Metric 1: Total Budget Spent */}
+          <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/70 hover:border-slate-600 transition-all space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+                Total Anggaran Terpakai
+              </span>
+              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
+                <DollarSign className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div>
+              <div className="text-2xl font-black text-amber-400 tracking-tight">
+                {formatIDR(finance.totalPaidGross)}
+              </div>
+              <div className="text-xs text-slate-400 mt-1 flex items-center justify-between">
+                <span>Total Nilai Kontrak:</span>
+                <span className="font-bold text-slate-200">{formatIDR(project.contractValue)}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-1">
+              <div className="flex justify-between text-[11px] font-bold">
+                <span className="text-amber-400">{finance.financialProgressPercent}% Dicairkan</span>
+                <span className="text-slate-400">Sisa: {formatIDR(finance.remainingContractValue)}</span>
+              </div>
+              <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+                <div
+                  className="bg-gradient-to-r from-amber-500 to-emerald-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, finance.financialProgressPercent)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Metric 2: Remaining Work Days */}
+          <div className={`p-4 rounded-2xl bg-slate-800/60 border hover:border-slate-600 transition-all space-y-3 ${
+            isProjectedOverdue ? 'border-red-500/60 bg-red-950/20' : 'border-slate-700/70'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                Sisa Hari Kerja Pelaksanaan
+                {isProjectedOverdue && (
+                  <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[9px] font-black border border-red-500/30">
+                    RESIKO TERLAMBAT
+                  </span>
+                )}
+              </span>
+              <div className={`p-2 rounded-xl ${isProjectedOverdue ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div>
+              <div className={`text-2xl font-black tracking-tight ${isProjectedOverdue ? 'text-red-400' : 'text-orange-400'}`}>
+                {duration.remainingDays} Hari Lagi
+              </div>
+              <div className="text-xs text-slate-400 mt-1 flex items-center justify-between">
+                <span>Target Selesai:</span>
+                <span className="font-bold text-slate-200">{project.targetEndDate}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-1">
+              <div className="flex justify-between text-[11px] font-bold">
+                <span className={isProjectedOverdue ? 'text-red-400' : 'text-orange-400'}>
+                  {duration.elapsedDays} / {duration.totalDays} Hari Terlewati
+                </span>
+                <span className="text-slate-400">{duration.timePercentage}% Durasi</span>
+              </div>
+              <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    isProjectedOverdue ? 'bg-red-500' : 'bg-orange-500'
+                  }`}
+                  style={{ width: `${Math.min(100, duration.timePercentage)}%` }}
+                />
+              </div>
+            </div>
+
+            {isProjectedOverdue && (
+              <div className="text-[10px] text-red-300 bg-red-500/10 border border-red-500/20 p-2 rounded-xl flex items-center gap-1.5 mt-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                <span>
+                  Kecepatan ({dailyVelocity.toFixed(2)}%/hari) diproyeksikan terlambat +{projectedDelayDays} hari dari target selesai.
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Metric 3: Overall Project Efficiency Status */}
+          <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/70 hover:border-slate-600 transition-all space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+                Status Efisiensi & Kinerja Proyek
+              </span>
+              <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
+                <Activity className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div>
+              <div className="text-2xl font-black text-emerald-400 tracking-tight flex items-center gap-2">
+                {deviation >= 0 ? 'SANGAT EFISIEN' : 'PERLU PERHATIAN'}
+                <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/30 font-mono text-emerald-300">
+                  SPI: {(physicalProgress / Math.max(1, targetProgress)).toFixed(2)}
+                </span>
+              </div>
+              <div className="text-xs text-slate-400 mt-1 flex items-center justify-between">
+                <span>Deviasi Jadwal:</span>
+                <span className={`font-bold ${deviation >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {deviation >= 0 ? `+${deviation}% (Surplus Progress)` : `${deviation}% (Terlambat)`}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-1">
+              <div className="flex justify-between text-[11px] font-bold">
+                <span className="text-emerald-400">Fisik: {physicalProgress}%</span>
+                <span className="text-slate-400">Target Plan: {targetProgress}%</span>
+              </div>
+              <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    deviation >= 0 ? 'bg-emerald-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${Math.min(100, physicalProgress)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Executive High-Level KPI Summary Card */}
       <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
@@ -241,18 +426,27 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
 
           {/* KPI Item 2: Remaining Work Days */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
+          <div className={`p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border space-y-3 transition-all ${
+            isProjectedOverdue
+              ? 'border-red-300 dark:border-red-500/50 bg-red-50/50 dark:bg-red-950/20'
+              : 'border-slate-200 dark:border-slate-700/80'
+          }`}>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              <span className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 Sisa Hari Kerja Pelaksanaan
+                {isProjectedOverdue && (
+                  <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] font-black border border-red-500/20">
+                    RESIKO TERLAMBAT
+                  </span>
+                )}
               </span>
-              <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500">
+              <div className={`p-2 rounded-xl ${isProjectedOverdue ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500'}`}>
                 <Clock className="w-4 h-4" />
               </div>
             </div>
 
             <div>
-              <div className="text-xl font-black text-orange-500">
+              <div className={`text-xl font-black ${isProjectedOverdue ? 'text-red-600 dark:text-red-400' : 'text-orange-500'}`}>
                 {duration.remainingDays} Hari Lagi
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center justify-between">
@@ -263,16 +457,25 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
             <div className="space-y-1.5 pt-1">
               <div className="flex justify-between text-[11px] font-bold">
-                <span className="text-slate-500 dark:text-slate-400">Waktu Berjalan ({duration.timePercentage}%)</span>
+                <span className={isProjectedOverdue ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}>
+                  Waktu Berjalan ({duration.timePercentage}%)
+                </span>
                 <span className="text-slate-700 dark:text-slate-300">{duration.elapsedDays} Hari Terlewati</span>
               </div>
               <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
                 <div
-                  className="bg-orange-500 h-full rounded-full transition-all duration-500"
+                  className={`h-full rounded-full transition-all duration-500 ${isProjectedOverdue ? 'bg-red-500' : 'bg-orange-500'}`}
                   style={{ width: `${Math.min(100, duration.timePercentage)}%` }}
                 />
               </div>
             </div>
+
+            {isProjectedOverdue && (
+              <p className="text-[10px] font-bold text-red-600 dark:text-red-400 flex items-center gap-1 pt-1">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span>Kecepatan ({dailyVelocity.toFixed(2)}%/hari) berisiko terlambat +{projectedDelayDays} hari</span>
+              </p>
+            )}
           </div>
 
           {/* KPI Item 3: Physical Performance vs Schedule */}

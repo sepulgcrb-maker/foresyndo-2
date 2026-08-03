@@ -19,6 +19,8 @@ import {
   Sparkles,
   Check,
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { BarcodeSVG } from '../common/BarcodeSVG';
 import { formatIDR, calculatePhysicalProgress } from '../../utils/calculations';
 
 export interface WorkItemInspectionState {
@@ -890,32 +892,36 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
                 <div className="space-y-2">
                   <span className="text-[10px] font-bold text-slate-500 uppercase block">PIHAK PERTAMA (KONTRAKTOR)</span>
                   <span className="font-bold text-slate-900 block">{bastData.siteManagerName}</span>
-                  <div className="h-24 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 p-2">
+                  <div className="h-28 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 p-2">
                     {bastData.siteManagerSignatureData === 'PRESET_VERIFIED_SM' ? (
-                      <div className="flex flex-col items-center">
-                        <QrCode className="w-10 h-10 text-blue-900" />
-                        <span className="text-[8px] font-mono font-bold text-blue-900">VERIFIED QR SIGNATURE</span>
+                      <div className="flex flex-col items-center space-y-1">
+                        <QRCodeSVG value={`FORESYNDO-BAST-SIGN:${bastData.bastNumber}:SM`} size={54} level="M" />
+                        <span className="text-[8px] font-mono font-black text-blue-900 tracking-tight">
+                          VERIFIED QR SIGNATURE
+                        </span>
                       </div>
                     ) : bastData.siteManagerSignatureData ? (
-                      <img src={bastData.siteManagerSignatureData} alt="TTD SM" className="max-h-20 max-w-full object-contain" />
+                      <img src={bastData.siteManagerSignatureData} alt="TTD SM" className="max-h-24 max-w-full object-contain" />
                     ) : (
                       <span className="text-slate-400 italic text-[10px]">[ Belum Ditandatangani ]</span>
                     )}
                   </div>
-                  <span className="text-[9px] text-slate-500 font-mono block">Site Manager</span>
+                  <span className="text-[9px] text-slate-500 font-mono block">Site Manager Lapangan</span>
                 </div>
 
                 <div className="space-y-2">
                   <span className="text-[10px] font-bold text-slate-500 uppercase block">PIHAK KEDUA (DIREKTUR)</span>
                   <span className="font-bold text-slate-900 block">{bastData.directorName}</span>
-                  <div className="h-24 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 p-2">
+                  <div className="h-28 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 p-2">
                     {bastData.directorSignatureData === 'PRESET_VERIFIED_DIR' ? (
-                      <div className="flex flex-col items-center">
-                        <QrCode className="w-10 h-10 text-emerald-900" />
-                        <span className="text-[8px] font-mono font-bold text-emerald-900">VERIFIED QR SIGNATURE</span>
+                      <div className="flex flex-col items-center space-y-1">
+                        <QRCodeSVG value={`FORESYNDO-BAST-SIGN:${bastData.bastNumber}:DIR`} size={54} level="M" />
+                        <span className="text-[8px] font-mono font-black text-emerald-900 tracking-tight">
+                          VERIFIED QR SIGNATURE
+                        </span>
                       </div>
                     ) : bastData.directorSignatureData ? (
-                      <img src={bastData.directorSignatureData} alt="TTD Direktur" className="max-h-20 max-w-full object-contain" />
+                      <img src={bastData.directorSignatureData} alt="TTD Direktur" className="max-h-24 max-w-full object-contain" />
                     ) : (
                       <span className="text-slate-400 italic text-[10px]">[ Belum Ditandatangani ]</span>
                     )}
