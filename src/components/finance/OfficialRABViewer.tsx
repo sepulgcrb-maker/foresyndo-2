@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { OFFICIAL_RAB_DOCUMENT, RABDetailItem } from '../../data/initialData';
 import { formatIDR } from '../../utils/calculations';
+import { generateOfficialRABPDF, generateExcelReport } from '../../utils/exportEngine';
 import { QRCodeSVG } from 'qrcode.react';
 import {
   FileText,
@@ -32,9 +33,21 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
   const [searchTerm, setSearchTerm] = useState('');
   const [filter25Only, setFilter25Only] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDownloadPDF = () => {
+    setIsGeneratingPDF(true);
+    try {
+      generateOfficialRABPDF(rab);
+    } catch (err) {
+      console.error('Error exporting RAB PDF:', err);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
 
   const handlePrint = () => {
     window.print();
@@ -128,10 +141,19 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
           )}
 
           <button
+            onClick={handleDownloadPDF}
+            disabled={isGeneratingPDF}
+            className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+          >
+            <Download className={`w-4 h-4 ${isGeneratingPDF ? 'animate-spin' : ''}`} />
+            {isGeneratingPDF ? 'Menyiapkan PDF...' : 'Download PDF RAB'}
+          </button>
+
+          <button
             onClick={handlePrint}
             className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-700 transition-all"
           >
-            <Printer className="w-4 h-4 text-orange-400" /> Cetak / Save PDF
+            <Printer className="w-4 h-4 text-orange-400" /> Cetak Lembar
           </button>
 
           {onClose && (

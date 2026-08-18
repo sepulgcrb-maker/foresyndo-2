@@ -18,6 +18,7 @@ import {
   Gauge,
   Zap,
   Activity,
+  FileText,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -31,10 +32,12 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
-import { ProjectInfo, WorkItem, PaymentTerm, AuditLog, NotificationItem } from '../../types';
+import { ProjectInfo, WorkItem, PaymentTerm, AuditLog, NotificationItem, UserRole } from '../../types';
 import { CircularProgress } from './CircularProgress';
 import { MLForecastingModule } from './MLForecastingModule';
 import { WeatherWidget } from './WeatherWidget';
+import { AutomatedStakeholderAlerts } from './AutomatedStakeholderAlerts';
+import { MilestonePredictorCard } from './MilestonePredictorCard';
 import { DeviasiBadge } from '../common/DeviasiBadge';
 import {
   formatIDR,
@@ -45,6 +48,7 @@ import {
   calculateFinancialSummary,
   generateSCurveData,
 } from '../../utils/calculations';
+import { generateSCurvePDF } from '../../utils/exportEngine';
 import { ActiveTab } from '../layout/Sidebar';
 
 interface ExecutiveDashboardProps {
@@ -53,7 +57,10 @@ interface ExecutiveDashboardProps {
   paymentTerms: PaymentTerm[];
   auditLogs: AuditLog[];
   notifications: NotificationItem[];
+  currentRole?: UserRole;
   onNavigateTab: (tab: ActiveTab) => void;
+  onAddNotification?: (notif: Omit<NotificationItem, 'id' | 'timestamp' | 'isRead'>) => void;
+  onAddAuditLog?: (action: string, details: string) => void;
 }
 
 export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
@@ -62,7 +69,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   paymentTerms,
   auditLogs,
   notifications,
+  currentRole = 'Direktur',
   onNavigateTab,
+  onAddNotification,
+  onAddAuditLog,
 }) => {
   const [chartMode, setChartMode] = useState<'cumulative' | 'weekly'>('cumulative');
 
@@ -187,6 +197,32 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Automated Stakeholder Alert System (Real-time Email / Push Alerts) */}
+      <AutomatedStakeholderAlerts
+        project={project}
+        workItems={workItems}
+        paymentTerms={paymentTerms}
+        currentRole={currentRole}
+        deviation={deviation}
+        isProjectedOverdue={isProjectedOverdue}
+        projectedDelayDays={projectedDelayDays}
+        dailyVelocity={dailyVelocity}
+        physicalProgress={physicalProgress}
+        targetProgress={targetProgress}
+        finance={finance}
+        onAddNotification={onAddNotification}
+        onAddAuditLog={onAddAuditLog}
+      />
+
+      {/* Visual Indicator: Predicted Date of Next Major Milestone */}
+      <MilestonePredictorCard
+        project={project}
+        workItems={workItems}
+        physicalProgress={physicalProgress}
+        dailyVelocity={dailyVelocity}
+        elapsedDays={duration.elapsedDays}
+      />
 
       {/* Featured Top Card: Project Performance KPI */}
       <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 text-white border-2 border-orange-500/30 shadow-2xl relative overflow-hidden space-y-6">
@@ -638,27 +674,41 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             </div>
           </div>
 
-          {/* Metric Switcher Toggle Buttons */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
+          {/* Metric Switcher Toggle Buttons & PDF Export */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
+              <button
+                onClick={() => setChartMode('cumulative')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  chartMode === 'cumulative'
+                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <LineChartIcon className="w-3.5 h-3.5" /> Progress Kumulatif (%)
+              </button>
+              <button
+                onClick={() => setChartMode('weekly')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  chartMode === 'weekly'
+                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" /> Laju Mingguan (%/Wk)
+              </button>
+            </div>
+
             <button
-              onClick={() => setChartMode('cumulative')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                chartMode === 'cumulative'
-                  ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+              onClick={() => {
+                generateSCurvePDF(project, workItems, 'Weekly');
+                if (onAddAuditLog) {
+                  onAddAuditLog('Download PDF Analisis Kurva-S', 'Mengunduh laporan analisis Kurva-S dari Executive Dashboard');
+                }
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-red-600/20 transition-all cursor-pointer"
             >
-              <LineChartIcon className="w-3.5 h-3.5" /> Progress Kumulatif (%)
-            </button>
-            <button
-              onClick={() => setChartMode('weekly')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                chartMode === 'weekly'
-                  ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <BarChart3 className="w-3.5 h-3.5" /> Laju Mingguan (%/Wk)
+              <FileText className="w-3.5 h-3.5" /> PDF Kurva-S
             </button>
           </div>
         </div>

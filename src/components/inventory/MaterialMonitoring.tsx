@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { MaterialItem, UserRole } from '../../types';
+import { MaterialItem, WorkItem, UserRole } from '../../types';
+import { MaterialProjectionTool } from './MaterialProjectionTool';
+import { calculateMaterialProjections } from '../../utils/materialProjection';
 import {
   Boxes,
   Plus,
@@ -23,6 +25,8 @@ import {
   Barcode as BarcodeIcon,
   Upload,
   Sparkles,
+  TrendingDown,
+  Flame,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { BarcodeSVG } from '../common/BarcodeSVG';
@@ -31,17 +35,22 @@ import { formatIDR } from '../../utils/calculations';
 
 interface MaterialMonitoringProps {
   materials: MaterialItem[];
+  workItems: WorkItem[];
   userRole: UserRole;
   onAddMaterial: (mat: Omit<MaterialItem, 'id'>) => void;
   onUpdateMaterial: (mat: MaterialItem) => void;
+  onAddAuditLog?: (action: string, details: string) => void;
 }
 
 export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
   materials,
+  workItems,
   userRole,
   onAddMaterial,
   onUpdateMaterial,
+  onAddAuditLog,
 }) => {
+  const [activeSubTab, setActiveSubTab] = useState<'inventory' | 'projection'>('projection');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
@@ -150,222 +159,289 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
     'Sisa Stok': m.stockRemaining,
   }));
 
+  const projections = React.useMemo(() => {
+    return calculateMaterialProjections(materials, workItems || []);
+  }, [materials, workItems]);
+
+  const criticalAlertCount = projections.filter((p) => p.urgencyStatus === 'Kritis').length;
+  const warningAlertCount = projections.filter((p) => p.urgencyStatus === 'Waspada').length;
+
   return (
     <div className="space-y-6">
-      {/* Top Stats & Quick Scanner Action */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Jenis Material</span>
-            <span className="text-2xl font-black text-slate-900 dark:text-white mt-1 block">{materials.length} Item</span>
-          </div>
-          <div className="p-3 rounded-xl bg-blue-500/10 text-blue-500">
-            <Boxes className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Valuasi Stok Tersisa</span>
-            <span className="text-xl font-black text-emerald-500 mt-1 block">{formatIDR(totalValue)}</span>
-          </div>
-          <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-500">
-            <DollarSign className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Peringatan Reorder Stok</span>
-            <span className={`text-2xl font-black mt-1 block ${lowStockCount > 0 ? 'text-red-500' : 'text-slate-400'}`}>
-              {lowStockCount} Material
-            </span>
-          </div>
-          <div className={`p-3 rounded-xl ${lowStockCount > 0 ? 'bg-red-500/10 text-red-500 animate-pulse' : 'bg-slate-500/10 text-slate-400'}`}>
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 text-white shadow-lg flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-bold text-orange-100 uppercase tracking-wider block">Scan QR Material</span>
-            <span className="text-xs font-semibold text-white/90 mt-0.5 block">Cek / Update Stok di Lapangan</span>
-            <button
-              onClick={() => setIsScannerOpen(true)}
-              className="mt-2.5 px-3 py-1.5 rounded-xl bg-white text-orange-600 hover:bg-orange-50 font-black text-xs flex items-center gap-1.5 shadow-md transition-all"
-            >
-              <Camera className="w-4 h-4" /> Buka Scanner QR
-            </button>
-          </div>
-          <div className="p-3 bg-white/20 rounded-2xl text-white">
-            <QrCode className="w-8 h-8" />
-          </div>
-        </div>
-      </div>
-
-      {/* Header Bar */}
-      <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500">
-              <Boxes className="w-5 h-5" />
-            </div>
-            <h2 className="text-lg font-black text-slate-900 dark:text-white">Monitoring Pasokan &amp; Stok Material (QR Tagged)</h2>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Sistem labeling QR-Code otomatis untuk pemindaian instan &amp; pembaruan persediaan fisik site lapangan
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="relative flex-1 md:w-64">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Cari nama, ID (MAT-01), supplier..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-            />
-          </div>
-
+      {/* Top Navigation Sub-Tabs */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md">
+        <div className="flex items-center gap-2 flex-1">
           <button
-            onClick={() => setIsScannerOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-700 shrink-0 transition-all"
+            onClick={() => setActiveSubTab('projection')}
+            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              activeSubTab === 'projection'
+                ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
+            }`}
           >
-            <Scan className="w-4 h-4 text-orange-400" /> Scanner QR
+            <TrendingDown className="w-4 h-4" /> Proyeksi Kebutuhan &amp; Peringatan Dini
+            {criticalAlertCount > 0 ? (
+              <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black animate-pulse">
+                {criticalAlertCount} Kritis
+              </span>
+            ) : warningAlertCount > 0 ? (
+              <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black">
+                {warningAlertCount} Waspada
+              </span>
+            ) : null}
           </button>
 
-          {canEdit && (
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-orange-500/20 shrink-0 transition-all"
-            >
-              <Plus className="w-4 h-4" /> Tambah Material
-            </button>
-          )}
+          <button
+            onClick={() => setActiveSubTab('inventory')}
+            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              activeSubTab === 'inventory'
+                ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60'
+            }`}
+          >
+            <Boxes className="w-4 h-4" /> Stok Gudang &amp; QR Label
+            <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold">
+              {materials.length} Item
+            </span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setIsScannerOpen(true)}
+            className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
+          >
+            <Scan className="w-3.5 h-3.5 text-orange-500" /> Scan QR Material
+          </button>
         </div>
       </div>
 
-      {/* Usage Chart */}
-      <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-          <Layers className="w-4 h-4 text-orange-500" /> Grafik Pemakaian Material vs Sisa Stok
-        </h3>
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-              <XAxis dataKey="name" fontSize={10} stroke="#94A3B8" />
-              <YAxis fontSize={10} stroke="#94A3B8" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#0F172A',
-                  borderColor: '#334155',
-                  borderRadius: '12px',
-                  color: '#FFF',
-                  fontSize: '12px',
-                }}
-              />
-              <Legend wrapperStyle={{ fontSize: '11px' }} />
-              <Bar dataKey="Terpakai" fill="#F97316" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Sisa Stok" fill="#10B981" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      {activeSubTab === 'projection' ? (
+        <MaterialProjectionTool
+          materials={materials}
+          workItems={workItems}
+          userRole={userRole}
+          onUpdateMaterial={onUpdateMaterial}
+          onAddAuditLog={onAddAuditLog}
+        />
+      ) : (
+        <>
+          {/* Top Stats & Quick Scanner Action */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Jenis Material</span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white mt-1 block">{materials.length} Item</span>
+              </div>
+              <div className="p-3 rounded-xl bg-blue-500/10 text-blue-500">
+                <Boxes className="w-6 h-6" />
+              </div>
+            </div>
 
-      {/* Material Table */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="bg-slate-900 text-white border-b border-slate-800 font-bold uppercase text-[10px]">
-                <th className="py-3.5 px-3 text-center w-16">QR Tag</th>
-                <th className="py-3.5 px-3">Kode / Nama Material</th>
-                <th className="py-3.5 px-3 text-right">Total Terima</th>
-                <th className="py-3.5 px-3 text-right">Terpakai</th>
-                <th className="py-3.5 px-3 text-right">Sisa Stok</th>
-                <th className="py-3.5 px-3 text-right">Harga Satuan</th>
-                <th className="py-3.5 px-3">Supplier</th>
-                <th className="py-3.5 px-3 text-center">Status Stok</th>
-                <th className="py-3.5 px-3 text-center w-28">Kelola QR</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {filtered.map((m) => {
-                const isLow = m.stockRemaining <= m.minAlertStock;
-                const qrValue = `FORESYNDO-MAT:${m.id}`;
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Valuasi Stok Tersisa</span>
+                <span className="text-xl font-black text-emerald-500 mt-1 block">{formatIDR(totalValue)}</span>
+              </div>
+              <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-500">
+                <DollarSign className="w-6 h-6" />
+              </div>
+            </div>
 
-                return (
-                  <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    {/* QR Code Icon Thumbnail */}
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        onClick={() => setSelectedQrMaterial(m)}
-                        className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-orange-500 hover:bg-orange-500/10 text-slate-700 dark:text-slate-300 transition-all inline-flex items-center justify-center group"
-                        title="Buka QR Label Badge"
-                      >
-                        <QRCodeSVG value={qrValue} size={28} level="M" />
-                      </button>
-                    </td>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Peringatan Reorder Stok</span>
+                <span className={`text-2xl font-black mt-1 block ${lowStockCount > 0 ? 'text-red-500' : 'text-slate-400'}`}>
+                  {lowStockCount} Material
+                </span>
+              </div>
+              <div className={`p-3 rounded-xl ${lowStockCount > 0 ? 'bg-red-500/10 text-red-500 animate-pulse' : 'bg-slate-500/10 text-slate-400'}`}>
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+            </div>
 
-                    {/* Name & ID */}
-                    <td className="py-3 px-3">
-                      <span className="font-mono text-[10px] text-orange-500 font-bold block">{m.id}</span>
-                      <span className="font-bold text-slate-900 dark:text-white text-xs">{m.name}</span>
-                    </td>
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 text-white shadow-lg flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-orange-100 uppercase tracking-wider block">Scan QR Material</span>
+                <span className="text-xs font-semibold text-white/90 mt-0.5 block">Cek / Update Stok di Lapangan</span>
+                <button
+                  onClick={() => setIsScannerOpen(true)}
+                  className="mt-2.5 px-3 py-1.5 rounded-xl bg-white text-orange-600 hover:bg-orange-50 font-black text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+                >
+                  <Camera className="w-4 h-4" /> Buka Scanner QR
+                </button>
+              </div>
+              <div className="p-3 bg-white/20 rounded-2xl text-white">
+                <QrCode className="w-8 h-8" />
+              </div>
+            </div>
+          </div>
 
-                    {/* Total Received */}
-                    <td className="py-3 px-3 text-right font-medium">
-                      {m.volumeTotal} {m.unit}
-                    </td>
+          {/* Header Bar */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500">
+                  <Boxes className="w-5 h-5" />
+                </div>
+                <h2 className="text-lg font-black text-slate-900 dark:text-white">Monitoring Pasokan &amp; Stok Material (QR Tagged)</h2>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Sistem labeling QR-Code otomatis untuk pemindaian instan &amp; pembaruan persediaan fisik site lapangan
+              </p>
+            </div>
 
-                    {/* Volume Used */}
-                    <td className="py-3 px-3 text-right font-semibold text-orange-500">
-                      {m.volumeUsed} {m.unit}
-                    </td>
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="relative flex-1 md:w-64">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Cari nama, ID (MAT-01), supplier..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
 
-                    {/* Stock Remaining */}
-                    <td className="py-3 px-3 text-right font-black text-emerald-500 text-sm">
-                      {m.stockRemaining} {m.unit}
-                    </td>
+              <button
+                onClick={() => setIsScannerOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-700 shrink-0 transition-all cursor-pointer"
+              >
+                <Scan className="w-4 h-4 text-orange-400" /> Scanner QR
+              </button>
 
-                    {/* Price per unit */}
-                    <td className="py-3 px-3 text-right font-semibold">{formatIDR(m.pricePerUnit)}</td>
+              {canEdit && (
+                <button
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-orange-500/20 shrink-0 transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" /> Tambah Material
+                </button>
+              )}
+            </div>
+          </div>
 
-                    {/* Supplier */}
-                    <td className="py-3 px-3 text-slate-500 dark:text-slate-400 text-[11px]">{m.supplier}</td>
+          {/* Usage Chart */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+              <Layers className="w-4 h-4 text-orange-500" /> Grafik Pemakaian Material vs Sisa Stok
+            </h3>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis dataKey="name" fontSize={10} stroke="#94A3B8" />
+                  <YAxis fontSize={10} stroke="#94A3B8" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#0F172A',
+                      borderColor: '#334155',
+                      borderRadius: '12px',
+                      color: '#FFF',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px' }} />
+                  <Bar dataKey="Terpakai" fill="#F97316" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Sisa Stok" fill="#10B981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
-                    {/* Status */}
-                    <td className="py-3 px-3 text-center">
-                      {isLow ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold border border-red-500/30">
-                          <AlertTriangle className="w-3 h-3" /> Reorder Alert!
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold border border-emerald-500/30">
-                          <CheckCircle2 className="w-3 h-3" /> Aman
-                        </span>
-                      )}
-                    </td>
-
-                    {/* QR Action Button */}
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        onClick={() => setSelectedQrMaterial(m)}
-                        className="px-2.5 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500 text-orange-600 hover:text-white font-bold text-[11px] flex items-center justify-center gap-1 border border-orange-500/20 transition-all w-full"
-                      >
-                        <QrCode className="w-3.5 h-3.5" /> Label &amp; Stok
-                      </button>
-                    </td>
+          {/* Material Table */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-900 text-white border-b border-slate-800 font-bold uppercase text-[10px]">
+                    <th className="py-3.5 px-3 text-center w-16">QR Tag</th>
+                    <th className="py-3.5 px-3">Kode / Nama Material</th>
+                    <th className="py-3.5 px-3 text-right">Total Terima</th>
+                    <th className="py-3.5 px-3 text-right">Terpakai</th>
+                    <th className="py-3.5 px-3 text-right">Sisa Stok</th>
+                    <th className="py-3.5 px-3 text-right">Harga Satuan</th>
+                    <th className="py-3.5 px-3">Supplier</th>
+                    <th className="py-3.5 px-3 text-center">Status Stok</th>
+                    <th className="py-3.5 px-3 text-center w-28">Kelola QR</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {filtered.map((m) => {
+                    const isLow = m.stockRemaining <= m.minAlertStock;
+                    const qrValue = `FORESYNDO-MAT:${m.id}`;
+
+                    return (
+                      <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                        {/* QR Code Icon Thumbnail */}
+                        <td className="py-3 px-3 text-center">
+                          <button
+                            onClick={() => setSelectedQrMaterial(m)}
+                            className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-orange-500 hover:bg-orange-500/10 text-slate-700 dark:text-slate-300 transition-all inline-flex items-center justify-center group cursor-pointer"
+                            title="Buka QR Label Badge"
+                          >
+                            <QRCodeSVG value={qrValue} size={28} level="M" />
+                          </button>
+                        </td>
+
+                        {/* Name & ID */}
+                        <td className="py-3 px-3">
+                          <span className="font-mono text-[10px] text-orange-500 font-bold block">{m.id}</span>
+                          <span className="font-bold text-slate-900 dark:text-white text-xs">{m.name}</span>
+                        </td>
+
+                        {/* Total Received */}
+                        <td className="py-3 px-3 text-right font-medium">
+                          {m.volumeTotal} {m.unit}
+                        </td>
+
+                        {/* Volume Used */}
+                        <td className="py-3 px-3 text-right font-semibold text-orange-500">
+                          {m.volumeUsed} {m.unit}
+                        </td>
+
+                        {/* Stock Remaining */}
+                        <td className="py-3 px-3 text-right font-black text-emerald-500 text-sm">
+                          {m.stockRemaining} {m.unit}
+                        </td>
+
+                        {/* Price per unit */}
+                        <td className="py-3 px-3 text-right font-semibold">{formatIDR(m.pricePerUnit)}</td>
+
+                        {/* Supplier */}
+                        <td className="py-3 px-3 text-slate-500 dark:text-slate-400 text-[11px]">{m.supplier}</td>
+
+                        {/* Status */}
+                        <td className="py-3 px-3 text-center">
+                          {isLow ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold border border-red-500/30">
+                              <AlertTriangle className="w-3 h-3" /> Reorder Alert!
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold border border-emerald-500/30">
+                              <CheckCircle2 className="w-3 h-3" /> Aman
+                            </span>
+                          )}
+                        </td>
+
+                        {/* QR Action Button */}
+                        <td className="py-3 px-3 text-center">
+                          <button
+                            onClick={() => setSelectedQrMaterial(m)}
+                            className="px-2.5 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500 text-orange-600 hover:text-white font-bold text-[11px] flex items-center justify-center gap-1 border border-orange-500/20 transition-all w-full cursor-pointer"
+                          >
+                            <QrCode className="w-3.5 h-3.5" /> Label &amp; Stok
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* QR CODE & BARCODE BADGE & STOCK UPDATE MODAL */}
       {selectedQrMaterial && (

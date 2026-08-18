@@ -12,8 +12,11 @@ import {
   ShieldCheck,
   X,
   FileSpreadsheet,
+  Download,
+  FileText,
 } from 'lucide-react';
 import { formatIDR, calculateFinancialSummary, calculatePhysicalProgress } from '../../utils/calculations';
+import { generateTerminPDF, generateTerminVoucherPDF } from '../../utils/exportEngine';
 import { OfficialRABViewer } from './OfficialRABViewer';
 
 interface TerminPaymentsProps {
@@ -44,9 +47,29 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
   const [showRABModal, setShowRABModal] = useState(false);
   const [proofUrlInput, setProofUrlInput] = useState('');
   const [payDateInput, setPayDateInput] = useState(new Date().toISOString().split('T')[0]);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   const currentPhysicalProgress = calculatePhysicalProgress(workItems);
   const summary = calculateFinancialSummary(project.contractValue, paymentTerms);
+
+  const handleDownloadTerminPDF = () => {
+    setIsExportingPDF(true);
+    try {
+      generateTerminPDF(project, paymentTerms, workItems);
+    } catch (err) {
+      console.error('Error generating Termin PDF:', err);
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
+  const handleDownloadSingleVoucherPDF = (term: PaymentTerm) => {
+    try {
+      generateTerminVoucherPDF(term, project);
+    } catch (err) {
+      console.error('Error generating Voucher PDF:', err);
+    }
+  };
 
   const canApprove = userRole === 'Direktur';
   const canInputPayment = userRole === 'Admin' || userRole === 'Site Manager' || userRole === 'Direktur';
@@ -95,8 +118,16 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
 
         <div className="flex items-center gap-2 flex-wrap">
           <button
+            onClick={handleDownloadTerminPDF}
+            disabled={isExportingPDF}
+            className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+          >
+            <Download className={`w-4 h-4 ${isExportingPDF ? 'animate-spin' : ''}`} />
+            {isExportingPDF ? 'Menyiapkan PDF...' : 'Download PDF Termin'}
+          </button>
+          <button
             onClick={() => setShowRABModal(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition-all"
+            className="px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
           >
             <FileSpreadsheet className="w-4 h-4" /> Audit RAB Resmi Upload
           </button>
@@ -227,18 +258,27 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
                 {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0">
                   {term.status === 'Dibayar' && (
-                    <button
-                      onClick={() => setSelectedVoucherTerm(term)}
-                      className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
-                    >
-                      <Receipt className="w-4 h-4 text-orange-500" /> Voucher Bayar
-                    </button>
+                    <>
+                      <button
+                        onClick={() => setSelectedVoucherTerm(term)}
+                        className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Receipt className="w-4 h-4 text-orange-500" /> Voucher
+                      </button>
+                      <button
+                        onClick={() => handleDownloadSingleVoucherPDF(term)}
+                        title="Download PDF Voucher Termin"
+                        className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
 
                   {term.status === 'Menunggu Approval' && canApprove && (
                     <button
                       onClick={() => handleApproveTerm(term)}
-                      className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all"
+                      className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
                     >
                       <ShieldCheck className="w-4 h-4" /> Approve Direktur
                     </button>
@@ -247,7 +287,7 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
                   {term.status !== 'Dibayar' && canInputPayment && (
                     <button
                       onClick={() => setUploadProofModalTerm(term)}
-                      className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-orange-500/20 transition-all"
+                      className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-orange-500/20 transition-all cursor-pointer"
                     >
                       <Upload className="w-4 h-4" /> Input Pembayaran / Bukti
                     </button>
@@ -377,10 +417,19 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
               </div>
             )}
 
-            <div className="pt-2 text-center">
-              <span className="text-[11px] text-slate-400 font-medium block">
-                Disetujui Oleh: {selectedVoucherTerm.approvedBy || 'Direktur PT. Foresyndo'}
-              </span>
+            <div className="pt-2 flex flex-col gap-2">
+              <button
+                onClick={() => handleDownloadSingleVoucherPDF(selectedVoucherTerm)}
+                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+              >
+                <Download className="w-4 h-4" /> Download PDF Voucher Resmi
+              </button>
+
+              <div className="text-center">
+                <span className="text-[11px] text-slate-400 font-medium block">
+                  Disetujui Oleh: {selectedVoucherTerm.approvedBy || 'Direktur PT. Foresyndo'}
+                </span>
+              </div>
             </div>
           </div>
         </div>

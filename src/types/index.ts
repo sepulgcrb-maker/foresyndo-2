@@ -110,6 +110,43 @@ export interface MaterialItem {
   usageDate?: string;
   stockRemaining: number;
   minAlertStock: number;
+  leadTimeDays?: number;
+  dailyBurnRate?: number;
+  relatedSectorNos?: number[];
+  category?: string;
+}
+
+export interface MaterialProjection {
+  materialId: string;
+  materialName: string;
+  unit: string;
+  pricePerUnit: number;
+  supplier: string;
+  currentStock: number;
+  minAlertStock: number;
+  leadTimeDays: number;
+  dailyBurnRate: number;
+  relatedWorkItemNames: string[];
+  relatedSectors: string[];
+  avgRemainingProgressPercent: number;
+  projectedTotalDemand: number;
+  projectedRemainingDemand: number;
+  stockDifference: number; // positive = surplus, negative = deficit
+  isDeficit: boolean;
+  shortageQuantity: number;
+  shortageCostIDR: number;
+  daysOfStockRemaining: number; // days until stockout at current burn rate
+  estimatedStockoutDate: string;
+  recommendedOrderDate: string;
+  urgencyStatus: 'Kritis' | 'Waspada' | 'Aman';
+  urgencyReason: string;
+  recommendedOrderQuantity: number;
+}
+
+export interface MaterialProjectionConfig {
+  speedMultiplier: number; // e.g. 1.0 (normal), 1.25, 1.5 (lembur/rush)
+  wasteContingencyPercent: number; // e.g. 5%
+  alertThresholdDays: number; // e.g. 14 days
 }
 
 export interface WorkerAllocation {

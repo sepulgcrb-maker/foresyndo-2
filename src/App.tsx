@@ -352,7 +352,7 @@ export default function App() {
     addAuditLog('Upload Dokumentasi Foto', `Mengunggah foto kategori ${photoData.category}: ${photoData.title}`);
   };
 
-  // Material Handler
+  // Material Handlers
   const handleAddMaterial = (matData: Omit<MaterialItem, 'id'>) => {
     const newMat: MaterialItem = {
       ...matData,
@@ -360,6 +360,11 @@ export default function App() {
     };
     setMaterials((prev) => [...prev, newMat]);
     addAuditLog('Tambah Stok Material', `Menambahkan material baru: ${matData.name} dari ${matData.supplier}`);
+  };
+
+  const handleUpdateMaterial = (updatedMat: MaterialItem) => {
+    setMaterials((prev) => prev.map((m) => (m.id === updatedMat.id ? updatedMat : m)));
+    addAuditLog('Update Stok Material', `Memperbarui data/stok material ${updatedMat.name} (Sisa: ${updatedMat.stockRemaining} ${updatedMat.unit})`);
   };
 
   // Worker & Allocation Handler
@@ -432,6 +437,16 @@ export default function App() {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
   };
 
+  const handleAddNotification = (newNotif: Omit<NotificationItem, 'id' | 'timestamp' | 'isRead'>) => {
+    const item: NotificationItem = {
+      ...newNotif,
+      id: `NOTIF-${Date.now()}`,
+      timestamp: new Date().toLocaleString('id-ID'),
+      isRead: false,
+    };
+    setNotifications((prev) => [item, ...prev]);
+  };
+
   const handleResetProject = () => {
     if (window.confirm('Apakah Anda yakin ingin mereset data proyek ke status BELUM MULAI (Progress 0%)?')) {
       setProject(INITIAL_PROJECT_INFO);
@@ -493,7 +508,10 @@ export default function App() {
               paymentTerms={paymentTerms}
               auditLogs={auditLogs}
               notifications={notifications}
+              currentRole={currentRole}
               onNavigateTab={setActiveTab}
+              onAddNotification={handleAddNotification}
+              onAddAuditLog={addAuditLog}
             />
           )}
 
@@ -522,7 +540,13 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'scurve' && <SCurveChart workItems={workItems} />}
+          {activeTab === 'scurve' && (
+            <SCurveChart
+              workItems={workItems}
+              project={project}
+              onAddAuditLog={addAuditLog}
+            />
+          )}
 
           {activeTab === 'gantt' && (
             <GanttChart workItems={workItems} onUpdateWorkItem={handleUpdateWorkItem} />
@@ -554,9 +578,11 @@ export default function App() {
           {activeTab === 'materials' && (
             <MaterialMonitoring
               materials={materials}
+              workItems={workItems}
               userRole={currentRole}
               onAddMaterial={handleAddMaterial}
-              onUpdateMaterial={() => {}}
+              onUpdateMaterial={handleUpdateMaterial}
+              onAddAuditLog={addAuditLog}
             />
           )}
 

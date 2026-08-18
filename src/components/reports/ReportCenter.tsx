@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { ProjectInfo, WorkItem, PaymentTerm, DailyLog, MaterialItem } from '../../types';
+import { OFFICIAL_RAB_DOCUMENT } from '../../data/initialData';
 import { FileSpreadsheet, FileText, Download, Printer, CheckCircle2, Building2 } from 'lucide-react';
 import { generatePDFReport, generateExcelReport } from '../../utils/exportEngine';
-import { formatIDR, calculatePhysicalProgress, calculateTargetProgress, calculateDeviation } from '../../utils/calculations';
+import { formatIDR, calculatePhysicalProgress, calculateTargetProgress, calculateDeviation, generateSCurveData } from '../../utils/calculations';
 
 interface ReportCenterProps {
   project: ProjectInfo;
@@ -12,7 +13,7 @@ interface ReportCenterProps {
   materials: MaterialItem[];
 }
 
-type ReportType = 'Harian' | 'Mingguan' | 'Bulanan' | 'Progress' | 'Termin' | 'Material' | 'Keuangan';
+type ReportType = 'Harian' | 'Mingguan' | 'Bulanan' | 'Progress' | 'Termin' | 'Material' | 'Keuangan' | 'RAB' | 'Kurva-S';
 
 export const ReportCenter: React.FC<ReportCenterProps> = ({
   project,
@@ -24,11 +25,13 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
   const [selectedReport, setSelectedReport] = useState<ReportType>('Progress');
 
   const reportTypes: { id: ReportType; label: string; desc: string }[] = [
+    { id: 'Kurva-S', label: 'Analisis Kurva-S', desc: 'Evaluasi jadwal S-Curve rencana vs realisasi & Schedule Variance' },
+    { id: 'Termin', label: 'Laporan Termin', desc: 'Breakdown tagihan termin 1-5 dan potongan retensi 5%' },
+    { id: 'RAB', label: 'Dokumen RAB', desc: 'Rencana Anggaran Biaya resmi 14 sektor & 40 item terverifikasi' },
+    { id: 'Progress', label: 'Laporan Progress', desc: 'Time Schedule lengkap dengan bobot & persentase' },
     { id: 'Harian', label: 'Laporan Harian', desc: 'Rincian kegiatan, cuaca, dan tenaga kerja harian' },
     { id: 'Mingguan', label: 'Laporan Mingguan', desc: 'Rekapitulasi fisik dan deviasi mingguan' },
     { id: 'Bulanan', label: 'Laporan Bulanan', desc: 'Laporan eksekutif bulanan untuk Direktur/Owner' },
-    { id: 'Progress', label: 'Laporan Progress', desc: 'Time Schedule lengkap dengan bobot & persentase' },
-    { id: 'Termin', label: 'Laporan Termin', desc: 'Breakdown tagihan termin 1-5 dan potongan retensi 5%' },
     { id: 'Material', label: 'Laporan Material', desc: 'Stok bahan konstruksi dan daftar pengiriman supplier' },
     { id: 'Keuangan', label: 'Laporan Keuangan', desc: 'Arus kas proyek, total retensi, dan sisa pembayaran' },
   ];
@@ -183,6 +186,25 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
+              {selectedReport === 'Kurva-S' &&
+                generateSCurveData(workItems)
+                  .filter((_, idx) => idx % 4 === 0 || idx === 28)
+                  .map((pt) => (
+                    <tr key={pt.weekLabel}>
+                      <td className="p-2.5 font-semibold">{pt.weekLabel} ({pt.date})</td>
+                      <td className="p-2.5 text-center">
+                        {pt.deviationPercent !== undefined
+                          ? pt.deviationPercent < 0
+                            ? `Deviasi ${pt.deviationPercent}%`
+                            : 'On Schedule'
+                          : 'Rencana'}
+                      </td>
+                      <td className="p-2.5 text-right font-bold text-orange-600">
+                        Target: {pt.targetCumulativePercent}% | Real: {pt.realizedCumulativePercent !== undefined ? `${pt.realizedCumulativePercent}%` : '-'}
+                      </td>
+                    </tr>
+                  ))}
+
               {selectedReport === 'Progress' &&
                 workItems.slice(0, 7).map((wi) => (
                   <tr key={wi.id}>
@@ -198,6 +220,15 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
                     <td className="p-2.5 font-semibold">{t.title}</td>
                     <td className="p-2.5 text-center">{t.status}</td>
                     <td className="p-2.5 text-right font-bold text-emerald-600">{formatIDR(t.netPayableValue)}</td>
+                  </tr>
+                ))}
+
+              {selectedReport === 'RAB' &&
+                OFFICIAL_RAB_DOCUMENT.sectors.slice(0, 8).map((s) => (
+                  <tr key={s.sectorNumber}>
+                    <td className="p-2.5 font-semibold">Sektor {s.sectorNumber}: {s.name}</td>
+                    <td className="p-2.5 text-center">{s.percentage.toFixed(2)}%</td>
+                    <td className="p-2.5 text-right font-bold text-orange-600">{formatIDR(s.budget)}</td>
                   </tr>
                 ))}
 

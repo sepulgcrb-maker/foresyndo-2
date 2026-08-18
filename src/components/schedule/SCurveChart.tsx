@@ -11,16 +11,25 @@ import {
   Legend,
   ReferenceLine,
 } from 'recharts';
-import { WorkItem } from '../../types';
+import { WorkItem, ProjectInfo } from '../../types';
+import { INITIAL_PROJECT_INFO } from '../../data/initialData';
 import { generateSCurveData, calculatePhysicalProgress, calculateTargetProgress, calculateDeviation } from '../../utils/calculations';
-import { LineChart, TrendingDown, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { generateSCurvePDF, generateExcelReport } from '../../utils/exportEngine';
+import { LineChart, AlertTriangle, CheckCircle2, FileText, FileSpreadsheet, Download, Info, ChevronRight, TrendingUp, Calendar } from 'lucide-react';
 
 interface SCurveChartProps {
   workItems: WorkItem[];
+  project?: ProjectInfo;
+  onAddAuditLog?: (action: string, detail: string) => void;
 }
 
-export const SCurveChart: React.FC<SCurveChartProps> = ({ workItems }) => {
+export const SCurveChart: React.FC<SCurveChartProps> = ({
+  workItems,
+  project = INITIAL_PROJECT_INFO,
+  onAddAuditLog,
+}) => {
   const [viewGranularity, setViewGranularity] = useState<'Weekly' | 'Monthly'>('Weekly');
+  const [activeTableTab, setActiveTableTab] = useState<'all' | 'delayed'>('all');
 
   const rawData = generateSCurveData(workItems);
 
@@ -44,11 +53,33 @@ export const SCurveChart: React.FC<SCurveChartProps> = ({ workItems }) => {
   const currentRealized = calculatePhysicalProgress(workItems);
   const currentTarget = calculateTargetProgress(workItems);
   const currentDev = calculateDeviation(currentRealized, currentTarget);
+  const spi = currentTarget > 0 ? (currentRealized / currentTarget).toFixed(2) : '1.00';
+
+  const handleDownloadPDF = () => {
+    generateSCurvePDF(project, workItems, viewGranularity);
+    if (onAddAuditLog) {
+      onAddAuditLog('Download PDF Analisis Kurva-S', `Mengunduh laporan analisis Kurva-S (${viewGranularity})`);
+    }
+  };
+
+  const handleDownloadExcel = () => {
+    generateExcelReport('Kurva-S', project, workItems, [], [], []);
+    if (onAddAuditLog) {
+      onAddAuditLog('Export Excel Kurva-S', 'Mengekspor data tabulasi Kurva-S ke Excel');
+    }
+  };
+
+  const filteredTableData = rawData.filter((pt) => {
+    if (activeTableTab === 'delayed') {
+      return pt.deviationPercent !== undefined && pt.deviationPercent < 0;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-4">
       {/* Header & Controls */}
-      <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500">
@@ -61,41 +92,62 @@ export const SCurveChart: React.FC<SCurveChartProps> = ({ workItems }) => {
           </p>
         </div>
 
-        {/* Granularity Toggle */}
-        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          {/* Granularity Toggle */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+            <button
+              onClick={() => setViewGranularity('Weekly')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewGranularity === 'Weekly'
+                  ? 'bg-orange-500 text-white shadow-md'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-white'
+              }`}
+            >
+              Mingguan
+            </button>
+            <button
+              onClick={() => setViewGranularity('Monthly')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewGranularity === 'Monthly'
+                  ? 'bg-orange-500 text-white shadow-md'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-white'
+              }`}
+            >
+              Bulanan
+            </button>
+          </div>
+
+          {/* Dedicated Download PDF Button */}
           <button
-            onClick={() => setViewGranularity('Weekly')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              viewGranularity === 'Weekly'
-                ? 'bg-orange-500 text-white shadow-md'
-                : 'text-slate-600 dark:text-slate-300 hover:text-white'
-            }`}
+            id="download-scurve-pdf-btn"
+            onClick={handleDownloadPDF}
+            className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-red-600/25 transition-all cursor-pointer"
+            title="Download Dokumen PDF Resmi Kurva-S Lengkap dengan Grafik Vektor dan Tabulasi Deviasi"
           >
-            Mingguan (Weekly)
+            <FileText className="w-4 h-4" />
+            <span>Download PDF Kurva-S</span>
           </button>
+
           <button
-            onClick={() => setViewGranularity('Monthly')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              viewGranularity === 'Monthly'
-                ? 'bg-orange-500 text-white shadow-md'
-                : 'text-slate-600 dark:text-slate-300 hover:text-white'
-            }`}
+            onClick={handleDownloadExcel}
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
           >
-            Bulanan (Monthly)
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Export Excel</span>
           </button>
         </div>
       </div>
 
       {/* Stats Callouts */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md">
-          <span className="text-xs font-semibold text-slate-400 block">Kumulatif Target Schedule</span>
+          <span className="text-xs font-semibold text-slate-400 block">Target Schedule Rencana</span>
           <span className="text-2xl font-black text-orange-500 mt-1 block">{currentTarget}%</span>
-          <span className="text-[11px] text-slate-500 mt-0.5 block">Sesuai rencana kerja mingguan</span>
+          <span className="text-[11px] text-slate-500 mt-0.5 block">Kumulatif Target s/d Minggu Ini</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md">
-          <span className="text-xs font-semibold text-slate-400 block">Kumulatif Realisasi Fisik</span>
+          <span className="text-xs font-semibold text-slate-400 block">Realisasi Fisik Lapangan</span>
           <span className="text-2xl font-black text-emerald-500 mt-1 block">{currentRealized}%</span>
           <span className="text-[11px] text-slate-500 mt-0.5 block">Total fisik terverifikasi di lapangan</span>
         </div>
@@ -108,7 +160,7 @@ export const SCurveChart: React.FC<SCurveChartProps> = ({ workItems }) => {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold block">Deviasi Progress Saat Ini</span>
+            <span className="text-xs font-semibold block">Deviasi Jadwal (Variance)</span>
             {currentDev < -5 ? (
               <AlertTriangle className="w-4 h-4 text-red-500" />
             ) : (
@@ -119,13 +171,47 @@ export const SCurveChart: React.FC<SCurveChartProps> = ({ workItems }) => {
             {currentDev > 0 ? `+${currentDev}%` : `${currentDev}%`}
           </span>
           <span className="text-[11px] opacity-80 mt-0.5 block">
-            {currentDev < -5 ? 'Peringatan: Keterlambatan >5%!' : 'Proyek Berjalan Lancar'}
+            {currentDev < -5 ? 'Peringatan: Keterlambatan >5%!' : 'Proyek Berjalan Sesuai Jadwal'}
           </span>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md">
+          <span className="text-xs font-semibold text-slate-400 block">Schedule Index (SPI)</span>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-2xl font-black text-slate-900 dark:text-white">{spi}</span>
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${Number(spi) < 1 ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+              {Number(spi) < 1 ? 'SPI < 1.0 (Behind)' : 'SPI ≥ 1.0 (On Track)'}
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-500 mt-0.5 block">Earned Value vs Planned Value</span>
         </div>
       </div>
 
       {/* Chart Card */}
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-orange-500" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              Grafik Kumulatif Kurva-S & Bar Deviasi Mingguan
+            </h3>
+          </div>
+          <div className="flex items-center gap-4 text-xs font-medium text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-orange-500 inline-block" />
+              <span>Target Rencana</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
+              <span>Realisasi Fisik</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded bg-red-500 inline-block" />
+              <span>Deviasi</span>
+            </div>
+          </div>
+        </div>
+
         <div className="h-96 w-full pt-4">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
@@ -177,6 +263,115 @@ export const SCurveChart: React.FC<SCurveChartProps> = ({ workItems }) => {
               />
             </ComposedChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Tabular Schedule Variance Summary */}
+      <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-orange-500" />
+            <div>
+              <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                Tabel Tabulasi Progres & Evaluasi Deviasi Berkala
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Rekapitulasi target vs realisasi yang diexport ke dalam dokumen PDF resmi
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold">
+              <button
+                onClick={() => setActiveTableTab('all')}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  activeTableTab === 'all'
+                    ? 'bg-slate-900 dark:bg-slate-700 text-white'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                Semua Periode
+              </button>
+              <button
+                onClick={() => setActiveTableTab('delayed')}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  activeTableTab === 'delayed'
+                    ? 'bg-red-600 text-white'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-red-500'
+                }`}
+              >
+                Periode Deviasi Negatif
+              </button>
+            </div>
+
+            <button
+              onClick={handleDownloadPDF}
+              className="px-3.5 py-1.5 rounded-xl bg-red-600/10 hover:bg-red-600 text-red-600 hover:text-white text-xs font-bold flex items-center gap-1.5 border border-red-600/30 transition-all cursor-pointer"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Cetak PDF</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold uppercase text-[10px]">
+              <tr>
+                <th className="p-3">Periode</th>
+                <th className="p-3">Tanggal Opname</th>
+                <th className="p-3 text-right">Target Kumulatif (%)</th>
+                <th className="p-3 text-right">Realisasi Fisik (%)</th>
+                <th className="p-3 text-right">Deviasi Varian (%)</th>
+                <th className="p-3 text-center">Status Kinerja</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+              {filteredTableData.slice(0, 15).map((pt) => {
+                const isDelayedPeriod = pt.deviationPercent !== undefined && pt.deviationPercent < 0;
+                return (
+                  <tr
+                    key={pt.weekLabel}
+                    className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                  >
+                    <td className="p-3 font-bold text-slate-900 dark:text-white">{pt.weekLabel}</td>
+                    <td className="p-3 text-slate-500 dark:text-slate-400">{pt.date}</td>
+                    <td className="p-3 text-right font-bold text-orange-600 dark:text-orange-400">
+                      {pt.targetCumulativePercent.toFixed(1)}%
+                    </td>
+                    <td className="p-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                      {pt.realizedCumulativePercent !== undefined ? `${pt.realizedCumulativePercent.toFixed(1)}%` : '-'}
+                    </td>
+                    <td className="p-3 text-right font-black">
+                      {pt.deviationPercent !== undefined ? (
+                        <span className={isDelayedPeriod ? 'text-red-500' : 'text-emerald-500'}>
+                          {pt.deviationPercent > 0 ? `+${pt.deviationPercent.toFixed(1)}%` : `${pt.deviationPercent.toFixed(1)}%`}
+                        </span>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td className="p-3 text-center">
+                      {pt.realizedCumulativePercent === undefined ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
+                          Rencana Kedepan
+                        </span>
+                      ) : isDelayedPeriod ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+                          Deviasi {pt.deviationPercent}%
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          Sesuai Jadwal
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
