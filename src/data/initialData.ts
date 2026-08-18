@@ -173,6 +173,13 @@ export const INITIAL_PROJECT_INFO: ProjectInfo = {
   logoUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?w=300&auto=format&fit=crop&q=80',
   contractNumber: 'PR-2026-FGI-004',
   contractor: 'PT Foresyndo Global Indonesia (Internal Construction Division)',
+  director: 'H. Bambang S., M.T.',
+  siteManager: 'Ir. Agus Pratama',
+  qcEngineer: 'Hendra Gunawan, ST',
+  financeAdmin: 'Siti Rahmawati, S.T.',
+  inspector: 'Tamu Pengawas',
+  estimator: 'Ir. Agus Pratama',
+  projectManager: 'Hendra Wijaya, ST',
 };
 
 export const INITIAL_WORK_ITEMS: WorkItem[] = [

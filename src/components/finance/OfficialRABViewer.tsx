@@ -22,12 +22,15 @@ import {
   Zap,
 } from 'lucide-react';
 
+import { PaymentTerm, ProjectInfo, UserRole, WorkItem } from '../../types';
+
 interface OfficialRABViewerProps {
   onClose?: () => void;
   onApplyProgress25?: () => void;
+  project?: ProjectInfo;
 }
 
-export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, onApplyProgress25 }) => {
+export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, onApplyProgress25, project }) => {
   const [rab, setRab] = useState(OFFICIAL_RAB_DOCUMENT);
   const [selectedSector, setSelectedSector] = useState<number | 'ALL'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,7 +44,7 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
   const handleDownloadPDF = () => {
     setIsGeneratingPDF(true);
     try {
-      generateOfficialRABPDF(rab);
+      generateOfficialRABPDF(rab, project);
     } catch (err) {
       console.error('Error exporting RAB PDF:', err);
     } finally {

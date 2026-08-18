@@ -56,8 +56,14 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const [targetEndDate, setTargetEndDate] = useState(project.targetEndDate);
   const [status, setStatus] = useState(project.status);
 
-  // User names state
-  const [names, setNames] = useState<Record<UserRole, string>>(userNameMap);
+  // Official names state
+  const [director, setDirector] = useState(project.director || userNameMap.Direktur || 'H. Bambang S., M.T.');
+  const [siteManager, setSiteManager] = useState(project.siteManager || userNameMap['Site Manager'] || 'Ir. Agus Pratama');
+  const [qcEngineer, setQcEngineer] = useState(project.qcEngineer || 'Hendra Gunawan, ST');
+  const [financeAdmin, setFinanceAdmin] = useState(project.financeAdmin || userNameMap.Admin || 'Siti Rahmawati, S.T.');
+  const [inspector, setInspector] = useState(project.inspector || userNameMap.Viewer || 'Tamu Pengawas');
+  const [estimator, setEstimator] = useState(project.estimator || 'Ir. Agus Pratama');
+  const [projectManager, setProjectManager] = useState(project.projectManager || 'Hendra Wijaya, ST');
 
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -77,18 +83,30 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       startDate: startDate || project.startDate,
       targetEndDate: targetEndDate || project.targetEndDate,
       status,
+      director: director.trim() || 'H. Bambang S., M.T.',
+      siteManager: siteManager.trim() || 'Ir. Agus Pratama',
+      qcEngineer: qcEngineer.trim() || 'Hendra Gunawan, ST',
+      financeAdmin: financeAdmin.trim() || 'Siti Rahmawati, S.T.',
+      inspector: inspector.trim() || 'Tamu Pengawas',
+      estimator: estimator.trim() || 'Ir. Agus Pratama',
+      projectManager: projectManager.trim() || 'Hendra Wijaya, ST',
     };
 
     onUpdateProject(updatedProject);
 
     if (onUpdateUserNameMap) {
-      onUpdateUserNameMap(names);
+      onUpdateUserNameMap({
+        Direktur: director.trim(),
+        'Site Manager': siteManager.trim(),
+        Admin: financeAdmin.trim(),
+        Viewer: inspector.trim(),
+      });
     }
 
     if (onAddAuditLog) {
       onAddAuditLog(
-        'Pengaturan Nama & Identitas Proyek',
-        `Perubahan Nama Proyek: "${updatedProject.name}", Pemilik: "${updatedProject.owner}", Kontraktor: "${updatedProject.contractor}"`
+        'Pengaturan Nama Pejabat & Identitas Proyek',
+        `Perubahan Pejabat: Direktur (${updatedProject.director}), SM (${updatedProject.siteManager}), QC (${updatedProject.qcEngineer}), Admin (${updatedProject.financeAdmin}), QS (${updatedProject.estimator}), PM (${updatedProject.projectManager})`
       );
     }
 
@@ -106,12 +124,13 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     setLocation('Jatitujuh, Majalengka, Jawa Barat');
     setContractNumber('PR-2026-FGI-004');
     setContractValue(14461760981);
-    setNames({
-      Direktur: 'H. Bambang S., M.T.',
-      'Site Manager': 'Ir. Agus Pratama',
-      Admin: 'Siti Rahmawati, S.T.',
-      Viewer: 'Tamu Pengawas',
-    });
+    setDirector('H. Bambang S., M.T.');
+    setSiteManager('Ir. Agus Pratama');
+    setQcEngineer('Hendra Gunawan, ST');
+    setFinanceAdmin('Siti Rahmawati, S.T.');
+    setInspector('Tamu Pengawas');
+    setEstimator('Ir. Agus Pratama');
+    setProjectManager('Hendra Wijaya, ST');
   };
 
   return (
@@ -255,60 +274,134 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             <div className="space-y-4">
               <div className="p-3 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-xs text-orange-600 dark:text-orange-400 font-semibold flex items-center gap-2">
                 <Sparkles className="w-4 h-4 shrink-0" />
-                <span>Atur Nama Personel Penanggung Jawab untuk dimasukkan ke Lembar Tanda Tangan Digital BAST &amp; Audit Log.</span>
+                <span>Atur Nama Personel Penanggung Jawab Proyek. Setiap perubahan nama di sini akan otomatis diterapkan pada seluruh file export (PDF Kurva-S, PDF Termin, PDF RAB Resmi, PDF Laporan &amp; Rekapitulasi Excel).</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Nama Direktur Utama (Direktur)
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                    <span>Nama Direktur Utama (Direktur)</span>
+                    <span className="text-[10px] text-orange-500 font-normal">Pengesahan / Approval</span>
                   </label>
                   <input
                     type="text"
-                    value={names.Direktur}
-                    onChange={(e) => setNames({ ...names, Direktur: e.target.value })}
+                    value={director}
+                    onChange={(e) => setDirector(e.target.value)}
                     required
+                    placeholder="Contoh: H. Bambang S., M.T."
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
                   />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Muncul pada TTD Direktur di Kurva-S, BAST, Termin, RAB, Laporan &amp; Excel.
+                  </span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Nama Site Manager / Kepala Lapangan
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                    <span>Nama Site Manager / Kepala Lapangan</span>
+                    <span className="text-[10px] text-blue-500 font-normal">Pembuat / Pelaksana</span>
                   </label>
                   <input
                     type="text"
-                    value={names['Site Manager']}
-                    onChange={(e) => setNames({ ...names, 'Site Manager': e.target.value })}
+                    value={siteManager}
+                    onChange={(e) => setSiteManager(e.target.value)}
                     required
+                    placeholder="Contoh: Ir. Agus Pratama"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
                   />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Muncul pada TTD Site Manager di Kurva-S, BAST, Termin &amp; Laporan Harian/Mingguan.
+                  </span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Nama Admin Logistik &amp; Keuangan
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                    <span>Lead QC Engineer / Project Engineer</span>
+                    <span className="text-[10px] text-purple-500 font-normal">Pemeriksa Mutu</span>
                   </label>
                   <input
                     type="text"
-                    value={names.Admin}
-                    onChange={(e) => setNames({ ...names, Admin: e.target.value })}
+                    value={qcEngineer}
+                    onChange={(e) => setQcEngineer(e.target.value)}
                     required
+                    placeholder="Contoh: Hendra Gunawan, ST"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
                   />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Muncul pada kolom "Diperiksa Oleh" di Analisis Kurva-S &amp; Excel Summary.
+                  </span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Nama Tim Viewer / Pengawas Eksternal
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                    <span>Nama Admin Logistik &amp; Keuangan</span>
+                    <span className="text-[10px] text-emerald-500 font-normal">Verifikasi Finansial</span>
                   </label>
                   <input
                     type="text"
-                    value={names.Viewer}
-                    onChange={(e) => setNames({ ...names, Viewer: e.target.value })}
+                    value={financeAdmin}
+                    onChange={(e) => setFinanceAdmin(e.target.value)}
                     required
+                    placeholder="Contoh: Siti Rahmawati, S.T."
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
                   />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Muncul pada verifikasi voucher termin &amp; laporan arus kas material.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                    <span>Lead Quantity Surveyor (QS) / Estimator RAB</span>
+                    <span className="text-[10px] text-indigo-500 font-normal">Perencana Biaya</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={estimator}
+                    onChange={(e) => setEstimator(e.target.value)}
+                    required
+                    placeholder="Contoh: Ir. Agus Pratama"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Muncul pada "Dibuat &amp; Dihitung" di Dokumen Resmi RAB &amp; Excel.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                    <span>Project Manager Lapangan</span>
+                    <span className="text-[10px] text-amber-500 font-normal">Verifikasi Teknis</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={projectManager}
+                    onChange={(e) => setProjectManager(e.target.value)}
+                    required
+                    placeholder="Contoh: Hendra Wijaya, ST"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Muncul pada "Diperiksa Oleh" di Dokumen RAB &amp; Excel.
+                  </span>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                    <span>Tim Viewer / Pengawas Eksternal / Konsultan MK</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Auditor Tamu</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={inspector}
+                    onChange={(e) => setInspector(e.target.value)}
+                    required
+                    placeholder="Contoh: Tamu Pengawas"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Profil nama untuk akses pengawas eksternal / konsultasi publik.
+                  </span>
                 </div>
               </div>
             </div>

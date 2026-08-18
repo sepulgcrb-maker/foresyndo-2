@@ -12,6 +12,13 @@ export interface ProjectInfo {
   logoUrl?: string;
   contractNumber: string;
   contractor: string;
+  director?: string; // Direktur Utama
+  siteManager?: string; // Site Manager / Kepala Proyek
+  qcEngineer?: string; // Lead QC Engineer / Pengawas Mutu
+  financeAdmin?: string; // Admin Logistik & Keuangan
+  inspector?: string; // Konsultan Pengawas / Tamu Pengawas
+  estimator?: string; // Lead Quantity Surveyor / Estimator RAB
+  projectManager?: string; // Project Manager Lapangan
 }
 
 export type CategoryPekerjaan =

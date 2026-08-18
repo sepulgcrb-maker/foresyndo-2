@@ -441,6 +441,7 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
           <div className="w-full max-w-6xl my-8">
             <OfficialRABViewer
               onClose={() => setShowRABModal(false)}
+              project={project}
               onApplyProgress25={() => {
                 if (onApplyProgress25) {
                   onApplyProgress25();

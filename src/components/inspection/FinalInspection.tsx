@@ -82,20 +82,38 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
   // BAST Handover Signatures & Document State
   const [bastData, setBastData] = useState<BASTDocumentData>(() => {
     const saved = localStorage.getItem('FORESYNDO_V3_BAST_DATA');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        ...parsed,
+        siteManagerName: project.siteManager || parsed.siteManagerName || 'Ir. Agus Pratama',
+        directorName: project.director || parsed.directorName || 'H. Bambang S., M.T.',
+      };
+    }
 
     return {
       bastNumber: `BAST-1/FGI/${project.contractNumber}/2027`,
       handoverDate: new Date().toISOString().split('T')[0],
-      siteManagerName: 'Ir. Agus Pratama',
+      siteManagerName: project.siteManager || 'Ir. Agus Pratama',
       siteManagerSignedAt: '',
       siteManagerSignatureData: '',
-      directorName: 'H. Bambang S.',
+      directorName: project.director || 'H. Bambang S., M.T.',
       directorSignedAt: '',
       directorSignatureData: '',
       isCompleted: project.status === 'Selesai',
     };
   });
+
+  // Keep BAST official names in sync with project settings updates
+  useEffect(() => {
+    if (project.siteManager || project.director) {
+      setBastData((prev) => ({
+        ...prev,
+        siteManagerName: project.siteManager || prev.siteManagerName || 'Ir. Agus Pratama',
+        directorName: project.director || prev.directorName || 'H. Bambang S., M.T.',
+      }));
+    }
+  }, [project.siteManager, project.director]);
 
   // Canvas Refs for Drawing Signatures
   const smCanvasRef = useRef<HTMLCanvasElement | null>(null);

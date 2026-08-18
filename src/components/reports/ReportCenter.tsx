@@ -260,15 +260,19 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
           <div className="text-center">
             <p>Dibuat Oleh,</p>
             <p className="text-slate-500 font-normal">Site Manager Proyek</p>
-            <div className="h-16" />
-            <p>( Ir. Agus Pratama )</p>
+            <div className="h-16 flex items-center justify-center text-slate-400 font-normal italic text-[11px]">
+              (Tanda Tangan Digital Tersimpan)
+            </div>
+            <p>( {project.siteManager || 'Ir. Agus Pratama'} )</p>
           </div>
 
           <div className="text-center">
             <p>Disetujui Oleh,</p>
             <p className="text-slate-500 font-normal">Direktur PT. Foresyndo</p>
-            <div className="h-16" />
-            <p>( H. Bambang S. )</p>
+            <div className="h-16 flex items-center justify-center text-slate-400 font-normal italic text-[11px]">
+              (Tanda Tangan Digital Tersimpan)
+            </div>
+            <p>( {project.director || 'H. Bambang S., M.T.'} )</p>
           </div>
         </div>
       </div>
