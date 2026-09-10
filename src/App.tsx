@@ -18,6 +18,8 @@ import {
   NotificationItem,
   UserRole,
   CalendarEvent,
+  StakeholderRoleProfile,
+  StakeholderRoleKey,
 } from './types';
 import {
   INITIAL_PROJECT_INFO,
@@ -32,9 +34,12 @@ import {
   INITIAL_AUDIT_LOGS,
   INITIAL_NOTIFICATIONS,
   INITIAL_CALENDAR_EVENTS,
+  INITIAL_STAKEHOLDER_PROFILES,
+  ALL_PROJECT_TABS,
 } from './data/initialData';
 import { Header } from './components/layout/Header';
 import { Sidebar, ActiveTab } from './components/layout/Sidebar';
+import { AccessRestrictedNotice } from './components/common/AccessRestrictedNotice';
 import { ExecutiveDashboard } from './components/dashboard/ExecutiveDashboard';
 import { TimeScheduleTable } from './components/schedule/TimeScheduleTable';
 import { ProjectCalendar } from './components/calendar/ProjectCalendar';
@@ -51,25 +56,72 @@ import { ReportCenter } from './components/reports/ReportCenter';
 import { SupabaseModal } from './components/common/SupabaseModal';
 import { NotificationDrawer } from './components/common/NotificationDrawer';
 import { ProjectSettingsModal } from './components/common/ProjectSettingsModal';
+import { RoleManagementModal } from './components/common/RoleManagementModal';
 import { generatePDFReport } from './utils/exportEngine';
 import { calculatePhysicalProgress, calculateTargetProgress, calculateDeviation } from './utils/calculations';
 
 export default function App() {
   // Navigation & Role State
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [currentRole, setCurrentRole] = useState<UserRole>('Direktur');
+  const [currentRole, setCurrentRole] = useState<UserRole>('Owner');
   const [darkMode, setDarkMode] = useState(true);
 
   // Modals & Drawers
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [roleModalTab, setRoleModalTab] = useState<'profiles' | 'permissions' | 'matrix' | 'workflow'>('profiles');
+
+  // Stakeholder Profiles (Owner, Konsultan, Kontraktor, Viewer)
+  const [stakeholderProfiles, setStakeholderProfiles] = useState<Record<StakeholderRoleKey, StakeholderRoleProfile>>(() => {
+    const saved = localStorage.getItem('FORESYNDO_V3_STAKEHOLDERS');
+    if (!saved) return INITIAL_STAKEHOLDER_PROFILES;
+    try {
+      const parsed = JSON.parse(saved);
+      const merged = { ...INITIAL_STAKEHOLDER_PROFILES, ...parsed };
+      (['Owner', 'Konsultan', 'Kontraktor', 'Viewer'] as const).forEach((r) => {
+        if (merged[r]) {
+          if (!merged[r].permissions || !merged[r].permissions.allowedTabs) {
+            merged[r].permissions = {
+              ...(merged[r].permissions || INITIAL_STAKEHOLDER_PROFILES[r].permissions),
+              allowedTabs: [...ALL_PROJECT_TABS],
+            };
+          }
+        }
+      });
+      return merged;
+    } catch {
+      return INITIAL_STAKEHOLDER_PROFILES;
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('FORESYNDO_V3_STAKEHOLDERS', JSON.stringify(stakeholderProfiles));
+  }, [stakeholderProfiles]);
+
+  // Determine current effective stakeholder permissions & allowed tabs
+  const getEffectiveRoleKey = (role: UserRole): StakeholderRoleKey => {
+    if (role === 'Owner' || role === 'Direktur') return 'Owner';
+    if (role === 'Konsultan') return 'Konsultan';
+    if (role === 'Kontraktor' || role === 'Site Manager' || role === 'Admin') return 'Kontraktor';
+    return 'Viewer';
+  };
+
+  const effectiveRoleKey = getEffectiveRoleKey(currentRole);
+  const currentProfile = stakeholderProfiles[effectiveRoleKey] || INITIAL_STAKEHOLDER_PROFILES[effectiveRoleKey];
+  const currentPermissions = currentProfile?.permissions || INITIAL_STAKEHOLDER_PROFILES.Owner.permissions;
+  const allowedTabs = currentPermissions?.allowedTabs || ALL_PROJECT_TABS;
+  const isCurrentTabRestricted = !allowedTabs.includes(activeTab);
 
   const [userNameMap, setUserNameMap] = useState<Record<UserRole, string>>(() => {
     const saved = localStorage.getItem('FORESYNDO_V3_USER_NAMES');
     return saved
       ? JSON.parse(saved)
       : {
+          Owner: 'H. Bambang S., M.T.',
+          Konsultan: 'Ir. Hendra Kusuma, M.Sc.',
+          Kontraktor: 'Ir. Agus Pratama',
           Direktur: 'H. Bambang S., M.T.',
           'Site Manager': 'Ir. Agus Pratama',
           Admin: 'Siti Rahmawati, S.T.',
@@ -484,6 +536,10 @@ export default function App() {
         onQuickExport={() => generatePDFReport('Progress', project, workItems, paymentTerms, dailyLogs, materials)}
         onResetProject={handleResetProject}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+        onOpenRoleModal={(subTab) => {
+          setRoleModalTab(subTab || 'profiles');
+          setIsRoleModalOpen(true);
+        }}
         activeUserName={userNameMap[currentRole]}
       />
 
@@ -495,132 +551,158 @@ export default function App() {
           onSelectTab={setActiveTab}
           hasDeviasiWarning={deviation < -5}
           onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+          onOpenRoleModal={() => {
+            setRoleModalTab('profiles');
+            setIsRoleModalOpen(true);
+          }}
           activeUserName={userNameMap[currentRole]}
           projectName={project.name}
+          allowedTabs={allowedTabs}
         />
 
         {/* Dynamic Tab Content View */}
         <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
-          {activeTab === 'dashboard' && (
-            <ExecutiveDashboard
-              project={project}
-              workItems={workItems}
-              paymentTerms={paymentTerms}
-              auditLogs={auditLogs}
-              notifications={notifications}
+          {isCurrentTabRestricted ? (
+            <AccessRestrictedNotice
+              tab={activeTab}
               currentRole={currentRole}
-              onNavigateTab={setActiveTab}
-              onAddNotification={handleAddNotification}
-              onAddAuditLog={addAuditLog}
+              ownerName={stakeholderProfiles.Owner?.personName}
+              onGoBackToDashboard={() => setActiveTab('dashboard')}
+              onSwitchToOwner={() => {
+                setCurrentRole('Owner');
+                setRoleModalTab('permissions');
+                setIsRoleModalOpen(true);
+              }}
+              onOpenRoleModal={() => {
+                setRoleModalTab('permissions');
+                setIsRoleModalOpen(true);
+              }}
             />
-          )}
+          ) : (
+            <>
+              {activeTab === 'dashboard' && (
+                <ExecutiveDashboard
+                  project={project}
+                  workItems={workItems}
+                  paymentTerms={paymentTerms}
+                  auditLogs={auditLogs}
+                  notifications={notifications}
+                  currentRole={currentRole}
+                  onNavigateTab={setActiveTab}
+                  onAddNotification={handleAddNotification}
+                  onAddAuditLog={addAuditLog}
+                />
+              )}
 
-          {activeTab === 'schedule' && (
-            <TimeScheduleTable
-              workItems={workItems}
-              userRole={currentRole}
-              onUpdateWorkItem={handleUpdateWorkItem}
-              onAddWorkItem={handleAddWorkItem}
-              onDeleteWorkItem={handleDeleteWorkItem}
-              onReorderWorkItems={handleReorderWorkItems}
-            />
-          )}
+              {activeTab === 'schedule' && (
+                <TimeScheduleTable
+                  workItems={workItems}
+                  userRole={currentRole}
+                  onUpdateWorkItem={handleUpdateWorkItem}
+                  onAddWorkItem={handleAddWorkItem}
+                  onDeleteWorkItem={handleDeleteWorkItem}
+                  onReorderWorkItems={handleReorderWorkItems}
+                />
+              )}
 
-          {activeTab === 'calendar' && (
-            <ProjectCalendar
-              project={project}
-              workItems={workItems}
-              paymentTerms={paymentTerms}
-              materials={materials}
-              calendarEvents={calendarEvents}
-              userRole={currentRole}
-              onAddCalendarEvent={handleAddCalendarEvent}
-              onDeleteCalendarEvent={handleDeleteCalendarEvent}
-              onUpdateCalendarEvent={handleUpdateCalendarEvent}
-            />
-          )}
+              {activeTab === 'calendar' && (
+                <ProjectCalendar
+                  project={project}
+                  workItems={workItems}
+                  paymentTerms={paymentTerms}
+                  materials={materials}
+                  calendarEvents={calendarEvents}
+                  userRole={currentRole}
+                  onAddCalendarEvent={handleAddCalendarEvent}
+                  onDeleteCalendarEvent={handleDeleteCalendarEvent}
+                  onUpdateCalendarEvent={handleUpdateCalendarEvent}
+                />
+              )}
 
-          {activeTab === 'scurve' && (
-            <SCurveChart
-              workItems={workItems}
-              project={project}
-              onAddAuditLog={addAuditLog}
-            />
-          )}
+              {activeTab === 'scurve' && (
+                <SCurveChart
+                  workItems={workItems}
+                  project={project}
+                  onAddAuditLog={addAuditLog}
+                />
+              )}
 
-          {activeTab === 'gantt' && (
-            <GanttChart workItems={workItems} onUpdateWorkItem={handleUpdateWorkItem} />
-          )}
+              {activeTab === 'gantt' && (
+                <GanttChart workItems={workItems} onUpdateWorkItem={handleUpdateWorkItem} />
+              )}
 
-          {activeTab === 'daily' && (
-            <DailyMonitoring
-              dailyLogs={dailyLogs}
-              userRole={currentRole}
-              onAddDailyLog={handleAddDailyLog}
-            />
-          )}
+              {activeTab === 'daily' && (
+                <DailyMonitoring
+                  dailyLogs={dailyLogs}
+                  userRole={currentRole}
+                  onAddDailyLog={handleAddDailyLog}
+                />
+              )}
 
-          {activeTab === 'photos' && (
-            <PhotoGallery photos={photos} userRole={currentRole} onAddPhoto={handleAddPhoto} />
-          )}
+              {activeTab === 'photos' && (
+                <PhotoGallery photos={photos} userRole={currentRole} onAddPhoto={handleAddPhoto} />
+              )}
 
-          {activeTab === 'termin' && (
-            <TerminPayments
-              project={project}
-              paymentTerms={paymentTerms}
-              workItems={workItems}
-              userRole={currentRole}
-              onUpdateTermStatus={handleUpdateTermStatus}
-              onApplyProgress25={handleApplyProgress25Percent}
-            />
-          )}
+              {activeTab === 'termin' && (
+                <TerminPayments
+                  project={project}
+                  paymentTerms={paymentTerms}
+                  workItems={workItems}
+                  userRole={currentRole}
+                  permissions={currentPermissions}
+                  onUpdateTermStatus={handleUpdateTermStatus}
+                  onApplyProgress25={handleApplyProgress25Percent}
+                />
+              )}
 
-          {activeTab === 'materials' && (
-            <MaterialMonitoring
-              materials={materials}
-              workItems={workItems}
-              userRole={currentRole}
-              onAddMaterial={handleAddMaterial}
-              onUpdateMaterial={handleUpdateMaterial}
-              onAddAuditLog={addAuditLog}
-            />
-          )}
+              {activeTab === 'materials' && (
+                <MaterialMonitoring
+                  materials={materials}
+                  workItems={workItems}
+                  userRole={currentRole}
+                  onAddMaterial={handleAddMaterial}
+                  onUpdateMaterial={handleUpdateMaterial}
+                  onAddAuditLog={addAuditLog}
+                />
+              )}
 
-          {activeTab === 'workforce' && (
-            <WorkforceMonitoring
-              workers={workers}
-              workItems={workItems}
-              allocations={allocations}
-              userRole={currentRole}
-              onAddWorker={handleAddWorker}
-              onAddAllocation={handleAddAllocation}
-              onUpdateAllocation={handleUpdateAllocation}
-              onDeleteAllocation={handleDeleteAllocation}
-            />
-          )}
+              {activeTab === 'workforce' && (
+                <WorkforceMonitoring
+                  workers={workers}
+                  workItems={workItems}
+                  allocations={allocations}
+                  userRole={currentRole}
+                  onAddWorker={handleAddWorker}
+                  onAddAllocation={handleAddAllocation}
+                  onUpdateAllocation={handleUpdateAllocation}
+                  onDeleteAllocation={handleDeleteAllocation}
+                />
+              )}
 
-          {activeTab === 'equipment' && (
-            <EquipmentMonitoring equipments={equipments} userRole={currentRole} onAddEquipment={handleAddEquipment} />
-          )}
+              {activeTab === 'equipment' && (
+                <EquipmentMonitoring equipments={equipments} userRole={currentRole} onAddEquipment={handleAddEquipment} />
+              )}
 
-          {activeTab === 'inspection' && (
-            <FinalInspection
-              project={project}
-              workItems={workItems}
-              userRole={currentRole}
-              onUpdateProjectStatus={handleUpdateProjectStatus}
-              onAddAuditLog={addAuditLog}
-            />
-          )}
+              {activeTab === 'inspection' && (
+                <FinalInspection
+                  project={project}
+                  workItems={workItems}
+                  userRole={currentRole}
+                  onUpdateProjectStatus={handleUpdateProjectStatus}
+                  onAddAuditLog={addAuditLog}
+                />
+              )}
 
-          {activeTab === 'reports' && (
-            <ReportCenter
-              project={project}
-              workItems={workItems}
-              paymentTerms={paymentTerms}
-              dailyLogs={dailyLogs}
-              materials={materials}
-            />
+              {activeTab === 'reports' && (
+                <ReportCenter
+                  project={project}
+                  workItems={workItems}
+                  paymentTerms={paymentTerms}
+                  dailyLogs={dailyLogs}
+                  materials={materials}
+                />
+              )}
+            </>
           )}
         </main>
       </div>
@@ -643,6 +725,36 @@ export default function App() {
         currentRole={currentRole}
         userNameMap={userNameMap}
         onUpdateUserNameMap={setUserNameMap}
+        onAddAuditLog={addAuditLog}
+      />
+
+      <RoleManagementModal
+        isOpen={isRoleModalOpen}
+        onClose={() => setIsRoleModalOpen(false)}
+        currentRole={currentRole}
+        onRoleChange={setCurrentRole}
+        initialSubTab={roleModalTab}
+        profiles={stakeholderProfiles}
+        onUpdateProfiles={(newProfiles) => {
+          setStakeholderProfiles(newProfiles);
+          setUserNameMap((prev) => ({
+            ...prev,
+            Owner: newProfiles.Owner?.personName || prev.Owner,
+            Konsultan: newProfiles.Konsultan?.personName || prev.Konsultan,
+            Kontraktor: newProfiles.Kontraktor?.personName || prev.Kontraktor,
+            Direktur: newProfiles.Owner?.personName || prev.Direktur,
+            'Site Manager': newProfiles.Kontraktor?.personName || prev['Site Manager'],
+            Viewer: newProfiles.Viewer?.personName || prev.Viewer,
+          }));
+        }}
+        project={project}
+        onUpdateProjectSignatories={(signatories) => {
+          setProject((prev) => {
+            const updated = { ...prev, ...signatories };
+            localStorage.setItem('FORESYNDO_V3_PROJECT_INFO', JSON.stringify(updated));
+            return updated;
+          });
+        }}
         onAddAuditLog={addAuditLog}
       />
     </div>

@@ -15,30 +15,22 @@ import {
   ShieldCheck,
   Settings,
   Calendar,
+  UserCheck,
+  Lock,
 } from 'lucide-react';
+import { ActiveTab } from '../../types';
 
-export type ActiveTab =
-  | 'dashboard'
-  | 'schedule'
-  | 'calendar'
-  | 'scurve'
-  | 'gantt'
-  | 'daily'
-  | 'photos'
-  | 'termin'
-  | 'materials'
-  | 'workforce'
-  | 'equipment'
-  | 'reports'
-  | 'inspection';
+export type { ActiveTab };
 
 interface SidebarProps {
   activeTab: ActiveTab;
   onSelectTab: (tab: ActiveTab) => void;
   hasDeviasiWarning?: boolean;
   onOpenSettingsModal?: () => void;
+  onOpenRoleModal?: () => void;
   activeUserName?: string;
   projectName?: string;
+  allowedTabs?: ActiveTab[];
 }
 
 interface NavItem {
@@ -53,8 +45,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   hasDeviasiWarning = false,
   onOpenSettingsModal,
+  onOpenRoleModal,
   activeUserName = 'Site Manager',
   projectName = 'FORESYNDO 2',
+  allowedTabs,
 }) => {
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard Utama', icon: LayoutDashboard },
@@ -94,20 +88,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+            const isRestricted = allowedTabs && !allowedTabs.includes(item.id);
 
             return (
               <button
                 key={item.id}
                 onClick={() => onSelectTab(item.id as ActiveTab)}
+                title={isRestricted ? `${item.label} (Akses dibatasi oleh Owner)` : item.label}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                   isActive
                     ? 'bg-orange-500 text-white font-bold shadow-md shadow-orange-500/20'
+                    : isRestricted
+                    ? 'text-slate-500 hover:text-slate-400 hover:bg-slate-800/30 opacity-70'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                <span>{item.label}</span>
-                {item.hasAlert && !isActive && (
+                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : isRestricted ? 'text-slate-500' : 'text-slate-400'}`} />
+                <span className="truncate">{item.label}</span>
+                {isRestricted && (
+                  <Lock className="ml-auto w-3 h-3 text-amber-400/80 shrink-0" />
+                )}
+                {item.hasAlert && !isActive && !isRestricted && (
                   <span className="ml-auto w-2 h-2 rounded-full bg-red-500 animate-ping" />
                 )}
                 {item.hasAlert && isActive && (
@@ -131,15 +132,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <p className="text-[10px] text-slate-400 truncate">{projectName}</p>
             </div>
           </div>
-          {onOpenSettingsModal && (
-            <button
-              onClick={onOpenSettingsModal}
-              className="p-1.5 rounded-lg bg-slate-700/60 hover:bg-orange-500 hover:text-white text-slate-300 transition-all shrink-0"
-              title="Pengaturan Nama & Identitas Proyek"
-            >
-              <Settings className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            {onOpenRoleModal && (
+              <button
+                onClick={onOpenRoleModal}
+                className="p-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500 hover:text-white text-indigo-300 transition-all cursor-pointer"
+                title="Manajemen Role Tiga Pihak (Owner, Konsultan, Kontraktor)"
+              >
+                <UserCheck className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {onOpenSettingsModal && (
+              <button
+                onClick={onOpenSettingsModal}
+                className="p-1.5 rounded-lg bg-slate-700/60 hover:bg-orange-500 hover:text-white text-slate-300 transition-all cursor-pointer"
+                title="Pengaturan Nama & Identitas Proyek"
+              >
+                <Settings className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </nav>

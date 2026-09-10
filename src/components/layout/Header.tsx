@@ -12,6 +12,9 @@ import {
   RotateCcw,
   Settings,
   Pencil,
+  Sliders,
+  ShieldCheck,
+  KeyRound,
 } from 'lucide-react';
 import { ProjectInfo, UserRole, NotificationItem } from '../../types';
 import { RoleBadge } from '../common/RoleBadge';
@@ -29,6 +32,7 @@ interface HeaderProps {
   onQuickExport: () => void;
   onResetProject?: () => void;
   onOpenSettingsModal?: () => void;
+  onOpenRoleModal?: (subTab?: 'profiles' | 'permissions' | 'matrix' | 'workflow') => void;
   activeUserName?: string;
 }
 
@@ -44,12 +48,14 @@ export const Header: React.FC<HeaderProps> = ({
   onQuickExport,
   onResetProject,
   onOpenSettingsModal,
+  onOpenRoleModal,
   activeUserName,
 }) => {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const connected = isSupabaseConnected();
 
-  const roles: UserRole[] = ['Direktur', 'Site Manager', 'Admin', 'Viewer'];
+  const primaryRoles: UserRole[] = ['Owner', 'Konsultan', 'Kontraktor'];
+  const otherRoles: UserRole[] = ['Admin', 'Viewer'];
 
   return (
     <header className="sticky top-0 z-40 w-full bg-[#0F172A] border-b border-slate-800 text-white shadow-sm">
@@ -97,13 +103,26 @@ export const Header: React.FC<HeaderProps> = ({
           {onOpenSettingsModal && (
             <button
               onClick={onOpenSettingsModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/40 text-xs font-bold transition-all shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/40 text-xs font-bold transition-all shadow-sm cursor-pointer"
               title="Pengaturan Nama & Identitas Proyek"
             >
               <Settings className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Ubah Nama</span>
             </button>
           )}
+
+          {/* Role Management 3 Pihak Button */}
+          {onOpenRoleModal && (
+            <button
+              onClick={onOpenRoleModal}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 text-xs font-bold transition-all shadow-sm cursor-pointer"
+              title="Kelola Role & Wewenang Tiga Pihak (Owner, Konsultan, Kontraktor)"
+            >
+              <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden sm:inline">Role 3 Pihak</span>
+            </button>
+          )}
+
           {/* Supabase Status Pill */}
           <button
             onClick={onOpenSupabaseModal}
@@ -135,20 +154,20 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Role Switcher Dropdown */}
           <div className="relative group">
-            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 hover:border-slate-600 transition-all text-xs font-medium">
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 hover:border-slate-600 transition-all text-xs font-medium cursor-pointer">
               <UserCheck className="w-3.5 h-3.5 text-orange-400" />
               <RoleBadge role={currentRole} showIcon={false} />
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
-            <div className="absolute right-0 mt-2 w-52 py-2 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all z-50">
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Simulasi Hak Akses Role
+            <div className="absolute right-0 mt-2 w-64 py-2 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all z-50">
+              <div className="px-3 py-1.5 text-[10px] font-bold text-orange-400 uppercase tracking-wider">
+                Tiga Pihak Proyek (Utama)
               </div>
-              {roles.map((r) => (
+              {primaryRoles.map((r) => (
                 <button
                   key={r}
                   onClick={() => onRoleChange(r)}
-                  className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800 transition-colors ${
+                  className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800 transition-colors cursor-pointer ${
                     currentRole === r ? 'text-orange-400 font-bold bg-slate-800/50' : 'text-slate-300'
                   }`}
                 >
@@ -156,6 +175,42 @@ export const Header: React.FC<HeaderProps> = ({
                   {currentRole === r && <span className="text-[10px] text-orange-400 font-bold">&bull; Aktif</span>}
                 </button>
               ))}
+
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1 border-t border-slate-800 pt-2">
+                Simulasi Lainnya
+              </div>
+              {otherRoles.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => onRoleChange(r)}
+                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between hover:bg-slate-800 transition-colors cursor-pointer ${
+                    currentRole === r ? 'text-orange-400 font-bold bg-slate-800/50' : 'text-slate-400'
+                  }`}
+                >
+                  <RoleBadge role={r} />
+                  {currentRole === r && <span className="text-[10px] text-orange-400 font-bold">&bull; Aktif</span>}
+                </button>
+              ))}
+
+              {onOpenRoleModal && (
+                <div className="px-2 pt-2 mt-1 border-t border-slate-800 space-y-1">
+                  <button
+                    onClick={() => onOpenRoleModal('permissions')}
+                    className="w-full text-left px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Atur Hak Akses Role (Owner)</span>
+                  </button>
+
+                  <button
+                    onClick={() => onOpenRoleModal('profiles')}
+                    className="w-full text-left px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Kelola Profil & RACI</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { UserRole } from '../../types';
-import { ShieldCheck, HardHat, FileText, Eye } from 'lucide-react';
+import { ShieldCheck, HardHat, FileText, Eye, Compass, Award, UserCheck } from 'lucide-react';
 
 interface RoleBadgeProps {
   role: UserRole;
@@ -10,17 +10,35 @@ interface RoleBadgeProps {
 export const RoleBadge: React.FC<RoleBadgeProps> = ({ role, showIcon = true }) => {
   const getBadgeStyle = () => {
     switch (role) {
+      case 'Owner':
+        return {
+          bg: 'bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30',
+          icon: Award,
+          label: 'Owner / Pemberi Tugas',
+        };
+      case 'Konsultan':
+        return {
+          bg: 'bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/30',
+          icon: Compass,
+          label: 'Konsultan Pengawas (MK)',
+        };
+      case 'Kontraktor':
+        return {
+          bg: 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+          icon: HardHat,
+          label: 'Kontraktor Pelaksana',
+        };
       case 'Direktur':
         return {
           bg: 'bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30',
           icon: ShieldCheck,
-          label: 'Direktur (Full Access)',
+          label: 'Direktur (Owner)',
         };
       case 'Site Manager':
         return {
           bg: 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
           icon: HardHat,
-          label: 'Site Manager',
+          label: 'Site Manager (Kontraktor)',
         };
       case 'Admin':
         return {

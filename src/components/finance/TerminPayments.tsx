@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PaymentTerm, ProjectInfo, UserRole, WorkItem } from '../../types';
+import { PaymentTerm, ProjectInfo, UserRole, WorkItem, RolePermissions } from '../../types';
 import {
   CreditCard,
   DollarSign,
@@ -24,6 +24,7 @@ interface TerminPaymentsProps {
   paymentTerms: PaymentTerm[];
   workItems: WorkItem[];
   userRole: UserRole;
+  permissions?: RolePermissions;
   onUpdateTermStatus: (
     termNumber: number,
     status: PaymentTerm['status'],
@@ -39,6 +40,7 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
   paymentTerms,
   workItems,
   userRole,
+  permissions,
   onUpdateTermStatus,
   onApplyProgress25,
 }) => {
@@ -71,16 +73,25 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
     }
   };
 
-  const canApprove = userRole === 'Direktur';
-  const canInputPayment = userRole === 'Admin' || userRole === 'Site Manager' || userRole === 'Direktur';
+  const isOwner = userRole === 'Owner' || userRole === 'Direktur';
+  const isKonsultan = userRole === 'Konsultan';
+  const isKontraktor = userRole === 'Kontraktor' || userRole === 'Site Manager' || userRole === 'Admin';
+
+  const canApprove = permissions ? permissions.canApproveTermin : isOwner;
+  const canVerify = permissions ? permissions.canVerifyOpname : (isKonsultan || isOwner);
+  const canInputPayment = permissions ? permissions.canSubmitTermin : (isKontraktor || isOwner);
 
   const handleApproveTerm = (term: PaymentTerm) => {
+    const approver = project.director
+      ? `${project.director} (Direktur / Owner)`
+      : 'H. Bambang S., M.T. (Direktur / Owner)';
+
     onUpdateTermStatus(
       term.termNumber,
       'Dibayar',
       new Date().toISOString().split('T')[0],
       term.proofUrl || 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500&auto=format&fit=crop&q=80',
-      'H. Bambang S. (Direktur)'
+      approver
     );
   };
 
@@ -88,12 +99,16 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
     e.preventDefault();
     if (!uploadProofModalTerm) return;
 
+    const approver = project.director
+      ? `${project.director} (Direktur / Owner)`
+      : 'H. Bambang S., M.T. (Direktur / Owner)';
+
     onUpdateTermStatus(
       uploadProofModalTerm.termNumber,
       canApprove ? 'Dibayar' : 'Menunggu Approval',
       payDateInput,
       proofUrlInput.trim() || 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500&auto=format&fit=crop&q=80',
-      canApprove ? 'H. Bambang S. (Direktur)' : undefined
+      canApprove ? approver : undefined
     );
 
     setUploadProofModalTerm(null);
@@ -280,7 +295,16 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
                       onClick={() => handleApproveTerm(term)}
                       className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
                     >
-                      <ShieldCheck className="w-4 h-4" /> Approve Direktur
+                      <ShieldCheck className="w-4 h-4" /> Otorisasi Cair (Owner)
+                    </button>
+                  )}
+
+                  {term.status === 'Belum Bayar' && isKonsultan && (
+                    <button
+                      onClick={() => onUpdateTermStatus(term.termNumber, 'Menunggu Approval')}
+                      className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-4 h-4" /> Verifikasi Opname (MK)
                     </button>
                   )}
 
@@ -289,7 +313,7 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
                       onClick={() => setUploadProofModalTerm(term)}
                       className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-orange-500/20 transition-all cursor-pointer"
                     >
-                      <Upload className="w-4 h-4" /> Input Pembayaran / Bukti
+                      <Upload className="w-4 h-4" /> {isOwner ? 'Input Pembayaran / Bukti' : 'Ajukan Tagihan Termin'}
                     </button>
                   )}
                 </div>

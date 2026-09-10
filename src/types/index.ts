@@ -1,4 +1,60 @@
-export type UserRole = 'Direktur' | 'Site Manager' | 'Admin' | 'Viewer';
+export type UserRole =
+  | 'Owner'
+  | 'Konsultan'
+  | 'Kontraktor'
+  | 'Direktur'
+  | 'Site Manager'
+  | 'Admin'
+  | 'Viewer';
+
+export type ActiveTab =
+  | 'dashboard'
+  | 'schedule'
+  | 'calendar'
+  | 'scurve'
+  | 'gantt'
+  | 'daily'
+  | 'photos'
+  | 'termin'
+  | 'materials'
+  | 'workforce'
+  | 'equipment'
+  | 'reports'
+  | 'inspection';
+
+export interface RolePermissions {
+  canApproveTermin: boolean; // Pengesahan pencairan dana termin
+  canVerifyOpname: boolean; // Verifikasi fisik/opname lapangan
+  canSubmitTermin: boolean; // Pengajuan tagihan klaim termin
+  canEditSchedule: boolean; // Perubahan jadwal / Time Schedule
+  canInputDailyLog: boolean; // Pengisian laporan harian pekerjaan
+  canManageMaterial: boolean; // Penerimaan & input stok material
+  canManageWorkers: boolean; // Roster & alokasi tenaga kerja
+  canManageEquipment: boolean; // Monitoring alat berat
+  canConductQCInspection: boolean; // Audit mutu & inspeksi checklist
+  canCreatePunchList: boolean; // Penerbitan defect / punch list
+  canApproveBAST: boolean; // Pengesahan BAST Serah Terima
+  canUploadDocumentation: boolean; // Upload foto dokumentasi progres
+  canExportOfficialReports: boolean; // Ekspor laporan PDF / Excel
+  canEditProjectBudget: boolean; // Modifikasi RAB & nilai kontrak
+  allowedTabs: ActiveTab[]; // Daftar modul navigasi yang diizinkan untuk diakses
+}
+
+export type StakeholderRoleKey = 'Owner' | 'Konsultan' | 'Kontraktor' | 'Viewer';
+
+export interface StakeholderRoleProfile {
+  role: StakeholderRoleKey;
+  roleName: string; // e.g. "Pemilik Proyek (Owner)", "Konsultan Pengawas / MK", "Kontraktor Pelaksana"
+  company: string; // Nama badan usaha / entitas resmi
+  personName: string; // Nama personil penanggung jawab + gelar
+  position: string; // Jabatan resmi (e.g. Direktur Utama, Team Leader MK, Site Manager)
+  email: string;
+  phone: string;
+  skNumber?: string; // No. SK Penunjukan / Izin Usaha Jasa Konstruksi (IUJK)
+  digitalSignatureActive: boolean;
+  avatarUrl?: string;
+  permissions: RolePermissions;
+}
 
 export interface ProjectInfo {
   id: string;

@@ -146,7 +146,8 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
 
   // Toggle item inspection approval
   const handleToggleSMApprove = (id: string) => {
-    if (userRole !== 'Site Manager' && userRole !== 'Direktur' && userRole !== 'Admin') return;
+    const canSM = userRole === 'Kontraktor' || userRole === 'Site Manager' || userRole === 'Konsultan' || userRole === 'Admin' || userRole === 'Direktur' || userRole === 'Owner';
+    if (!canSM) return;
     setInspections((prev) => ({
       ...prev,
       [id]: {
@@ -157,7 +158,8 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
   };
 
   const handleToggleDirApprove = (id: string) => {
-    if (userRole !== 'Direktur' && userRole !== 'Admin') return;
+    const canDir = userRole === 'Owner' || userRole === 'Direktur' || userRole === 'Konsultan' || userRole === 'Admin';
+    if (!canDir) return;
     setInspections((prev) => ({
       ...prev,
       [id]: {
