@@ -20,6 +20,8 @@ import {
   CalendarEvent,
   StakeholderRoleProfile,
   StakeholderRoleKey,
+  ProjectDocument,
+  AuthSession,
 } from './types';
 import {
   INITIAL_PROJECT_INFO,
@@ -36,6 +38,7 @@ import {
   INITIAL_CALENDAR_EVENTS,
   INITIAL_STAKEHOLDER_PROFILES,
   ALL_PROJECT_TABS,
+  INITIAL_PROJECT_DOCUMENTS,
 } from './data/initialData';
 import { Header } from './components/layout/Header';
 import { Sidebar, ActiveTab } from './components/layout/Sidebar';
@@ -51,27 +54,92 @@ import { TerminPayments } from './components/finance/TerminPayments';
 import { MaterialMonitoring } from './components/inventory/MaterialMonitoring';
 import { WorkforceMonitoring } from './components/workforce/WorkforceMonitoring';
 import { EquipmentMonitoring } from './components/equipment/EquipmentMonitoring';
+import { DocumentManagement } from './components/documents/DocumentManagement';
 import { FinalInspection } from './components/inspection/FinalInspection';
 import { ReportCenter } from './components/reports/ReportCenter';
 import { SupabaseModal } from './components/common/SupabaseModal';
 import { NotificationDrawer } from './components/common/NotificationDrawer';
 import { ProjectSettingsModal } from './components/common/ProjectSettingsModal';
 import { RoleManagementModal } from './components/common/RoleManagementModal';
+import { LoginPage } from './components/auth/LoginPage';
 import { generatePDFReport } from './utils/exportEngine';
 import { calculatePhysicalProgress, calculateTargetProgress, calculateDeviation } from './utils/calculations';
 
 export default function App() {
   // Navigation & Role State
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [currentRole, setCurrentRole] = useState<UserRole>('Owner');
   const [darkMode, setDarkMode] = useState(true);
+
+  // Authentication Session (Persistent)
+  const [authSession, setAuthSession] = useState<AuthSession>(() => {
+    const saved = localStorage.getItem('FORESYNDO_AUTH_SESSION');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed.isAuthenticated === 'boolean') {
+          return parsed;
+        }
+      } catch {
+        // fallback
+      }
+    }
+    return {
+      isAuthenticated: true,
+      role: 'Owner',
+      userName: 'H. Bambang S., M.T.',
+      loginTime: new Date().toISOString(),
+    };
+  });
+
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => {
+    const saved = localStorage.getItem('FORESYNDO_AUTH_SESSION');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed?.role) return parsed.role as UserRole;
+      } catch {
+        // fallback
+      }
+    }
+    return 'Owner';
+  });
 
   // Modals & Drawers
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
-  const [roleModalTab, setRoleModalTab] = useState<'profiles' | 'permissions' | 'matrix' | 'workflow'>('profiles');
+  const [roleModalTab, setRoleModalTab] = useState<'profiles' | 'permissions' | 'matrix' | 'workflow' | 'pins'>('profiles');
+
+  // Role Security PINs (Owner authority - persistent)
+  const [rolePins, setRolePins] = useState<Record<StakeholderRoleKey, string>>(() => {
+    const saved = localStorage.getItem('FORESYNDO_ROLE_PINS');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            Owner: parsed.Owner || '889900',
+            Konsultan: parsed.Konsultan || '776622',
+            Kontraktor: parsed.Kontraktor || '554433',
+            Viewer: parsed.Viewer || '112233',
+          };
+        }
+      } catch {
+        // fallback
+      }
+    }
+    return {
+      Owner: '889900',
+      Konsultan: '776622',
+      Kontraktor: '554433',
+      Viewer: '112233',
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('FORESYNDO_ROLE_PINS', JSON.stringify(rolePins));
+  }, [rolePins]);
 
   // Stakeholder Profiles (Owner, Konsultan, Kontraktor, Viewer)
   const [stakeholderProfiles, setStakeholderProfiles] = useState<Record<StakeholderRoleKey, StakeholderRoleProfile>>(() => {
@@ -82,11 +150,24 @@ export default function App() {
       const merged = { ...INITIAL_STAKEHOLDER_PROFILES, ...parsed };
       (['Owner', 'Konsultan', 'Kontraktor', 'Viewer'] as const).forEach((r) => {
         if (merged[r]) {
-          if (!merged[r].permissions || !merged[r].permissions.allowedTabs) {
-            merged[r].permissions = {
-              ...(merged[r].permissions || INITIAL_STAKEHOLDER_PROFILES[r].permissions),
-              allowedTabs: [...ALL_PROJECT_TABS],
-            };
+          const initPerms = INITIAL_STAKEHOLDER_PROFILES[r].permissions;
+          if (!merged[r].permissions) {
+            merged[r].permissions = { ...initPerms, allowedTabs: [...initPerms.allowedTabs] };
+          } else {
+            if (merged[r].permissions.canUploadDocuments === undefined) {
+              merged[r].permissions.canUploadDocuments = initPerms.canUploadDocuments;
+            }
+            if (merged[r].permissions.canApproveDocuments === undefined) {
+              merged[r].permissions.canApproveDocuments = initPerms.canApproveDocuments;
+            }
+            if (merged[r].permissions.canDeleteDocuments === undefined) {
+              merged[r].permissions.canDeleteDocuments = initPerms.canDeleteDocuments;
+            }
+            if (!merged[r].permissions.allowedTabs) {
+              merged[r].permissions.allowedTabs = [...initPerms.allowedTabs];
+            } else if (!merged[r].permissions.allowedTabs.includes('documents')) {
+              merged[r].permissions.allowedTabs.push('documents');
+            }
           }
         }
       });
@@ -190,6 +271,11 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_CALENDAR_EVENTS;
   });
 
+  const [documents, setDocuments] = useState<ProjectDocument[]>(() => {
+    const saved = localStorage.getItem('FORESYNDO_V3_PROJECT_DOCUMENTS');
+    return saved ? JSON.parse(saved) : INITIAL_PROJECT_DOCUMENTS;
+  });
+
   // Persist State Updates to LocalStorage
   useEffect(() => {
     localStorage.setItem('FORESYNDO_V3_PROJECT_INFO', JSON.stringify(project));
@@ -240,6 +326,10 @@ export default function App() {
   }, [calendarEvents]);
 
   useEffect(() => {
+    localStorage.setItem('FORESYNDO_V3_PROJECT_DOCUMENTS', JSON.stringify(documents));
+  }, [documents]);
+
+  useEffect(() => {
     localStorage.setItem('FORESYNDO_V3_USER_NAMES', JSON.stringify(userNameMap));
   }, [userNameMap]);
 
@@ -263,6 +353,69 @@ export default function App() {
       details,
     };
     setAuditLogs((prev) => [newLog, ...prev]);
+  };
+
+  // User Authentication & RBAC Handlers
+  const handleLogin = (role: StakeholderRoleKey, userName: string) => {
+    const newSession: AuthSession = {
+      isAuthenticated: true,
+      role,
+      userName,
+      loginTime: new Date().toISOString(),
+    };
+    setAuthSession(newSession);
+    setCurrentRole(role as UserRole);
+    localStorage.setItem('FORESYNDO_AUTH_SESSION', JSON.stringify(newSession));
+    addAuditLog('Login Berhasil', `Pengguna ${userName} masuk dengan peran ${role}`);
+
+    // If currently active tab is not allowed for this role, redirect to dashboard
+    const rolePerms = stakeholderProfiles[role]?.permissions;
+    if (rolePerms && !rolePerms.allowedTabs.includes(activeTab)) {
+      setActiveTab('dashboard');
+    }
+  };
+
+  const handleLogout = () => {
+    const loggedOutSession: AuthSession = {
+      isAuthenticated: false,
+      role: 'Kontraktor',
+      userName: '',
+      loginTime: '',
+    };
+    setAuthSession(loggedOutSession);
+    localStorage.removeItem('FORESYNDO_AUTH_SESSION');
+    addAuditLog('Logout Sistem', `Sesi pengguna (${currentRole}) telah keluar.`);
+  };
+
+  const handleRoleChange = (newRole: UserRole) => {
+    // STRICT ISOLATION: Kontraktor cannot switch to Owner or Konsultan
+    if (
+      (currentRole === 'Kontraktor' || currentRole === 'Site Manager') &&
+      (newRole === 'Owner' || newRole === 'Konsultan' || newRole === 'Direktur')
+    ) {
+      return;
+    }
+
+    setCurrentRole(newRole);
+    const mappedKey: StakeholderRoleKey =
+      newRole === 'Owner' || newRole === 'Direktur'
+        ? 'Owner'
+        : newRole === 'Konsultan'
+        ? 'Konsultan'
+        : newRole === 'Kontraktor' || newRole === 'Site Manager'
+        ? 'Kontraktor'
+        : 'Viewer';
+
+    const uName = stakeholderProfiles[mappedKey]?.personName || userNameMap[newRole];
+    const updatedSession: AuthSession = {
+      isAuthenticated: true,
+      role: mappedKey,
+      userName: uName,
+      loginTime: new Date().toISOString(),
+    };
+    setAuthSession(updatedSession);
+    localStorage.setItem('FORESYNDO_AUTH_SESSION', JSON.stringify(updatedSession));
+    addAuditLog('Ganti Peran', `Beralih ke peran ${newRole}`);
   };
 
   const handleUpdateProjectStatus = (status: ProjectInfo['status']) => {
@@ -499,6 +652,28 @@ export default function App() {
     setNotifications((prev) => [item, ...prev]);
   };
 
+  const handleAddDocument = (newDoc: ProjectDocument) => {
+    setDocuments((prev) => [newDoc, ...prev]);
+    handleAddNotification({
+      title: 'Dokumen Baru Diunggah',
+      message: `${newDoc.documentNumber}: ${newDoc.title} (${newDoc.version})`,
+      type: 'info',
+    });
+  };
+
+  const handleUpdateDocument = (updatedDoc: ProjectDocument) => {
+    setDocuments((prev) => prev.map((d) => (d.id === updatedDoc.id ? updatedDoc : d)));
+    handleAddNotification({
+      title: 'Status Dokumen Diperbarui',
+      message: `${updatedDoc.documentNumber} berstatus "${updatedDoc.status}"`,
+      type: updatedDoc.status === 'Revision' ? 'warning' : 'info',
+    });
+  };
+
+  const handleDeleteDocument = (id: string) => {
+    setDocuments((prev) => prev.filter((d) => d.id !== id));
+  };
+
   const handleResetProject = () => {
     if (window.confirm('Apakah Anda yakin ingin mereset data proyek ke status BELUM MULAI (Progress 0%)?')) {
       setProject(INITIAL_PROJECT_INFO);
@@ -513,6 +688,7 @@ export default function App() {
       setAuditLogs(INITIAL_AUDIT_LOGS);
       setNotifications(INITIAL_NOTIFICATIONS);
       setCalendarEvents(INITIAL_CALENDAR_EVENTS);
+      setDocuments(INITIAL_PROJECT_DOCUMENTS);
       localStorage.clear();
     }
   };
@@ -521,26 +697,46 @@ export default function App() {
   const targetProgress = calculateTargetProgress(workItems);
   const deviation = calculateDeviation(physicalProgress, targetProgress);
 
+  const isOwner = currentRole === 'Owner' || currentRole === 'Direktur';
+
+  // If user is not authenticated, render the Tripartit Login Page
+  if (!authSession.isAuthenticated) {
+    return (
+      <LoginPage
+        onLogin={handleLogin}
+        stakeholderProfiles={stakeholderProfiles}
+        projectName={project.name}
+        projectLocation={project.location}
+        rolePins={rolePins}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans flex flex-col transition-colors duration-200">
       {/* Top Fixed Header Bar */}
       <Header
         project={project}
         currentRole={currentRole}
-        onRoleChange={setCurrentRole}
+        onRoleChange={handleRoleChange}
         darkMode={darkMode}
         onToggleDarkMode={() => setDarkMode(!darkMode)}
         notifications={notifications}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
         onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
         onQuickExport={() => generatePDFReport('Progress', project, workItems, paymentTerms, dailyLogs, materials)}
-        onResetProject={handleResetProject}
-        onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
-        onOpenRoleModal={(subTab) => {
-          setRoleModalTab(subTab || 'profiles');
-          setIsRoleModalOpen(true);
-        }}
+        onResetProject={isOwner ? handleResetProject : undefined}
+        onOpenSettingsModal={isOwner ? () => setIsSettingsModalOpen(true) : undefined}
+        onOpenRoleModal={
+          isOwner
+            ? (subTab) => {
+                setRoleModalTab(subTab || 'profiles');
+                setIsRoleModalOpen(true);
+              }
+            : undefined
+        }
         activeUserName={userNameMap[currentRole]}
+        onLogout={handleLogout}
       />
 
       {/* Main Body Layout with Sidebar + Content Area */}
@@ -550,14 +746,20 @@ export default function App() {
           activeTab={activeTab}
           onSelectTab={setActiveTab}
           hasDeviasiWarning={deviation < -5}
-          onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
-          onOpenRoleModal={() => {
-            setRoleModalTab('profiles');
-            setIsRoleModalOpen(true);
-          }}
+          onOpenSettingsModal={isOwner ? () => setIsSettingsModalOpen(true) : undefined}
+          onOpenRoleModal={
+            isOwner
+              ? (subTab) => {
+                  setRoleModalTab(subTab || 'profiles');
+                  setIsRoleModalOpen(true);
+                }
+              : undefined
+          }
           activeUserName={userNameMap[currentRole]}
           projectName={project.name}
           allowedTabs={allowedTabs}
+          currentRole={currentRole}
+          onLogout={handleLogout}
         />
 
         {/* Dynamic Tab Content View */}
@@ -683,6 +885,19 @@ export default function App() {
                 <EquipmentMonitoring equipments={equipments} userRole={currentRole} onAddEquipment={handleAddEquipment} />
               )}
 
+              {activeTab === 'documents' && (
+                <DocumentManagement
+                  documents={documents}
+                  userRole={currentRole}
+                  permissions={currentPermissions}
+                  activeUserName={userNameMap[currentRole]}
+                  onAddDocument={handleAddDocument}
+                  onUpdateDocument={handleUpdateDocument}
+                  onDeleteDocument={handleDeleteDocument}
+                  onAddAuditLog={addAuditLog}
+                />
+              )}
+
               {activeTab === 'inspection' && (
                 <FinalInspection
                   project={project}
@@ -729,10 +944,10 @@ export default function App() {
       />
 
       <RoleManagementModal
-        isOpen={isRoleModalOpen}
+        isOpen={isRoleModalOpen && isOwner}
         onClose={() => setIsRoleModalOpen(false)}
         currentRole={currentRole}
-        onRoleChange={setCurrentRole}
+        onRoleChange={handleRoleChange}
         initialSubTab={roleModalTab}
         profiles={stakeholderProfiles}
         onUpdateProfiles={(newProfiles) => {
@@ -756,6 +971,8 @@ export default function App() {
           });
         }}
         onAddAuditLog={addAuditLog}
+        rolePins={rolePins}
+        onUpdateRolePins={setRolePins}
       />
     </div>
   );

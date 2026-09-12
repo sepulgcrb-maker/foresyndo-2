@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-import { ProjectInfo, WorkItem, PaymentTerm, DailyLog, MaterialItem } from '../types';
+import { ProjectInfo, WorkItem, PaymentTerm, DailyLog, MaterialItem, BASTSubmissionData } from '../types';
 import { OFFICIAL_RAB_DOCUMENT, OfficialRABDocument } from '../data/initialData';
 import {
   formatIDR,
@@ -1210,4 +1210,435 @@ export function generateExcelReport(
 
   XLSX.writeFile(wb, `Monitoring_Proyek_FORESYNDO2_${reportType}_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
+
+/**
+ * Generate official Berita Acara Serah Terima (BAST-1) PDF Document
+ * with comprehensive work details, tripartite parties, and visual digital signatures
+ */
+export function generateBASTPDF(
+  bast: BASTSubmissionData,
+  project: ProjectInfo,
+  workItems: WorkItem[] = []
+) {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  const navyColor: [number, number, number] = [15, 23, 42]; // #0F172A
+  const orangeColor: [number, number, number] = [249, 115, 22]; // #F97316
+  const emeraldColor: [number, number, number] = [16, 185, 129]; // #10B981
+  const blueColor: [number, number, number] = [29, 78, 216]; // #1D4ED8
+  const grayColor: [number, number, number] = [100, 116, 139]; // #64748B
+  const redColor: [number, number, number] = [239, 68, 68]; // #EF4444
+
+  // Helper function to render a page header
+  const renderHeader = (isFirstPage: boolean = true) => {
+    doc.setFillColor(...navyColor);
+    doc.rect(0, 0, pageWidth, 24, 'F');
+    doc.setFillColor(...orangeColor);
+    doc.rect(0, 24, pageWidth, 2, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text(project.owner || 'PT. FORESYNDO GLOBAL INDONESIA', 14, 10);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.text('DEVELOPMENT & GENERAL CONTRACTOR - BANDARA KERTAJATI', 14, 15);
+    doc.text(`Lokasi: ${project.location} | Sistem ERP Monitoring Proyek Terpadu`, 14, 19.5);
+
+    // Right side badge
+    doc.setFillColor(30, 41, 59);
+    doc.roundedRect(pageWidth - 68, 4.5, 54, 15, 1.5, 1.5, 'F');
+    doc.setDrawColor(51, 65, 85);
+    doc.roundedRect(pageWidth - 68, 4.5, 54, 15, 1.5, 1.5, 'D');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(...orangeColor);
+    doc.text('DOKUMEN RESMI TRIPARTIT', pageWidth - 41, 9.5, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`No: ${bast.bastNumber}`, pageWidth - 41, 15.5, { align: 'center' });
+  };
+
+  // Render first page header
+  renderHeader(true);
+
+  // 1. Title Block
+  doc.setTextColor(...navyColor);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('BERITA ACARA SERAH TERIMA PERTAMA PEKERJAAN (BAST - 1)', pageWidth / 2, 33, { align: 'center' });
+
+  doc.setFontSize(9);
+  doc.setTextColor(...orangeColor);
+  doc.text(bast.title || 'Serah Terima Pertama Fisik Proyek (PHO)', pageWidth / 2, 38, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...grayColor);
+  doc.text(
+    `No. Permohonan: ${bast.submissionNumber} | Kontrak: ${project.contractNumber || 'PR-2026-FGI-004'}`,
+    pageWidth / 2,
+    42.5,
+    { align: 'center' }
+  );
+
+  // 2. Detail Pekerjaan Summary Card
+  const infoCardY = 46;
+  const infoCardH = 37;
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(14, infoCardY, pageWidth - 28, infoCardH, 2, 2, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(14, infoCardY, pageWidth - 28, infoCardH, 2, 2, 'D');
+
+  // Left Column Details
+  doc.setFontSize(8.5);
+  doc.setTextColor(...navyColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Detail & Lingkup Pekerjaan Proyek:', 18, infoCardY + 6);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.text(`Nama Proyek: ${project.name}`, 18, infoCardY + 12);
+  doc.text(`Lokasi Fisik: ${project.location}`, 18, infoCardY + 17.5);
+
+  const scope = bast.scopeDescription || 'Seluruh sektor pekerjaan konstruksi fisik sesuai klausul kontrak.';
+  const wrappedScope = doc.splitTextToSize(`Lingkup: ${scope}`, 90);
+  doc.text(wrappedScope.slice(0, 2), 18, infoCardY + 23);
+
+  const nominalVal = bast.contractNominal || project.contractValue;
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Nilai Nominal BAST: ${formatIDR(nominalVal)}`, 18, infoCardY + 33);
+
+  // Right Column Details
+  doc.setFont('helvetica', 'bold');
+  doc.text('Parameter Waktu & Penjaminan:', 114, infoCardY + 6);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Tanggal Serah Terima: ${bast.handoverDate || bast.submissionDate}`, 114, infoCardY + 12);
+  doc.text(`Progress Fisik: 100.0% (Lulus Uji Teknis & Verifikasi)`, 114, infoCardY + 17.5);
+
+  const retentionVal = bast.retentionValue || nominalVal * 0.05;
+  doc.text(`Masa Pemeliharaan: 180 Hari (s/d ${bast.maintenanceEndDate || 'N/A'})`, 114, infoCardY + 23);
+  doc.text(`Jaminan Retensi 5%: ${formatIDR(retentionVal)}`, 114, infoCardY + 28.5);
+
+  const stageLabel =
+    bast.stage === 'finalized'
+      ? 'FINAL SAH (3 PIHAK TTD)'
+      : bast.stage === 'owner_approved'
+      ? 'DISETUJUI OWNER'
+      : bast.stage === 'mk_recommended'
+      ? 'DIREKOMENDASIKAN MK'
+      : bast.stage === 'submitted'
+      ? 'DIAJUKAN KE MK'
+      : 'DRAFT PENGAJUAN';
+
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...(bast.stage === 'finalized' ? emeraldColor : orangeColor));
+  doc.text(`Status Dokumen: ${stageLabel}`, 114, infoCardY + 34);
+
+  // 3. Statement & Parties Description
+  const stmtY = 87;
+  doc.setFontSize(8);
+  doc.setTextColor(...navyColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Pernyataan Tripartit & Para Pihak Terkait:', 14, stmtY);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(51, 65, 85);
+  doc.text(
+    `Pada hari ini, ${bast.handoverDate || bast.submissionDate}, kami yang bertanda tangan di bawah ini secara sah mewakili masing-masing pihak:`,
+    14,
+    stmtY + 4.5
+  );
+
+  const contractorName = bast.contractorSignature.name || project.siteManager || 'Ir. Agus Pratama';
+  const mkName = bast.mkSignature.name || project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU';
+  const ownerName = bast.ownerSignature.name || project.director || 'H. Bambang S., M.T.';
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(`1. ${contractorName}`, 16, stmtY + 9.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`- Jabatan: ${bast.contractorPosition || 'Site Manager Lapangan'}, bertindak untuk dan atas nama Kontraktor Pelaksana (PIHAK PERTAMA).`, 48, stmtY + 9.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(`2. ${mkName}`, 16, stmtY + 14);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`- Jabatan: Team Leader Konsultan MK, bertindak sebagai Pengawas Teknis Lapangan (PIHAK KETIGA).`, 48, stmtY + 14);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(`3. ${ownerName}`, 16, stmtY + 18.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`- Jabatan: Direktur Utama PT. Foresyndo Global Indonesia, bertindak untuk dan atas nama Pemilik Proyek (PIHAK KEDUA).`, 48, stmtY + 18.5);
+
+  // 4. Work Items Table Breakdown
+  const tableData =
+    workItems.length > 0
+      ? workItems.map((wi) => [
+          wi.no,
+          wi.name,
+          formatIDR(wi.volumeTarget),
+          '100%',
+          '✓ LULUS (Uji Fungsi Selesai)',
+          'Sesuai Spesifikasi Teknis',
+        ])
+      : [
+          ['01', 'Pekerjaan Struktur Bawah & Pondasi Tiang Pancang', formatIDR(nominalVal * 0.3), '100%', '✓ LULUS', 'Inspeksi & Tes Beban Ok'],
+          ['02', 'Pekerjaan Struktur Utama Beton Bertulang & Baja', formatIDR(nominalVal * 0.35), '100%', '✓ LULUS', 'Uji Kuat Tekan Beton K-350'],
+          ['03', 'Pekerjaan Arsitektur, Dinding & Finishing Interior', formatIDR(nominalVal * 0.2), '100%', '✓ LULUS', 'Toleransi Presisi Terpenuhi'],
+          ['04', 'Pekerjaan Mekanikal, Elektrikal & Plumbing (MEP)', formatIDR(nominalVal * 0.15), '100%', '✓ LULUS', 'Commissioning Test Selesai'],
+        ];
+
+  autoTable(doc, {
+    startY: stmtY + 22.5,
+    head: [['No', 'Sektor / Lingkup Pekerjaan', 'Anggaran (Rp)', 'Progress', 'Status Uji Mutu', 'Keterangan Audit']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: navyColor,
+      textColor: 255,
+      fontSize: 7,
+      fontStyle: 'bold',
+      halign: 'center',
+    },
+    bodyStyles: { fontSize: 6.5, textColor: [30, 41, 59], cellPadding: 1.2 },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center', fontStyle: 'bold' },
+      1: { cellWidth: 70, fontStyle: 'bold' },
+      2: { cellWidth: 28, halign: 'right', fontStyle: 'bold' },
+      3: { cellWidth: 16, halign: 'center', textColor: [16, 185, 129], fontStyle: 'bold' },
+      4: { cellWidth: 32, halign: 'center', textColor: [29, 78, 216], fontStyle: 'bold' },
+      5: { cellWidth: 26, fontSize: 6 },
+    },
+    margin: { left: 14, right: 14 },
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let currentY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 4 : 160;
+
+  // If table went too far down, add page for signatures
+  if (currentY > pageHeight - 65) {
+    doc.addPage();
+    renderHeader(false);
+    currentY = 32;
+  }
+
+  // 5. Warranty & Maintenance Provision Box
+  doc.setFillColor(254, 243, 199);
+  doc.roundedRect(14, currentY, pageWidth - 28, 14, 1.5, 1.5, 'F');
+  doc.setDrawColor(245, 158, 11);
+  doc.roundedRect(14, currentY, pageWidth - 28, 14, 1.5, 1.5, 'D');
+
+  doc.setFontSize(7);
+  doc.setTextColor(146, 64, 14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Klausul Jaminan Masa Pemeliharaan & Retensi 5%:', 18, currentY + 4.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.text(
+    `Selama masa pemeliharaan 180 hari kalender (hingga ${bast.maintenanceEndDate || 'berakhirnya masa garansi'}), Kontraktor wajib menuntaskan cacat mutu tersembunyi.`,
+    18,
+    currentY + 8.5
+  );
+  doc.text(
+    `Dana retensi 5% sebesar ${formatIDR(retentionVal)} akan dicairkan penuh saat penerbitan Berita Acara Serah Terima Akhir (BAST-2 / FHO).`,
+    18,
+    currentY + 12
+  );
+
+  currentY += 18;
+
+  // Check if signatures fit on current page
+  const sigHeight = 46;
+  if (currentY + sigHeight + 14 > pageHeight) {
+    doc.addPage();
+    renderHeader(false);
+    currentY = 32;
+  }
+
+  // 6. Visual Digital Signatures Section (3 Columns)
+  doc.setFontSize(8.5);
+  doc.setTextColor(...navyColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('LEMBAR PENGESAHAN TANDA TANGAN DIGITAL TRIPARTIT:', 14, currentY);
+
+  const sigBoxY = currentY + 3.5;
+  const colWidth = (pageWidth - 28 - 2 * 4) / 3; // 58 mm each
+
+  // Signature Config
+  const sigCols = [
+    {
+      title: 'PIHAK PERTAMA (KONTRAKTOR)',
+      name: contractorName,
+      position: bast.contractorPosition || 'Site Manager Lapangan',
+      signed: bast.contractorSignature.signed,
+      signedAt: bast.contractorSignature.signedAt || '2026-05-18 14:30 WIB',
+      signatureData: bast.contractorSignature.signatureData,
+      roleTag: 'KONTRAKTOR PELAKSANA',
+      hashPrefix: 'KTR',
+      accentColor: blueColor,
+    },
+    {
+      title: 'PIHAK KETIGA (PENGAWAS MK)',
+      name: mkName,
+      position: 'Team Leader Konsultan MK',
+      signed: bast.mkSignature.signed,
+      signedAt: bast.mkSignature.signedAt || '2026-05-19 10:15 WIB',
+      signatureData: bast.mkSignature.signatureData,
+      roleTag: 'KONSULTAN MANAJEMEN KONSTRUKSI',
+      hashPrefix: 'MK',
+      accentColor: orangeColor,
+    },
+    {
+      title: 'PIHAK KEDUA (OWNER / DIREKTUR)',
+      name: ownerName,
+      position: 'Direktur Utama PT. Foresyndo',
+      signed: bast.ownerSignature.signed,
+      signedAt: bast.ownerSignature.signedAt || '2026-05-20 09:00 WIB',
+      signatureData: bast.ownerSignature.signatureData,
+      roleTag: 'PENGEMBANG & PEMILIK PROYEK',
+      hashPrefix: 'DIR',
+      accentColor: emeraldColor,
+    },
+  ];
+
+  sigCols.forEach((sig, idx) => {
+    const colX = 14 + idx * (colWidth + 4);
+
+    // Box Container
+    doc.setFillColor(sig.signed ? 248 : 254, sig.signed ? 250 : 242, sig.signed ? 252 : 242);
+    doc.roundedRect(colX, sigBoxY, colWidth, sigHeight, 2, 2, 'F');
+    doc.setDrawColor(sig.signed ? sig.accentColor[0] : 239, sig.signed ? sig.accentColor[1] : 68, sig.signed ? sig.accentColor[2] : 68);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(colX, sigBoxY, colWidth, sigHeight, 2, 2, 'D');
+
+    // Header strip for this column
+    doc.setFillColor(...navyColor);
+    doc.rect(colX, sigBoxY, colWidth, 6, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6);
+    doc.text(sig.title, colX + colWidth / 2, sigBoxY + 4, { align: 'center' });
+
+    // Signer Name
+    doc.setTextColor(...navyColor);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.text(sig.name, colX + colWidth / 2, sigBoxY + 10, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.5);
+    doc.setTextColor(...grayColor);
+    doc.text(sig.roleTag, colX + colWidth / 2, sigBoxY + 13, { align: 'center' });
+
+    // Signature Area
+    const innerSigY = sigBoxY + 15;
+    const innerSigH = 21;
+    doc.setFillColor(sig.signed ? 255 : 250, sig.signed ? 255 : 245, sig.signed ? 255 : 245);
+    doc.roundedRect(colX + 3, innerSigY, colWidth - 6, innerSigH, 1, 1, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(colX + 3, innerSigY, colWidth - 6, innerSigH, 1, 1, 'D');
+
+    if (sig.signed) {
+      let imageRendered = false;
+      if (sig.signatureData && sig.signatureData.startsWith('data:image/')) {
+        try {
+          doc.addImage(sig.signatureData, 'PNG', colX + 8, innerSigY + 1.5, colWidth - 16, innerSigH - 3);
+          imageRendered = true;
+        } catch {
+          imageRendered = false;
+        }
+      }
+
+      if (!imageRendered) {
+        // Render elegant stylized cursive specimen
+        doc.setFont('helvetica', 'bolditalic');
+        doc.setTextColor(...sig.accentColor);
+        doc.setFontSize(9);
+        doc.text(sig.name, colX + colWidth / 2, innerSigY + 8, { align: 'center' });
+
+        // Stylized pen flourish line
+        doc.setDrawColor(...sig.accentColor);
+        doc.setLineWidth(0.4);
+        doc.line(colX + 10, innerSigY + 10, colX + colWidth - 10, innerSigY + 10);
+
+        // Verification Pill Badge
+        doc.setFillColor(220, 252, 231);
+        doc.roundedRect(colX + 6, innerSigY + 12, colWidth - 12, 5.5, 1, 1, 'F');
+        doc.setDrawColor(187, 247, 208);
+        doc.roundedRect(colX + 6, innerSigY + 12, colWidth - 12, 5.5, 1, 1, 'D');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(5.5);
+        doc.setTextColor(21, 128, 61);
+        doc.text('✓ TERVERIFIKASI DIGITAL', colX + colWidth / 2, innerSigY + 16, { align: 'center' });
+      }
+
+      // Timestamp & Hash code below signature area
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5);
+      doc.setTextColor(...grayColor);
+      doc.text(`Waktu: ${sig.signedAt}`, colX + colWidth / 2, sigBoxY + 39, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...navyColor);
+      doc.text(`Hash: E-SIGN-${sig.hashPrefix}-${bast.submissionId.slice(-6).toUpperCase()}`, colX + colWidth / 2, sigBoxY + 42.5, {
+        align: 'center',
+      });
+    } else {
+      // Pending Signature Graphic Box
+      doc.setDrawColor(...redColor);
+      doc.setLineWidth(0.3);
+      doc.line(colX + 8, innerSigY + 5, colX + colWidth - 8, innerSigY + 16);
+      doc.line(colX + 8, innerSigY + 16, colX + colWidth - 8, innerSigY + 5);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...redColor);
+      doc.text('[ BELUM DITANDATANGANI ]', colX + colWidth / 2, innerSigY + 11.5, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.5);
+      doc.setTextColor(...grayColor);
+      doc.text('Menunggu Pengesahan Berkas', colX + colWidth / 2, sigBoxY + 41, { align: 'center' });
+    }
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(sig.position, colX + colWidth / 2, sigBoxY + 45.5, { align: 'center' });
+  });
+
+  // 7. Security Footer Certificate Strip
+  const footerY = Math.min(pageHeight - 11, sigBoxY + sigHeight + 4);
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(14, footerY, pageWidth - 28, 7.5, 1, 1, 'F');
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(14, footerY, pageWidth - 28, 7.5, 1, 1, 'D');
+
+  doc.setFontSize(5.5);
+  doc.setTextColor(...navyColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SERTIFIKASI KEABSAHAN DOKUMEN ELEKTRONIK (UU ITE NO. 11/2008 & PP NO. 71/2019):', 17, footerY + 3.2);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5);
+  doc.setTextColor(...grayColor);
+  const printTimestamp = new Date().toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'medium' });
+  doc.text(
+    `Keaslian naskah BAST ini dijamin melalui enkripsi SHA-256 digital | Kode Verifikasi: QR-AUTH-BAST-${bast.bastNumber.replace(/[^A-Z0-9]/gi, '')} | Dicetak: ${printTimestamp}`,
+    17,
+    footerY + 5.8
+  );
+
+  // Save the PDF file
+  const safeDocName = bast.bastNumber.replace(/[^a-zA-Z0-9]/g, '_');
+  doc.save(`BAST_Resmi_${safeDocName}_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
 

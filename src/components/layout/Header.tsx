@@ -15,6 +15,8 @@ import {
   Sliders,
   ShieldCheck,
   KeyRound,
+  LogOut,
+  HardHat,
 } from 'lucide-react';
 import { ProjectInfo, UserRole, NotificationItem } from '../../types';
 import { RoleBadge } from '../common/RoleBadge';
@@ -32,8 +34,9 @@ interface HeaderProps {
   onQuickExport: () => void;
   onResetProject?: () => void;
   onOpenSettingsModal?: () => void;
-  onOpenRoleModal?: (subTab?: 'profiles' | 'permissions' | 'matrix' | 'workflow') => void;
+  onOpenRoleModal?: (subTab?: 'profiles' | 'permissions' | 'matrix' | 'workflow' | 'pins') => void;
   activeUserName?: string;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -50,10 +53,15 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettingsModal,
   onOpenRoleModal,
   activeUserName,
+  onLogout,
 }) => {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const connected = isSupabaseConnected();
 
+  const isOwner = currentRole === 'Owner' || currentRole === 'Direktur';
+  const isKontraktor = currentRole === 'Kontraktor' || currentRole === 'Site Manager';
+
+  // For Owner, allow switching between primary roles
   const primaryRoles: UserRole[] = ['Owner', 'Konsultan', 'Kontraktor'];
   const otherRoles: UserRole[] = ['Admin', 'Viewer'];
 
@@ -111,8 +119,8 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Role Management 3 Pihak Button */}
-          {onOpenRoleModal && (
+          {/* Role Management 3 Pihak Button - ONLY visible to Owner */}
+          {isOwner && onOpenRoleModal && (
             <button
               onClick={onOpenRoleModal}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 text-xs font-bold transition-all shadow-sm cursor-pointer"
@@ -141,8 +149,8 @@ export const Header: React.FC<HeaderProps> = ({
             <Download className="w-3.5 h-3.5 text-orange-400" /> Export Laporan
           </button>
 
-          {/* Reset Project Button */}
-          {onResetProject && (
+          {/* Reset Project Button - Only for Owner */}
+          {isOwner && onResetProject && (
             <button
               onClick={onResetProject}
               className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-300 transition-colors"
@@ -152,67 +160,97 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Role Switcher Dropdown */}
-          <div className="relative group">
-            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 hover:border-slate-600 transition-all text-xs font-medium cursor-pointer">
-              <UserCheck className="w-3.5 h-3.5 text-orange-400" />
-              <RoleBadge role={currentRole} showIcon={false} />
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-            </button>
-            <div className="absolute right-0 mt-2 w-64 py-2 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all z-50">
-              <div className="px-3 py-1.5 text-[10px] font-bold text-orange-400 uppercase tracking-wider">
-                Tiga Pihak Proyek (Utama)
-              </div>
-              {primaryRoles.map((r) => (
-                <button
-                  key={r}
-                  onClick={() => onRoleChange(r)}
-                  className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800 transition-colors cursor-pointer ${
-                    currentRole === r ? 'text-orange-400 font-bold bg-slate-800/50' : 'text-slate-300'
-                  }`}
-                >
-                  <RoleBadge role={r} />
-                  {currentRole === r && <span className="text-[10px] text-orange-400 font-bold">&bull; Aktif</span>}
-                </button>
-              ))}
-
-              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1 border-t border-slate-800 pt-2">
-                Simulasi Lainnya
-              </div>
-              {otherRoles.map((r) => (
-                <button
-                  key={r}
-                  onClick={() => onRoleChange(r)}
-                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between hover:bg-slate-800 transition-colors cursor-pointer ${
-                    currentRole === r ? 'text-orange-400 font-bold bg-slate-800/50' : 'text-slate-400'
-                  }`}
-                >
-                  <RoleBadge role={r} />
-                  {currentRole === r && <span className="text-[10px] text-orange-400 font-bold">&bull; Aktif</span>}
-                </button>
-              ))}
-
-              {onOpenRoleModal && (
-                <div className="px-2 pt-2 mt-1 border-t border-slate-800 space-y-1">
-                  <button
-                    onClick={() => onOpenRoleModal('permissions')}
-                    className="w-full text-left px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Sliders className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Atur Hak Akses Role (Owner)</span>
-                  </button>
-
-                  <button
-                    onClick={() => onOpenRoleModal('profiles')}
-                    className="w-full text-left px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Settings className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Kelola Profil & RACI</span>
-                  </button>
-                </div>
-              )}
+          {/* Role Display / Switcher */}
+          {isKontraktor ? (
+            /* KONTRAKTOR: STRICTLY CANNOT SEE OWNER & MK ROLES */
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300 shadow-sm"
+              title="Peran Aktif: Kontraktor Pelaksana Lapangan"
+            >
+              <HardHat className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="truncate max-w-[130px] sm:max-w-[200px]">{activeUserName || 'Kontraktor Pelaksana'}</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Sesi Terverifikasi" />
             </div>
-          </div>
+          ) : isOwner ? (
+            /* OWNER: Can switch between roles & configure permissions */
+            <div className="relative group">
+              <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 hover:border-slate-600 transition-all text-xs font-medium cursor-pointer">
+                <UserCheck className="w-3.5 h-3.5 text-orange-400" />
+                <RoleBadge role={currentRole} showIcon={false} />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              </button>
+              <div className="absolute right-0 mt-2 w-64 py-2 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all z-50">
+                <div className="px-3 py-1.5 text-[10px] font-bold text-orange-400 uppercase tracking-wider">
+                  Tiga Pihak Proyek (Utama)
+                </div>
+                {primaryRoles.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => onRoleChange(r)}
+                    className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800 transition-colors cursor-pointer ${
+                      currentRole === r ? 'text-orange-400 font-bold bg-slate-800/50' : 'text-slate-300'
+                    }`}
+                  >
+                    <RoleBadge role={r} />
+                    {currentRole === r && <span className="text-[10px] text-orange-400 font-bold">&bull; Aktif</span>}
+                  </button>
+                ))}
+
+                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-1 border-t border-slate-800 pt-2">
+                  Simulasi Lainnya
+                </div>
+                {otherRoles.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => onRoleChange(r)}
+                    className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between hover:bg-slate-800 transition-colors cursor-pointer ${
+                      currentRole === r ? 'text-orange-400 font-bold bg-slate-800/50' : 'text-slate-400'
+                    }`}
+                  >
+                    <RoleBadge role={r} />
+                    {currentRole === r && <span className="text-[10px] text-orange-400 font-bold">&bull; Aktif</span>}
+                  </button>
+                ))}
+
+                {onOpenRoleModal && (
+                  <div className="px-2 pt-2 mt-1 border-t border-slate-800 space-y-1">
+                    <button
+                      onClick={() => onOpenRoleModal('pins')}
+                      className="w-full text-left px-3 py-1.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <KeyRound className="w-3.5 h-3.5 text-orange-400" />
+                      <span>Atur PIN Keamanan (Owner)</span>
+                    </button>
+
+                    <button
+                      onClick={() => onOpenRoleModal('permissions')}
+                      className="w-full text-left px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Atur Hak Akses Role (Owner)</span>
+                    </button>
+
+                    <button
+                      onClick={() => onOpenRoleModal('profiles')}
+                      className="w-full text-left px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Kelola Profil & RACI</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* KONSULTAN / VIEWER: Fixed profile badge */
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/15 border border-blue-500/30 text-xs font-semibold text-blue-300 shadow-sm"
+              title={`Peran Aktif: ${currentRole}`}
+            >
+              <RoleBadge role={currentRole} showIcon={false} />
+              <span className="truncate max-w-[120px] sm:max-w-[180px]">{activeUserName}</span>
+            </div>
+          )}
 
           {/* Notifications Trigger */}
           <button
@@ -236,6 +274,18 @@ export const Header: React.FC<HeaderProps> = ({
           >
             {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-300" />}
           </button>
+
+          {/* Logout Button */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition-all shadow-sm cursor-pointer ml-1"
+              title="Keluar dari sesi peran akun saat ini"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Keluar</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

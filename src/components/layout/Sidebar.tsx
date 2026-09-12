@@ -17,8 +17,11 @@ import {
   Calendar,
   UserCheck,
   Lock,
+  KeyRound,
+  Files,
+  LogOut,
 } from 'lucide-react';
-import { ActiveTab } from '../../types';
+import { ActiveTab, UserRole } from '../../types';
 
 export type { ActiveTab };
 
@@ -27,10 +30,12 @@ interface SidebarProps {
   onSelectTab: (tab: ActiveTab) => void;
   hasDeviasiWarning?: boolean;
   onOpenSettingsModal?: () => void;
-  onOpenRoleModal?: () => void;
+  onOpenRoleModal?: (subTab?: 'profiles' | 'permissions' | 'matrix' | 'workflow' | 'pins') => void;
   activeUserName?: string;
   projectName?: string;
   allowedTabs?: ActiveTab[];
+  currentRole?: UserRole;
+  onLogout?: () => void;
 }
 
 interface NavItem {
@@ -49,7 +54,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeUserName = 'Site Manager',
   projectName = 'FORESYNDO 2',
   allowedTabs,
+  currentRole = 'Kontraktor',
+  onLogout,
 }) => {
+  const isOwner = currentRole === 'Owner' || currentRole === 'Direktur';
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard Utama', icon: LayoutDashboard },
     { id: 'schedule', label: 'Time Schedule', icon: CalendarDays },
@@ -62,6 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'materials', label: 'Monitoring Material', icon: Boxes },
     { id: 'workforce', label: 'Tenaga Kerja', icon: Users },
     { id: 'equipment', label: 'Monitoring Alat', icon: Truck },
+    { id: 'documents', label: 'Dokumen & Gambar', icon: Files },
     { id: 'inspection', label: 'Inspeksi & BAST Akhir', icon: ShieldCheck },
     { id: 'reports', label: 'Pusat Laporan (PDF/Excel)', icon: FileSpreadsheet },
   ];
@@ -133,14 +142,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            {onOpenRoleModal && (
-              <button
-                onClick={onOpenRoleModal}
-                className="p-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500 hover:text-white text-indigo-300 transition-all cursor-pointer"
-                title="Manajemen Role Tiga Pihak (Owner, Konsultan, Kontraktor)"
-              >
-                <UserCheck className="w-3.5 h-3.5" />
-              </button>
+            {isOwner && onOpenRoleModal && (
+              <>
+                <button
+                  onClick={() => onOpenRoleModal('pins')}
+                  className="p-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500 hover:text-slate-950 text-amber-300 transition-all cursor-pointer"
+                  title="Atur PIN Keamanan Peran (Wewenang Owner)"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => onOpenRoleModal('profiles')}
+                  className="p-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500 hover:text-white text-indigo-300 transition-all cursor-pointer"
+                  title="Manajemen Role Tiga Pihak (Owner, Konsultan, Kontraktor)"
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                </button>
+              </>
             )}
             {onOpenSettingsModal && (
               <button
@@ -149,6 +167,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 title="Pengaturan Nama & Identitas Proyek"
               >
                 <Settings className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500 hover:text-white text-rose-300 transition-all cursor-pointer"
+                title="Keluar dari Sesi Akun (Logout)"
+              >
+                <LogOut className="w-3.5 h-3.5" />
               </button>
             )}
           </div>

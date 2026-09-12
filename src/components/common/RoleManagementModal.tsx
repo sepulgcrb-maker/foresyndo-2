@@ -45,7 +45,10 @@ import {
   Sliders,
   Sparkles,
   Eye,
+  EyeOff,
+  Copy,
   KeyRound,
+  Files,
 } from 'lucide-react';
 import { RoleBadge } from './RoleBadge';
 
@@ -59,7 +62,9 @@ interface RoleManagementModalProps {
   project: ProjectInfo;
   onUpdateProjectSignatories?: (signatories: Partial<ProjectInfo>) => void;
   onAddAuditLog?: (action: string, detail: string) => void;
-  initialSubTab?: 'profiles' | 'permissions' | 'matrix' | 'workflow';
+  initialSubTab?: 'profiles' | 'permissions' | 'matrix' | 'workflow' | 'pins';
+  rolePins: Record<StakeholderRoleKey, string>;
+  onUpdateRolePins: (pins: Record<StakeholderRoleKey, string>) => void;
 }
 
 interface ModuleItem {
@@ -81,6 +86,7 @@ const MODULE_ITEMS: ModuleItem[] = [
   { id: 'materials', label: 'Monitoring Material', desc: 'Inventaris bahan bangunan, SPB, & deteksi dini defisit stok', icon: Boxes },
   { id: 'workforce', label: 'Tenaga Kerja', desc: 'Alokasi tukang/mandor, jam kerja, & perhitungan upah harian', icon: Users },
   { id: 'equipment', label: 'Monitoring Alat', desc: 'Jam operasional (HM), kondisi, & perawatan alat berat', icon: Truck },
+  { id: 'documents', label: 'Manajemen Dokumen Proyek', desc: 'Arsip PDF kontrak, gambar teknis DED/Shop Drawing, & notulen rapat SCM', icon: Files },
   { id: 'inspection', label: 'Inspeksi & BAST Akhir', desc: 'Audit mutu, punch list cacat, & penandatanganan BAST PHO/FHO', icon: ShieldCheck },
   { id: 'reports', label: 'Pusat Laporan Resmi', desc: 'Ekspor laporan mingguan/bulanan berformat PDF & Excel', icon: FileSpreadsheet },
 ];
@@ -156,8 +162,26 @@ const ACTION_PERMISSIONS: ActionPermissionDef[] = [
     desc: 'Hak mengunggah foto progres mingguan beresolusi tinggi ke galeri resmi proyek',
     category: 'operations',
   },
+  {
+    key: 'canUploadDocuments',
+    label: 'Unggah Dokumen, Gambar & Notulen',
+    desc: 'Hak mengunggah arsip PDF kontrak, gambar shop drawing/as-built, dan notulen rapat SCM',
+    category: 'operations',
+  },
+  {
+    key: 'canDeleteDocuments',
+    label: 'Penghapusan Arsip Dokumen Proyek',
+    desc: 'Wewenang menghapus arsip berkas dokumen atau gambar kerja dari repositori proyek',
+    category: 'operations',
+  },
 
   // Pengawasan Mutu & BAST
+  {
+    key: 'canApproveDocuments',
+    label: 'Verifikasi & Approval Dokumen Teknis',
+    desc: 'Kewenangan menyetujui, meminta revisi, dan menandatangani review shop drawing & berita acara',
+    category: 'quality',
+  },
   {
     key: 'canConductQCInspection',
     label: 'Audit Mutu & Checklist Inspeksi QC',
@@ -195,8 +219,10 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
   onUpdateProjectSignatories,
   onAddAuditLog,
   initialSubTab = 'profiles',
+  rolePins,
+  onUpdateRolePins,
 }) => {
-  const [activeTab, setActiveTab] = useState<'profiles' | 'permissions' | 'matrix' | 'workflow'>(initialSubTab);
+  const [activeTab, setActiveTab] = useState<'profiles' | 'permissions' | 'matrix' | 'workflow' | 'pins'>(initialSubTab);
   const [editingRole, setEditingRole] = useState<StakeholderRoleKey | null>(null);
 
   // Buffer state for role permissions editor
@@ -206,7 +232,19 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
   // Form edit buffer for profile credentials
   const [formData, setFormData] = useState<StakeholderRoleProfile | null>(null);
 
-  if (!isOpen) return null;
+  // PIN Management State (Owner Exclusive)
+  const [editingPinRole, setEditingPinRole] = useState<StakeholderRoleKey | null>(null);
+  const [newPinValue, setNewPinValue] = useState<string>('');
+  const [pinVisibility, setPinVisibility] = useState<Record<StakeholderRoleKey, boolean>>({
+    Owner: false,
+    Konsultan: false,
+    Kontraktor: false,
+    Viewer: false,
+  });
+  const [copiedRole, setCopiedRole] = useState<StakeholderRoleKey | null>(null);
+
+  // KONTRAKTOR STRICTLY CANNOT VIEW OR ACCESS ROLE MANAGEMENT MODAL
+  if (!isOpen || currentRole === 'Kontraktor' || currentRole === 'Site Manager') return null;
 
   const isOwner = currentRole === 'Owner' || currentRole === 'Direktur';
 
@@ -215,6 +253,57 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
     setTimeout(() => {
       setToastMessage(null);
     }, 3000);
+  };
+
+  const togglePinVisibility = (role: StakeholderRoleKey) => {
+    setPinVisibility((prev) => ({ ...prev, [role]: !prev[role] }));
+  };
+
+  const handleStartEditPin = (role: StakeholderRoleKey) => {
+    if (!isOwner) return;
+    setEditingPinRole(role);
+    setNewPinValue(rolePins[role] || '');
+  };
+
+  const handleCancelEditPin = () => {
+    setEditingPinRole(null);
+    setNewPinValue('');
+  };
+
+  const handleSavePin = (role: StakeholderRoleKey) => {
+    if (!isOwner) return;
+    const cleanPin = newPinValue.trim();
+    if (!cleanPin) {
+      showToast('PIN tidak boleh kosong. Masukkan minimal 4 karakter.');
+      return;
+    }
+    if (cleanPin.length < 4) {
+      showToast('PIN terlalu pendek. Minimal 4 karakter demi keamanan.');
+      return;
+    }
+
+    const updatedPins = {
+      ...rolePins,
+      [role]: cleanPin,
+    };
+    onUpdateRolePins(updatedPins);
+    onAddAuditLog?.('Update PIN Keamanan', `Owner memperbarui sandi PIN akses untuk peran ${role}`);
+    showToast(`PIN keamanan untuk ${role} berhasil diperbarui dan disimpan.`);
+    setEditingPinRole(null);
+    setNewPinValue('');
+  };
+
+  const handleGenerateRandomPin = () => {
+    if (!isOwner) return;
+    const randomNum = Math.floor(100000 + Math.random() * 900000).toString();
+    setNewPinValue(randomNum);
+  };
+
+  const handleCopyPin = (role: StakeholderRoleKey, pinValue: string) => {
+    navigator.clipboard.writeText(pinValue);
+    setCopiedRole(role);
+    showToast(`PIN ${role} berhasil disalin ke clipboard.`);
+    setTimeout(() => setCopiedRole(null), 2500);
   };
 
   const handleStartEdit = (role: StakeholderRoleKey) => {
@@ -358,6 +447,9 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
       canUploadDocumentation: true,
       canExportOfficialReports: true,
       canEditProjectBudget: true,
+      canUploadDocuments: true,
+      canApproveDocuments: true,
+      canDeleteDocuments: true,
       allowedTabs: [...ALL_PROJECT_TABS],
     };
 
@@ -394,7 +486,10 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
       canUploadDocumentation: false,
       canExportOfficialReports: true,
       canEditProjectBudget: false,
-      allowedTabs: ['dashboard', 'schedule', 'calendar', 'scurve', 'gantt', 'photos', 'reports'],
+      canUploadDocuments: false,
+      canApproveDocuments: false,
+      canDeleteDocuments: false,
+      allowedTabs: ['dashboard', 'schedule', 'calendar', 'scurve', 'gantt', 'photos', 'documents', 'reports'],
     };
 
     const updated: Record<StakeholderRoleKey, StakeholderRoleProfile> = {
@@ -616,6 +711,24 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
             >
               <FileCheck2 className="w-4 h-4" />
               <span>Alur Kerja & SOP</span>
+            </button>
+
+            {/* TAB 5: ATUR PIN KEAMANAN (OWNER) */}
+            <button
+              onClick={() => setActiveTab('pins')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === 'pins'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20'
+                  : 'text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10 border border-amber-500/20'
+              }`}
+            >
+              <KeyRound className="w-4 h-4" />
+              <span>Atur PIN Keamanan</span>
+              <span className={`px-1.5 py-0.2 rounded text-[10px] font-black uppercase ${
+                activeTab === 'pins' ? 'bg-slate-950 text-amber-400' : 'bg-amber-500/20 text-amber-300'
+              }`}>
+                Wewenang Owner
+              </span>
             </button>
           </div>
 
@@ -1532,6 +1645,204 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ============================================================== */}
+          {/* TAB 5: PINS MANAGEMENT (OWNER EXCLUSIVE) */}
+          {/* ============================================================== */}
+          {activeTab === 'pins' && (
+            <div className="space-y-6">
+              {/* Header Banner: Owner Authority */}
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="p-3 rounded-2xl bg-amber-500/20 border border-amber-500/30 text-amber-400 shrink-0">
+                    <KeyRound className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-black text-white tracking-tight">
+                        Pusat Otoritas PIN Sandi Akses Peran
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        Wewenang Eksklusif Owner
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                      Sistem mengharuskan setiap pengguna memasukkan PIN resmi. Hanya Pemilik Proyek (Owner) yang berwenang menetapkan, mengubah, dan membagikan PIN akses ke masing-masing pihak.
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 flex items-center gap-2">
+                  <div className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-semibold text-emerald-400 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Login Wajib PIN Aktif</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Policy Banner: No Bypass */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-start gap-3">
+                <Info className="w-5 h-5 text-orange-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-xs">
+                  <h5 className="font-bold text-white">Ketentuan Keamanan Login & Hapus PIN Default</h5>
+                  <p className="text-slate-400 leading-relaxed text-[11px]">
+                    Seluruh tombol pintas demo dan tombol isi otomatis PIN default telah dihapus secara permanen dari halaman login. Setiap pihak (Konsultan MK, Kontraktor Pelaksana, dan Pengawas) wajib memasukkan PIN resmi yang telah Anda tentukan di bawah ini. Tanpa PIN yang cocok, akses ditolak sepenuhnya.
+                  </p>
+                </div>
+              </div>
+
+              {!isOwner ? (
+                /* Non-Owner Denied Box */
+                <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-center space-y-2">
+                  <ShieldAlert className="w-8 h-8 text-rose-400 mx-auto" />
+                  <h4 className="text-sm font-bold text-rose-300">Wewenang Terbatas</h4>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    Hanya pengguna dengan peran <strong className="text-white">Owner / Direktur</strong> yang memiliki wewenang untuk mengatur atau mengubah PIN sandi akses peran. Anda saat ini login sebagai <strong className="text-amber-300">{currentRole}</strong>.
+                  </p>
+                </div>
+              ) : (
+                /* PIN Cards for 4 Stakeholders */
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(['Owner', 'Konsultan', 'Kontraktor', 'Viewer'] as const).map((roleKey) => {
+                    const prof = profiles[roleKey] || INITIAL_STAKEHOLDER_PROFILES[roleKey];
+                    const currentPin = rolePins[roleKey] || '';
+                    const isEditing = editingPinRole === roleKey;
+                    const isVisible = pinVisibility[roleKey];
+                    const isCopied = copiedRole === roleKey;
+
+                    return (
+                      <div
+                        key={roleKey}
+                        className="p-5 rounded-2xl bg-slate-950/80 border border-slate-800 hover:border-slate-700 transition-all space-y-4 relative overflow-hidden"
+                      >
+                        {/* Role Header */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-orange-400 font-bold">
+                              {roleKey === 'Owner' && <ShieldCheck className="w-5 h-5 text-purple-400" />}
+                              {roleKey === 'Konsultan' && <CheckCircle2 className="w-5 h-5 text-blue-400" />}
+                              {roleKey === 'Kontraktor' && <HardHat className="w-5 h-5 text-amber-400" />}
+                              {roleKey === 'Viewer' && <Eye className="w-5 h-5 text-slate-400" />}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h5 className="font-bold text-sm text-white">{prof.roleName || roleKey}</h5>
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                                  {roleKey}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400 truncate max-w-[200px]">
+                                {prof.personName} &bull; {prof.position}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                            Wajib PIN
+                          </span>
+                        </div>
+
+                        {/* PIN Display or Edit Mode */}
+                        {isEditing ? (
+                          <div className="space-y-3 p-3.5 rounded-xl bg-slate-900 border border-amber-500/40">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                                <KeyRound className="w-3.5 h-3.5" /> Masukkan PIN Baru {roleKey}:
+                              </label>
+                              <button
+                                type="button"
+                                onClick={handleGenerateRandomPin}
+                                className="text-[10px] font-bold text-orange-400 hover:text-orange-300 underline cursor-pointer"
+                              >
+                                Generate Acak (6 Digit)
+                              </button>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={newPinValue}
+                                onChange={(e) => setNewPinValue(e.target.value)}
+                                placeholder="Contoh: 889900"
+                                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-sm font-bold tracking-widest focus:outline-none focus:border-amber-500"
+                                autoFocus
+                              />
+                            </div>
+                            <div className="flex items-center justify-end gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={handleCancelEditPin}
+                                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
+                              >
+                                Batal
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSavePin(roleKey)}
+                                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-amber-500/20"
+                              >
+                                <Save className="w-3.5 h-3.5" />
+                                <span>Simpan PIN</span>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="p-1.5 rounded-lg bg-slate-800 text-slate-400">
+                                <Lock className="w-4 h-4 text-orange-400" />
+                              </div>
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                                  Sandi PIN Akses:
+                                </span>
+                                <span className="font-mono text-base font-black text-white tracking-widest">
+                                  {isVisible ? currentPin : '••••••'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => togglePinVisibility(roleKey)}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+                                title={isVisible ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
+                              >
+                                {isVisible ? <EyeOff className="w-4 h-4 text-orange-400" /> : <Eye className="w-4 h-4" />}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleCopyPin(roleKey, currentPin)}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+                                title="Salin PIN ke Clipboard"
+                              >
+                                {isCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                              </button>
+
+                              {isOwner && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditPin(roleKey)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                                  <span>Ubah PIN</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="text-[10px] text-slate-500 flex items-center justify-between">
+                          <span>Status: <strong className="text-slate-400">Aktif Wajib Diisi</strong></span>
+                          <span>Wewenang: <strong className="text-amber-400">Hanya Owner yang dapat ubah</strong></span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -1,0 +1,1429 @@
+import React, { useState, useMemo } from 'react';
+import {
+  Files,
+  FileText,
+  Upload,
+  Search,
+  Filter,
+  Eye,
+  Download,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  FileCode,
+  FileSpreadsheet,
+  FileCheck,
+  Shield,
+  Trash2,
+  MessageSquare,
+  Plus,
+  X,
+  ExternalLink,
+  ChevronDown,
+  Layers,
+  Lock,
+  Unlock,
+  Check,
+  Building,
+  UserCheck,
+  Info,
+  Calendar,
+  Tag,
+  ShieldCheck,
+  PenTool,
+} from 'lucide-react';
+import {
+  ProjectDocument,
+  DocumentCategory,
+  DocumentStatus,
+  DocumentConfidentiality,
+  UserRole,
+  RolePermissions,
+  DocumentReviewNote,
+} from '../../types';
+import { RoleBadge } from '../common/RoleBadge';
+
+interface DocumentManagementProps {
+  documents: ProjectDocument[];
+  userRole: UserRole;
+  permissions?: RolePermissions;
+  activeUserName?: string;
+  onAddDocument: (doc: ProjectDocument) => void;
+  onUpdateDocument: (doc: ProjectDocument) => void;
+  onDeleteDocument: (id: string) => void;
+  onAddAuditLog?: (action: string, detail: string) => void;
+}
+
+const CATEGORY_TABS: { id: DocumentCategory | 'all'; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'all', label: 'Semua Dokumen', icon: Files },
+  { id: 'contract', label: 'Kontrak & SPK', icon: FileCheck },
+  { id: 'drawing', label: 'Gambar Teknis (DED & Shop Drawing)', icon: PenTool },
+  { id: 'meeting_minute', label: 'Notulen Rapat & SCM', icon: MessageSquare },
+  { id: 'legal_permit', label: 'Legalitas & PBG/IMB', icon: ShieldCheck },
+];
+
+export const DocumentManagement: React.FC<DocumentManagementProps> = ({
+  documents,
+  userRole,
+  permissions,
+  activeUserName = 'Site Manager',
+  onAddDocument,
+  onUpdateDocument,
+  onDeleteDocument,
+  onAddAuditLog,
+}) => {
+  // Filter & Search State
+  const [selectedCategory, setSelectedCategory] = useState<DocumentCategory | 'all'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<DocumentStatus | 'all'>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+
+  // Modals state
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [selectedDocForPreview, setSelectedDocForPreview] = useState<ProjectDocument | null>(null);
+  const [selectedDocForReview, setSelectedDocForReview] = useState<ProjectDocument | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Review form state
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewStatusChoice, setReviewStatusChoice] = useState<DocumentStatus>('Approved');
+
+  // Upload Form State
+  const [uploadForm, setUploadForm] = useState<{
+    title: string;
+    documentNumber: string;
+    category: DocumentCategory;
+    fileType: 'pdf' | 'dwg' | 'xlsx' | 'docx';
+    fileSize: string;
+    fileName: string;
+    version: string;
+    confidentiality: DocumentConfidentiality;
+    description: string;
+    tagsInput: string;
+  }>({
+    title: '',
+    documentNumber: '',
+    category: 'drawing',
+    fileType: 'pdf',
+    fileSize: '3.5 MB',
+    fileName: '',
+    version: 'Rev.00',
+    confidentiality: 'Khusus Tripartit (Owner-MK-Kontraktor)',
+    description: '',
+    tagsInput: 'Struktur, Shop Drawing',
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const [fakeFileSelected, setFakeFileSelected] = useState<string | null>(null);
+
+  // Permission checks
+  const canUpload = permissions?.canUploadDocuments ?? (userRole !== 'Viewer');
+  const canApprove = permissions?.canApproveDocuments ?? (userRole === 'Owner' || userRole === 'Direktur' || userRole === 'Konsultan');
+  const canDelete = permissions?.canDeleteDocuments ?? (userRole === 'Owner' || userRole === 'Direktur');
+
+  // Filtered documents
+  const filteredDocuments = useMemo(() => {
+    return documents.filter((doc) => {
+      // Category filter
+      if (selectedCategory !== 'all' && doc.category !== selectedCategory) {
+        return false;
+      }
+      // Status filter
+      if (statusFilter !== 'all' && doc.status !== statusFilter) {
+        return false;
+      }
+      // Confidentiality filter: Kontraktor and Viewer cannot see documents marked 'Rahasia (Owner & Konsultan MK)'
+      if (
+        (userRole === 'Kontraktor' || userRole === 'Site Manager' || userRole === 'Viewer') &&
+        doc.confidentiality === 'Rahasia (Owner & Konsultan MK)'
+      ) {
+        return false;
+      }
+      // Search query
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchTitle = doc.title.toLowerCase().includes(query);
+        const matchNumber = doc.documentNumber.toLowerCase().includes(query);
+        const matchUploader = doc.uploadedBy.toLowerCase().includes(query);
+        const matchTags = doc.tags.some((t) => t.toLowerCase().includes(query));
+        const matchDesc = doc.description.toLowerCase().includes(query);
+        if (!matchTitle && !matchNumber && !matchUploader && !matchTags && !matchDesc) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [documents, selectedCategory, statusFilter, searchQuery, userRole]);
+
+  // Summary counts
+  const stats = useMemo(() => {
+    return {
+      total: documents.length,
+      contracts: documents.filter((d) => d.category === 'contract').length,
+      drawings: documents.filter((d) => d.category === 'drawing').length,
+      minutes: documents.filter((d) => d.category === 'meeting_minute').length,
+      pendingReview: documents.filter((d) => d.status === 'Review' || d.status === 'Revision').length,
+      approved: documents.filter((d) => d.status === 'Approved').length,
+    };
+  }, [documents]);
+
+  // Helper for generating document number recommendation
+  const handleCategoryChangeInUpload = (cat: DocumentCategory) => {
+    let prefix = 'DOC';
+    let sample = '';
+    if (cat === 'contract') {
+      prefix = 'SPK';
+      sample = `SPK-0${documents.length + 1}/FGI-DIR/2026`;
+    } else if (cat === 'drawing') {
+      prefix = 'SHD';
+      sample = `SHD-STR-0${documents.length + 1}-REV0`;
+    } else if (cat === 'meeting_minute') {
+      prefix = 'MOM';
+      sample = `MOM-SCM-W${documents.length + 1}/2026`;
+    } else {
+      prefix = 'LEG';
+      sample = `BA-SK-0${documents.length + 1}/2026`;
+    }
+    setUploadForm((prev) => ({
+      ...prev,
+      category: cat,
+      documentNumber: prev.documentNumber ? prev.documentNumber : sample,
+    }));
+  };
+
+  // Handle file select simulation
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      let type: 'pdf' | 'dwg' | 'xlsx' | 'docx' = 'pdf';
+      if (ext === 'dwg') type = 'dwg';
+      else if (ext === 'xlsx' || ext === 'xls') type = 'xlsx';
+      else if (ext === 'docx' || ext === 'doc') type = 'docx';
+
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+      setFakeFileSelected(file.name);
+      setUploadForm((prev) => ({
+        ...prev,
+        fileName: file.name,
+        title: prev.title || file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+        fileType: type,
+        fileSize: sizeMB,
+      }));
+    }
+  };
+
+  // Submit Upload
+  const handleSubmitUpload = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadForm.title.trim() || !uploadForm.documentNumber.trim()) {
+      alert('Mohon lengkapi Judul dan Nomor Dokumen.');
+      return;
+    }
+
+    const tags = uploadForm.tagsInput
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    const newDoc: ProjectDocument = {
+      id: `DOC-${Date.now()}`,
+      title: uploadForm.title.trim(),
+      documentNumber: uploadForm.documentNumber.trim(),
+      category: uploadForm.category,
+      fileType: uploadForm.fileType,
+      fileSize: uploadForm.fileSize || '2.4 MB',
+      fileName: uploadForm.fileName || `${uploadForm.documentNumber}.${uploadForm.fileType}`,
+      uploadDate: new Date().toISOString().split('T')[0],
+      uploadedBy: activeUserName,
+      uploadedByRole: userRole,
+      version: uploadForm.version.trim() || 'v1.0',
+      status: userRole === 'Owner' || userRole === 'Direktur' ? 'Approved' : 'Review',
+      description: uploadForm.description.trim() || 'Dokumen resmi konstruksi diunggah ke repositori sistem.',
+      tags: tags.length > 0 ? tags : ['Konstruksi'],
+      confidentiality: uploadForm.confidentiality,
+      signatories: [
+        {
+          role: userRole === 'Owner' || userRole === 'Direktur' ? 'Owner' : userRole === 'Konsultan' ? 'Konsultan' : 'Kontraktor',
+          name: activeUserName,
+          signed: true,
+          signedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        },
+      ],
+      reviewNotes: [],
+    };
+
+    onAddDocument(newDoc);
+    onAddAuditLog?.(
+      'Unggah Dokumen Proyek',
+      `Menambahkan ${newDoc.category}: ${newDoc.documentNumber} - ${newDoc.title} (${newDoc.version})`
+    );
+
+    setIsUploadModalOpen(false);
+    setFakeFileSelected(null);
+    setUploadForm({
+      title: '',
+      documentNumber: '',
+      category: 'drawing',
+      fileType: 'pdf',
+      fileSize: '3.5 MB',
+      fileName: '',
+      version: 'Rev.00',
+      confidentiality: 'Khusus Tripartit (Owner-MK-Kontraktor)',
+      description: '',
+      tagsInput: 'Struktur, Shop Drawing',
+    });
+  };
+
+  // Submit Review Note & Approval
+  const handleSubmitReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDocForReview) return;
+    if (!reviewComment.trim()) {
+      alert('Mohon tuliskan catatan review teknis.');
+      return;
+    }
+
+    const newNote: DocumentReviewNote = {
+      id: `RN-${Date.now()}`,
+      authorName: activeUserName,
+      authorRole: userRole,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      comment: reviewComment.trim(),
+      statusChange: reviewStatusChoice,
+    };
+
+    const updatedDoc: ProjectDocument = {
+      ...selectedDocForReview,
+      status: reviewStatusChoice,
+      reviewNotes: [...(selectedDocForReview.reviewNotes || []), newNote],
+    };
+
+    onUpdateDocument(updatedDoc);
+    onAddAuditLog?.(
+      'Review & Verifikasi Dokumen',
+      `Memperbarui status ${updatedDoc.documentNumber} menjadi "${reviewStatusChoice}": "${reviewComment}"`
+    );
+
+    setSelectedDocForReview(null);
+    setReviewComment('');
+  };
+
+  // Handle Document File Download simulation
+  const handleDownloadDocument = (doc: ProjectDocument) => {
+    // Generate text/markdown export representation
+    const textContent = `
+================================================================================
+                    PT FORESYNDO GLOBAL INDONESIA
+               PROYEK PEMBANGUNAN GEDUNG FORESYNDO 2
+           Kec. Jatitujuh, Kab. Majalengka, Jawa Barat
+================================================================================
+
+ARSIP DOKUMEN RESMI KONSTRUKSI
+Nomor Dokumen   : ${doc.documentNumber}
+Judul Dokumen   : ${doc.title}
+Kategori        : ${doc.category.toUpperCase()}
+Versi           : ${doc.version}
+Status Approval : ${doc.status.toUpperCase()}
+Tanggal Unggah  : ${doc.uploadDate}
+Diunggah Oleh   : ${doc.uploadedBy} (${doc.uploadedByRole})
+Klasifikasi     : ${doc.confidentiality}
+Tipe Berkas     : ${doc.fileType.toUpperCase()} (${doc.fileSize})
+
+--------------------------------------------------------------------------------
+RINGKASAN & KETERANGAN TEKNIS:
+${doc.description}
+
+TAGS PROYEK:
+${doc.tags.join(', ')}
+
+--------------------------------------------------------------------------------
+TANDA TANGAN & PENGESAHAN ELEKTRONIK (TRIPARTIT):
+${
+  doc.signatories && doc.signatories.length > 0
+    ? doc.signatories.map((s) => `[TERVERIFIKASI] ${s.role.toUpperCase()}: ${s.name} (Tgl: ${s.signedAt || doc.uploadDate})`).join('\n')
+    : '[MENUNGGU PENGESAHAN TRIPARTIT]'
+}
+
+--------------------------------------------------------------------------------
+RIWAYAT CATATAN AUDIT & REVIEW TEKNIS:
+${
+  doc.reviewNotes && doc.reviewNotes.length > 0
+    ? doc.reviewNotes
+        .map(
+          (rn, i) =>
+            `${i + 1}. [${rn.timestamp}] ${rn.authorName} (${rn.authorRole}) -> Status: ${rn.statusChange || 'Review'}\n   "${rn.comment}"`
+        )
+        .join('\n')
+    : 'Belum ada catatan review lanjutan.'
+}
+
+================================================================================
+Dicetak otomatis melalui Sistem Monitoring Konstruksi Terpadu Foresyndo 2
+Waktu Unduh: ${new Date().toLocaleString('id-ID')}
+================================================================================
+    `.trim();
+
+    const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = doc.fileName || `${doc.documentNumber}_Foresyndo2.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    onAddAuditLog?.('Unduh Dokumen Proyek', `Mengunduh berkas ${doc.documentNumber} (${doc.title})`);
+  };
+
+  const getStatusBadge = (status: DocumentStatus) => {
+    switch (status) {
+      case 'Approved':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            <CheckCircle2 className="w-3.5 h-3.5" /> Disetujui
+          </span>
+        );
+      case 'Review':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+            <Clock className="w-3.5 h-3.5" /> Dalam Review
+          </span>
+        );
+      case 'Revision':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+            <AlertTriangle className="w-3.5 h-3.5" /> Butuh Revisi
+          </span>
+        );
+      case 'Draft':
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-500/15 text-slate-400 border border-slate-500/30">
+            <FileText className="w-3.5 h-3.5" /> Konsep (Draft)
+          </span>
+        );
+    }
+  };
+
+  const getFileTypeIcon = (fileType: string) => {
+    switch (fileType.toLowerCase()) {
+      case 'pdf':
+        return (
+          <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 font-bold shrink-0">
+            <span className="text-xs font-black">PDF</span>
+          </div>
+        );
+      case 'dwg':
+        return (
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 font-bold shrink-0">
+            <span className="text-xs font-black">DWG</span>
+          </div>
+        );
+      case 'xlsx':
+      case 'xls':
+        return (
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold shrink-0">
+            <span className="text-xs font-black">XLS</span>
+          </div>
+        );
+      default:
+        return (
+          <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold shrink-0">
+            <span className="text-xs font-black">DOC</span>
+          </div>
+        );
+    }
+  };
+
+  const getCategoryLabel = (cat: DocumentCategory) => {
+    switch (cat) {
+      case 'contract':
+        return 'Kontrak & SPK';
+      case 'drawing':
+        return 'Gambar Teknis';
+      case 'meeting_minute':
+        return 'Notulen Rapat SCM';
+      case 'legal_permit':
+        return 'Legalitas & PBG';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Top Banner & Title */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+        <div className="space-y-1.5 z-10">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center gap-1">
+              <Files className="w-3 h-3" /> Repositori Dokumen Konstruksi
+            </span>
+            <span className="text-xs text-slate-400">Proyek Gedung Foresyndo 2 &bull; Majalengka</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+            Manajemen Dokumen & Gambar Teknis
+          </h1>
+          <p className="text-xs text-slate-400 max-w-2xl">
+            Pusat penyimpanan terpadu PDF Kontrak Induk, Shop Drawing, As-Built Drawing, Notulen Rapat SCM, dan Legalitas PBG
+            dengan kontrol wewenang berbasis peran Tripartit (Owner, Konsultan MK, Kontraktor).
+          </p>
+        </div>
+
+        {/* Action Button & Role Indicator */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 z-10">
+          <div className="bg-slate-800/80 px-3 py-2 rounded-2xl border border-slate-700/80 flex items-center gap-2">
+            <RoleBadge role={userRole} />
+            <div className="text-[11px] text-slate-400">
+              {canUpload ? (
+                <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Izin Unggah Aktif
+                </span>
+              ) : (
+                <span className="text-slate-500 flex items-center gap-1">
+                  <Lock className="w-3 h-3" /> Mode Hanya Baca
+                </span>
+              )}
+            </div>
+          </div>
+
+          {canUpload ? (
+            <button
+              onClick={() => setIsUploadModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-xs font-bold shadow-lg shadow-orange-500/25 transition-all cursor-pointer"
+            >
+              <Upload className="w-4 h-4" /> Unggah Dokumen Baru
+            </button>
+          ) : (
+            <button
+              disabled
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-800 text-slate-500 text-xs font-bold border border-slate-700 cursor-not-allowed opacity-75"
+              title="Unggah dibatasi untuk peran Viewer"
+            >
+              <Lock className="w-4 h-4" /> Unggah Dibatasi
+            </button>
+          )}
+        </div>
+
+        {/* Decorative background glow */}
+        <div className="absolute -right-16 -top-16 w-56 h-56 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
+      </div>
+
+      {/* KPI Counters Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-1">
+          <div className="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+            <span>Total Dokumen</span>
+            <Files className="w-3.5 h-3.5 text-orange-400" />
+          </div>
+          <div className="text-2xl font-black text-white">{stats.total}</div>
+          <div className="text-[10px] text-slate-500">Arsip aktif dalam sistem</div>
+        </div>
+
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-1">
+          <div className="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+            <span>Kontrak & SPK</span>
+            <FileCheck className="w-3.5 h-3.5 text-blue-400" />
+          </div>
+          <div className="text-2xl font-black text-blue-400">{stats.contracts}</div>
+          <div className="text-[10px] text-slate-500">SPK & Addendum RAB</div>
+        </div>
+
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-1">
+          <div className="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+            <span>Gambar Teknis</span>
+            <PenTool className="w-3.5 h-3.5 text-cyan-400" />
+          </div>
+          <div className="text-2xl font-black text-cyan-400">{stats.drawings}</div>
+          <div className="text-[10px] text-slate-500">DED & Shop Drawings</div>
+        </div>
+
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-1">
+          <div className="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+            <span>Notulen Rapat SCM</span>
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+          </div>
+          <div className="text-2xl font-black text-emerald-400">{stats.minutes}</div>
+          <div className="text-[10px] text-slate-500">PCM & SCM mingguan</div>
+        </div>
+
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-1">
+          <div className="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+            <span>Perlu Review / Revisi</span>
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+          </div>
+          <div className="text-2xl font-black text-amber-400">{stats.pendingReview}</div>
+          <div className="text-[10px] text-slate-500">Menunggu audit MK/Owner</div>
+        </div>
+
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-1">
+          <div className="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+            <span>Telah Disetujui</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+          </div>
+          <div className="text-2xl font-black text-emerald-400">{stats.approved}</div>
+          <div className="text-[10px] text-slate-500">Status final terverifikasi</div>
+        </div>
+      </div>
+
+      {/* Category Tabs & Search Filter Controls */}
+      <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-5 space-y-4 shadow-lg">
+        {/* Category Pill Tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-700">
+          {CATEGORY_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isSelected = selectedCategory === tab.id;
+            const count =
+              tab.id === 'all'
+                ? documents.length
+                : documents.filter((d) => d.category === tab.id).length;
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setSelectedCategory(tab.id)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  isSelected
+                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25'
+                    : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{tab.label}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search, Status Filter & View Toggle */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-800">
+          {/* Search Bar */}
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari judul, nomor dokumen, pengunggah, atau tag..."
+              className="w-full pl-9 pr-4 py-2 bg-slate-800/90 border border-slate-700 rounded-2xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-orange-500 transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
+              >
+                &times;
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Status Filter */}
+            <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700 rounded-2xl px-3 py-1.5">
+              <Filter className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-[11px] text-slate-400 hidden sm:inline">Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as DocumentStatus | 'all')}
+                className="bg-transparent text-xs text-white font-semibold focus:outline-none cursor-pointer"
+              >
+                <option value="all" className="bg-slate-900 text-white">Semua Status</option>
+                <option value="Approved" className="bg-slate-900 text-emerald-400">Disetujui (Approved)</option>
+                <option value="Review" className="bg-slate-900 text-amber-400">Dalam Review</option>
+                <option value="Revision" className="bg-slate-900 text-rose-400">Butuh Revisi</option>
+                <option value="Draft" className="bg-slate-900 text-slate-400">Konsep (Draft)</option>
+              </select>
+            </div>
+
+            {/* View Mode Switcher */}
+            <div className="flex items-center bg-slate-800/90 border border-slate-700 rounded-2xl p-0.5">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-xl transition-all cursor-pointer ${
+                  viewMode === 'grid' ? 'bg-orange-500 text-white font-bold' : 'text-slate-400 hover:text-white'
+                }`}
+                title="Tampilan Grid Card"
+              >
+                <Layers className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`p-1.5 rounded-xl transition-all cursor-pointer ${
+                  viewMode === 'table' ? 'bg-orange-500 text-white font-bold' : 'text-slate-400 hover:text-white'
+                }`}
+                title="Tampilan Tabel Rinci"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Document Content List / Grid */}
+      {filteredDocuments.length === 0 ? (
+        <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-12 text-center space-y-3">
+          <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center mx-auto text-slate-500">
+            <Files className="w-7 h-7" />
+          </div>
+          <h3 className="text-base font-bold text-white">Tidak Ada Dokumen yang Ditemukan</h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            Tidak ada dokumen yang cocok dengan filter atau kata kunci pencarian Anda. Coba sesuaikan kata kunci atau reset filter.
+          </p>
+          {(searchQuery || statusFilter !== 'all' || selectedCategory !== 'all') && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setStatusFilter('all');
+                setSelectedCategory('all');
+              }}
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-orange-400 text-xs font-semibold transition-all cursor-pointer"
+            >
+              Reset Semua Filter
+            </button>
+          )}
+        </div>
+      ) : viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredDocuments.map((doc) => (
+            <div
+              key={doc.id}
+              className="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-3xl p-5 shadow-lg flex flex-col justify-between transition-all hover:shadow-2xl group space-y-4 relative"
+            >
+              {/* Card Header: Icon + Category + Status */}
+              <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {getFileTypeIcon(doc.fileType)}
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                          {getCategoryLabel(doc.category)}
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-orange-500/15 text-orange-400 border border-orange-500/30">
+                          {doc.version}
+                        </span>
+                      </div>
+                      <div className="text-xs font-bold text-slate-300 font-mono mt-1 tracking-tight">
+                        {doc.documentNumber}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0">{getStatusBadge(doc.status)}</div>
+                </div>
+
+                {/* Title and Description */}
+                <div>
+                  <h3 className="text-sm font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-2 leading-snug">
+                    {doc.title}
+                  </h3>
+                  <p className="text-xs text-slate-400 line-clamp-2 mt-1.5 leading-relaxed">
+                    {doc.description}
+                  </p>
+                </div>
+
+                {/* Tags */}
+                {doc.tags && doc.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {doc.tags.map((t, idx) => (
+                      <span
+                        key={idx}
+                        className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700/60"
+                      >
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Card Footer: Metadata & Actions */}
+              <div className="pt-3 border-t border-slate-800 space-y-3">
+                <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <RoleBadge role={doc.uploadedByRole} showIcon={false} />
+                    <span className="truncate text-slate-300">{doc.uploadedBy}</span>
+                  </div>
+                  <div className="shrink-0 text-slate-500 font-mono text-[10px]">{doc.uploadDate}</div>
+                </div>
+
+                {/* Actions Grid */}
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={() => setSelectedDocForPreview(doc)}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-orange-400" /> Pratinjau
+                  </button>
+
+                  <button
+                    onClick={() => handleDownloadDocument(doc)}
+                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 transition-colors cursor-pointer"
+                    title="Unduh Berkas Resmi (PDF/Dokumen)"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+
+                  {canApprove && (
+                    <button
+                      onClick={() => {
+                        setSelectedDocForReview(doc);
+                        setReviewStatusChoice(doc.status === 'Review' ? 'Approved' : doc.status);
+                        setReviewComment('');
+                      }}
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-amber-500/20 text-amber-400 transition-colors cursor-pointer"
+                      title="Verifikasi & Beri Catatan Approval"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  {canDelete && (
+                    <button
+                      onClick={() => setDeleteConfirmId(doc.id)}
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                      title="Hapus Dokumen"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* Table View */
+        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-800/80 text-slate-400 uppercase font-bold text-[10px] tracking-wider border-b border-slate-800">
+                <tr>
+                  <th className="py-3 px-4">Tipe & No. Dokumen</th>
+                  <th className="py-3 px-4">Judul Dokumen</th>
+                  <th className="py-3 px-4">Kategori</th>
+                  <th className="py-3 px-4">Versi</th>
+                  <th className="py-3 px-4">Pengunggah</th>
+                  <th className="py-3 px-4">Tanggal</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-slate-300 font-medium">
+                {filteredDocuments.map((doc) => (
+                  <tr key={doc.id} className="hover:bg-slate-800/50 transition-colors">
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-2">
+                        {getFileTypeIcon(doc.fileType)}
+                        <div>
+                          <div className="font-bold text-white font-mono">{doc.documentNumber}</div>
+                          <div className="text-[10px] text-slate-500">{doc.fileSize}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 max-w-xs">
+                      <div className="font-bold text-white hover:text-orange-400 transition-colors line-clamp-1">
+                        {doc.title}
+                      </div>
+                      <div className="text-[10px] text-slate-400 line-clamp-1">{doc.description}</div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                        {getCategoryLabel(doc.category)}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-orange-400 font-bold">{doc.version}</td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5">
+                        <RoleBadge role={doc.uploadedByRole} showIcon={false} />
+                        <span className="truncate max-w-[120px]">{doc.uploadedBy}</span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-400 font-mono text-[11px]">{doc.uploadDate}</td>
+                    <td className="py-3.5 px-4">{getStatusBadge(doc.status)}</td>
+                    <td className="py-3.5 px-4 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => setSelectedDocForPreview(doc)}
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-orange-400 transition-colors"
+                          title="Pratinjau"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDownloadDocument(doc)}
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-400 transition-colors"
+                          title="Unduh Berkas"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+                        {canApprove && (
+                          <button
+                            onClick={() => {
+                              setSelectedDocForReview(doc);
+                              setReviewStatusChoice(doc.status === 'Review' ? 'Approved' : doc.status);
+                              setReviewComment('');
+                            }}
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-amber-500/20 text-amber-400 transition-colors"
+                            title="Approval / Review"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => setDeleteConfirmId(doc.id)}
+                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
+                            title="Hapus"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* PREVIEW & DETAILS MODAL */}
+      {/* ========================================================================= */}
+      {selectedDocForPreview && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-slate-800/80 border-b border-slate-700/80 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                {getFileTypeIcon(selectedDocForPreview.fileType)}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-bold text-orange-400">
+                      {selectedDocForPreview.documentNumber}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">
+                      {selectedDocForPreview.version}
+                    </span>
+                    {getStatusBadge(selectedDocForPreview.status)}
+                  </div>
+                  <h2 className="text-base font-bold text-white line-clamp-1">{selectedDocForPreview.title}</h2>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownloadDocument(selectedDocForPreview)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" /> Unduh Dokumen
+                </button>
+                <button
+                  onClick={() => setSelectedDocForPreview(null)}
+                  className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body: Document Preview Letterhead & Content */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-300 text-xs">
+              {/* Simulated Paper Letterhead */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-inner relative">
+                {/* Official Letterhead Header */}
+                <div className="border-b-2 border-slate-700 pb-4 text-center space-y-1">
+                  <div className="text-xs font-black tracking-widest text-orange-400 uppercase">
+                    PT FORESYNDO GLOBAL INDONESIA
+                  </div>
+                  <div className="text-base sm:text-lg font-black text-white uppercase tracking-tight">
+                    PROYEK PEMBANGUNAN GEDUNG FORESYNDO 2
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    Lokasi: Kec. Jatitujuh, Kabupaten Majalengka, Jawa Barat &bull; Nilai Kontrak: Rp 14.461.760.981
+                  </div>
+                </div>
+
+                {/* Metadata Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase block font-bold">Kategori Dokumen</span>
+                    <span className="font-bold text-white">{getCategoryLabel(selectedDocForPreview.category)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase block font-bold">Klasifikasi Akses</span>
+                    <span className="font-bold text-amber-400">{selectedDocForPreview.confidentiality}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase block font-bold">Pengunggah Dokumen</span>
+                    <span className="font-bold text-white">{selectedDocForPreview.uploadedBy}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase block font-bold">Tanggal Penerbitan</span>
+                    <span className="font-bold text-white font-mono">{selectedDocForPreview.uploadDate}</span>
+                  </div>
+                </div>
+
+                {/* Document Description / Text */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-orange-400" /> Ringkasan & Spesifikasi Teknis:
+                  </h4>
+                  <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800/80 leading-relaxed text-slate-300">
+                    {selectedDocForPreview.description}
+                  </div>
+                </div>
+
+                {/* Tripartit Signatures Stamp Box */}
+                <div className="space-y-3 pt-4 border-t border-slate-800">
+                  <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Pengesahan & Tanda Tangan Digital Tripartit:
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Owner Box */}
+                    <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5 text-center">
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Pemberi Tugas (Owner)</div>
+                      <div className="py-2 flex items-center justify-center">
+                        <div className="px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-bold">
+                          [TERVERIFIKASI DIGITAL]
+                        </div>
+                      </div>
+                      <div className="font-bold text-white text-xs">H. Bambang S., M.T.</div>
+                      <div className="text-[10px] text-slate-500">Direktur Utama PT FGI</div>
+                    </div>
+
+                    {/* Konsultan MK Box */}
+                    <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5 text-center">
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Konsultan Pengawas (MK)</div>
+                      <div className="py-2 flex items-center justify-center">
+                        <div className="px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-bold">
+                          [TERVERIFIKASI DIGITAL]
+                        </div>
+                      </div>
+                      <div className="font-bold text-white text-xs">Ir. Hendra Gunawan, ST, IPU</div>
+                      <div className="text-[10px] text-slate-500">Team Leader MK</div>
+                    </div>
+
+                    {/* Kontraktor Box */}
+                    <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5 text-center">
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Kontraktor Pelaksana</div>
+                      <div className="py-2 flex items-center justify-center">
+                        <div className="px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-bold">
+                          [TERVERIFIKASI DIGITAL]
+                        </div>
+                      </div>
+                      <div className="font-bold text-white text-xs">Ir. Agus Pratama</div>
+                      <div className="text-[10px] text-slate-500">Site Manager Lapangan</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Review Notes History */}
+                {selectedDocForPreview.reviewNotes && selectedDocForPreview.reviewNotes.length > 0 && (
+                  <div className="space-y-2 pt-4 border-t border-slate-800">
+                    <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <MessageSquare className="w-3.5 h-3.5 text-amber-400" /> Riwayat Audit & Review Teknis:
+                    </h4>
+                    <div className="space-y-2">
+                      {selectedDocForPreview.reviewNotes.map((rn) => (
+                        <div key={rn.id} className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="font-bold text-orange-400 flex items-center gap-1.5">
+                              <RoleBadge role={rn.authorRole} showIcon={false} />
+                              {rn.authorName}
+                            </span>
+                            <span className="text-slate-500 font-mono">{rn.timestamp}</span>
+                          </div>
+                          <p className="text-xs text-slate-300 italic">"{rn.comment}"</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-800/80 border-t border-slate-700/80 flex items-center justify-between">
+              <span className="text-[11px] text-slate-400">
+                Berkas: <span className="font-mono text-slate-200">{selectedDocForPreview.fileName}</span> ({selectedDocForPreview.fileSize})
+              </span>
+              <div className="flex items-center gap-2">
+                {canApprove && (
+                  <button
+                    onClick={() => {
+                      const doc = selectedDocForPreview;
+                      setSelectedDocForPreview(null);
+                      setSelectedDocForReview(doc);
+                      setReviewStatusChoice(doc.status === 'Review' ? 'Approved' : doc.status);
+                      setReviewComment('');
+                    }}
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Beri Catatan Approval
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedDocForPreview(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs transition-colors cursor-pointer"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* REVIEW & APPROVAL MODAL */}
+      {/* ========================================================================= */}
+      {selectedDocForReview && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 bg-slate-800/80 border-b border-slate-700/80 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-amber-400" />
+                <h3 className="font-bold text-white text-sm">Verifikasi & Approval Dokumen</h3>
+              </div>
+              <button
+                onClick={() => setSelectedDocForReview(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitReview} className="p-6 space-y-4">
+              <div className="p-3.5 rounded-2xl bg-slate-800/50 border border-slate-700 space-y-1">
+                <div className="text-[11px] text-slate-400">Dokumen yang ditinjau:</div>
+                <div className="font-bold text-white text-xs">{selectedDocForReview.title}</div>
+                <div className="font-mono text-[10px] text-orange-400">{selectedDocForReview.documentNumber} ({selectedDocForReview.version})</div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 block">Keputusan Status Dokumen</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setReviewStatusChoice('Approved')}
+                    className={`p-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      reviewStatusChoice === 'Approved'
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500'
+                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                    }`}
+                  >
+                    Setujui (Approved)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReviewStatusChoice('Revision')}
+                    className={`p-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      reviewStatusChoice === 'Revision'
+                        ? 'bg-rose-500/20 text-rose-400 border-rose-500'
+                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                    }`}
+                  >
+                    Minta Revisi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReviewStatusChoice('Review')}
+                    className={`p-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      reviewStatusChoice === 'Review'
+                        ? 'bg-amber-500/20 text-amber-400 border-amber-500'
+                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                    }`}
+                  >
+                    Tinjau Kembali
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 block">
+                  Catatan Review Teknis / Arahan Lapangan <span className="text-rose-400">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Tuliskan catatan teknis, instruksi revisi, atau konfirmasi persetujuan dokumen ini..."
+                  className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDocForReview(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md shadow-orange-500/25 transition-all cursor-pointer"
+                >
+                  Simpan Keputusan Review
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* UPLOAD DOCUMENT MODAL */}
+      {/* ========================================================================= */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 bg-slate-800/80 border-b border-slate-700/80 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Upload className="w-5 h-5 text-orange-400" />
+                <h3 className="font-bold text-white text-sm">Unggah Dokumen Konstruksi Baru</h3>
+              </div>
+              <button
+                onClick={() => setIsUploadModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitUpload} className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+              {/* Drag & Drop File Zone */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    const file = e.dataTransfer.files[0];
+                    setFakeFileSelected(file.name);
+                    setUploadForm((prev) => ({
+                      ...prev,
+                      fileName: file.name,
+                      title: prev.title || file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+                    }));
+                  }
+                }}
+                className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                  isDragging
+                    ? 'border-orange-500 bg-orange-500/10'
+                    : fakeFileSelected
+                    ? 'border-emerald-500/50 bg-emerald-500/5'
+                    : 'border-slate-700 hover:border-slate-600 bg-slate-800/50'
+                }`}
+              >
+                <input
+                  type="file"
+                  id="doc-file-input"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  accept=".pdf,.dwg,.xlsx,.xls,.docx,.doc"
+                />
+                <label htmlFor="doc-file-input" className="cursor-pointer space-y-2 block">
+                  <div className="w-12 h-12 rounded-2xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center mx-auto text-orange-400">
+                    <Upload className="w-6 h-6" />
+                  </div>
+                  {fakeFileSelected ? (
+                    <div>
+                      <div className="font-bold text-emerald-400 text-sm">{fakeFileSelected}</div>
+                      <div className="text-[11px] text-slate-400">Klik untuk mengganti berkas yang dipilih</div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="font-bold text-white text-sm">Tarik & Jatuhkan Berkas PDF / DWG di sini</div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        atau <span className="text-orange-400 underline font-bold">Pilih Berkas dari Komputer</span> (Mendukung .pdf, .dwg, .xlsx, .docx maks. 25 MB)
+                      </div>
+                    </div>
+                  )}
+                </label>
+              </div>
+
+              {/* Form Input Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Category Selection */}
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-300">Kategori Dokumen *</label>
+                  <select
+                    value={uploadForm.category}
+                    onChange={(e) => handleCategoryChangeInUpload(e.target.value as DocumentCategory)}
+                    className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white font-semibold focus:outline-none focus:border-orange-500"
+                  >
+                    <option value="drawing">Gambar Teknis (DED & Shop Drawing)</option>
+                    <option value="contract">Kontrak & SPK / Addendum</option>
+                    <option value="meeting_minute">Notulen Rapat PCM & SCM</option>
+                    <option value="legal_permit">Legalitas & PBG/IMB</option>
+                  </select>
+                </div>
+
+                {/* Document Number */}
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-300">Nomor Dokumen / No. Gambar *</label>
+                  <input
+                    type="text"
+                    required
+                    value={uploadForm.documentNumber}
+                    onChange={(e) => setUploadForm({ ...uploadForm, documentNumber: e.target.value })}
+                    placeholder="Contoh: SHD-STR-001 / SPK-04/DIR/2026"
+                    className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              {/* Title */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-300">Judul Dokumen Lengkap *</label>
+                <input
+                  type="text"
+                  required
+                  value={uploadForm.title}
+                  onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
+                  placeholder="Contoh: Shop Drawing Pembesian Kolom K1 & Balok B1 Lantai 1"
+                  className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* File Type */}
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-300">Tipe Format Berkas</label>
+                  <select
+                    value={uploadForm.fileType}
+                    onChange={(e) => setUploadForm({ ...uploadForm, fileType: e.target.value as any })}
+                    className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-orange-500 font-mono"
+                  >
+                    <option value="pdf">PDF Document (.pdf)</option>
+                    <option value="dwg">AutoCAD Drawing (.dwg)</option>
+                    <option value="xlsx">Excel Spreadsheet (.xlsx)</option>
+                    <option value="docx">Word Document (.docx)</option>
+                  </select>
+                </div>
+
+                {/* Version */}
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-300">Nomor Versi / Revisi</label>
+                  <input
+                    type="text"
+                    value={uploadForm.version}
+                    onChange={(e) => setUploadForm({ ...uploadForm, version: e.target.value })}
+                    placeholder="Contoh: Rev.01, v1.0"
+                    className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+
+                {/* Confidentiality */}
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-300">Hak Akses / Kerahasiaan</label>
+                  <select
+                    value={uploadForm.confidentiality}
+                    onChange={(e) => setUploadForm({ ...uploadForm, confidentiality: e.target.value as any })}
+                    className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-orange-500"
+                  >
+                    <option value="Semua Pihak (Publik Proyek)">Semua Pihak (Publik Proyek)</option>
+                    <option value="Khusus Tripartit (Owner-MK-Kontraktor)">Khusus Tripartit</option>
+                    <option value="Rahasia (Owner & Konsultan MK)">Rahasia (Owner-MK)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-300">Deskripsi / Catatan Teknis</label>
+                <textarea
+                  rows={3}
+                  value={uploadForm.description}
+                  onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
+                  placeholder="Uraikan rincian teknis, referensi sektor pekerjaan, atau catatan penting terkait dokumen ini..."
+                  className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              {/* Tags */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-300">Tag & Label (Pisahkan dengan koma)</label>
+                <input
+                  type="text"
+                  value={uploadForm.tagsInput}
+                  onChange={(e) => setUploadForm({ ...uploadForm, tagsInput: e.target.value })}
+                  placeholder="Contoh: Struktur, Sektor 3, Pembesian, Termin 2"
+                  className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsUploadModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-lg shadow-orange-500/25 transition-all cursor-pointer flex items-center gap-2"
+                >
+                  <Upload className="w-4 h-4" /> Simpan & Terbitkan Dokumen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-white">Hapus Dokumen Proyek?</h3>
+              <p className="text-xs text-slate-400">
+                Tindakan ini akan menghapus arsip dokumen dari repositori dan tidak dapat dibatalkan.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => {
+                  const targetDoc = documents.find((d) => d.id === deleteConfirmId);
+                  onDeleteDocument(deleteConfirmId);
+                  onAddAuditLog?.('Hapus Dokumen Proyek', `Menghapus arsip ${targetDoc?.documentNumber || deleteConfirmId}`);
+                  setDeleteConfirmId(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/30 cursor-pointer"
+              >
+                Ya, Hapus Dokumen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

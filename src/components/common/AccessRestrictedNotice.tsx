@@ -23,6 +23,7 @@ const TAB_LABELS: Record<ActiveTab, string> = {
   materials: 'Monitoring Material',
   workforce: 'Tenaga Kerja',
   equipment: 'Monitoring Alat Berat',
+  documents: 'Manajemen Dokumen & Gambar Kerja',
   inspection: 'Inspeksi & BAST Akhir',
   reports: 'Pusat Laporan Resmi',
 };
@@ -73,33 +74,37 @@ export const AccessRestrictedNotice: React.FC<AccessRestrictedNoticeProps> = ({
                 <Award className="w-4 h-4" /> Kebijakan Kontrol Akses Owner
               </div>
               <p className="text-slate-400 text-[11px] leading-relaxed">
-                Hanya Owner / Pemberi Tugas yang berhak mengaktifkan atau menonaktifkan visibilitas modul
-                dan wewenang eksekusi untuk Konsultan, Kontraktor, dan Viewer. Anda dapat beralih ke simulasi
-                role Owner untuk membuka atau mengatur hak akses halaman ini.
+                {currentRole === 'Kontraktor' || currentRole === 'Site Manager'
+                  ? 'Modul ini dilindungi oleh kebijakan hak akses proyek. Kontraktor Pelaksana hanya dapat mengakses modul yang telah diizinkan oleh Pemberi Tugas (Owner).'
+                  : 'Hanya Owner / Pemberi Tugas yang berhak mengaktifkan atau menonaktifkan visibilitas modul dan wewenang eksekusi untuk Konsultan, Kontraktor, dan Viewer.'}
               </p>
             </div>
 
             {/* Action Buttons */}
             <div className="pt-3 flex flex-wrap items-center gap-3">
-              <button
-                onClick={onSwitchToOwner}
-                className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
-              >
-                <Award className="w-4 h-4" />
-                <span>Beralih ke Role Owner & Kelola Akses</span>
-              </button>
+              {currentRole !== 'Kontraktor' && currentRole !== 'Site Manager' && (
+                <>
+                  <button
+                    onClick={onSwitchToOwner}
+                    className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+                  >
+                    <Award className="w-4 h-4" />
+                    <span>Beralih ke Role Owner & Kelola Akses</span>
+                  </button>
 
-              <button
-                onClick={onOpenRoleModal}
-                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-2 border border-slate-700 transition-all cursor-pointer"
-              >
-                <UserCheck className="w-4 h-4 text-indigo-400" />
-                <span>Lihat Matriks Role & Izin</span>
-              </button>
+                  <button
+                    onClick={onOpenRoleModal}
+                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-2 border border-slate-700 transition-all cursor-pointer"
+                  >
+                    <UserCheck className="w-4 h-4 text-indigo-400" />
+                    <span>Lihat Matriks Role & Izin</span>
+                  </button>
+                </>
+              )}
 
               <button
                 onClick={onGoBackToDashboard}
-                className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-orange-500/20"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Kembali ke Dashboard Utama</span>

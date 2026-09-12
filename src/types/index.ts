@@ -19,6 +19,7 @@ export type ActiveTab =
   | 'materials'
   | 'workforce'
   | 'equipment'
+  | 'documents'
   | 'reports'
   | 'inspection';
 
@@ -37,6 +38,9 @@ export interface RolePermissions {
   canUploadDocumentation: boolean; // Upload foto dokumentasi progres
   canExportOfficialReports: boolean; // Ekspor laporan PDF / Excel
   canEditProjectBudget: boolean; // Modifikasi RAB & nilai kontrak
+  canUploadDocuments: boolean; // Unggah dokumen kontrak, gambar, notulen
+  canApproveDocuments: boolean; // Verifikasi & persetujuan dokumen teknis/drawing
+  canDeleteDocuments: boolean; // Menghapus dokumen dari repositori proyek
   allowedTabs: ActiveTab[]; // Daftar modul navigasi yang diizinkan untuk diakses
 }
 
@@ -73,6 +77,7 @@ export interface ProjectInfo {
   qcEngineer?: string; // Lead QC Engineer / Pengawas Mutu
   financeAdmin?: string; // Admin Logistik & Keuangan
   inspector?: string; // Konsultan Pengawas / Tamu Pengawas
+  consultantMK?: string; // Konsultan Pengawas / Manajemen Konstruksi
   estimator?: string; // Lead Quantity Surveyor / Estimator RAB
   projectManager?: string; // Project Manager Lapangan
 }
@@ -306,3 +311,147 @@ export interface CalendarEvent {
   assignedRole?: string;
   isCustom?: boolean;
 }
+
+export type DocumentCategory =
+  | 'contract' // Kontrak, SPK, Addendum, Syarat Teknis
+  | 'drawing' // Gambar DED, Shop Drawing, As-Built Drawing
+  | 'meeting_minute' // Notulen Rapat PCM, SCM, Site Coordination
+  | 'legal_permit'; // IMB/PBG, Amdal, Legalitas, SK
+
+export type DocumentStatus = 'Approved' | 'Review' | 'Draft' | 'Revision';
+
+export type DocumentConfidentiality =
+  | 'Semua Pihak (Publik Proyek)'
+  | 'Khusus Tripartit (Owner-MK-Kontraktor)'
+  | 'Rahasia (Owner & Konsultan MK)';
+
+export interface DocumentReviewNote {
+  id: string;
+  authorName: string;
+  authorRole: UserRole;
+  timestamp: string;
+  comment: string;
+  statusChange?: DocumentStatus;
+}
+
+export interface ProjectDocument {
+  id: string;
+  title: string;
+  documentNumber: string;
+  category: DocumentCategory;
+  fileType: 'pdf' | 'dwg' | 'xlsx' | 'docx';
+  fileSize: string;
+  fileName: string;
+  fileUrl?: string;
+  uploadDate: string; // YYYY-MM-DD
+  uploadedBy: string;
+  uploadedByRole: UserRole;
+  version: string; // e.g. "v1.0", "Rev.02"
+  status: DocumentStatus;
+  description: string;
+  tags: string[];
+  confidentiality: DocumentConfidentiality;
+  reviewNotes?: DocumentReviewNote[];
+  signatories?: {
+    role: StakeholderRoleKey;
+    name: string;
+    signed: boolean;
+    signedAt?: string;
+  }[];
+}
+
+export interface AuthAccount {
+  role: StakeholderRoleKey;
+  pin?: string;
+  name: string;
+  company: string;
+  position: string;
+  description: string;
+  badgeColor: string;
+}
+
+export interface AuthSession {
+  isAuthenticated: boolean;
+  role: StakeholderRoleKey;
+  userName: string;
+  loginTime: string;
+}
+
+export type BASTWorkflowStage =
+  | 'draft' // Kontraktor menyusun kelengkapan berkas
+  | 'submitted' // Diajukan Kontraktor ke Konsultan MK
+  | 'joint_inspection' // Opname Bersama & Pemeriksaan Cacat Mutu (MK)
+  | 'mk_recommended' // Lulus evaluasi MK & rekomendasi diterbitkan
+  | 'owner_approved' // Disetujui Owner / Pemberi Tugas
+  | 'finalized'; // BAST-1 Sah Ditandatangani 3 Pihak (Tripartit)
+
+export interface BASTAttachmentChecklist {
+  id: string;
+  name: string;
+  description: string;
+  fileReference?: string;
+  isCompleted: boolean;
+  verifiedByMK: boolean;
+  required: boolean;
+}
+
+export interface BASTPunchListItem {
+  id: string;
+  sectorName: string;
+  description: string;
+  severity: 'Ringan' | 'Sedang' | 'Kritis';
+  deadlineDate: string;
+  isResolved: boolean;
+  resolvedDate?: string;
+  verifiedByMK: boolean;
+  photoUrl?: string;
+}
+
+export interface BASTSubmissionData {
+  submissionId: string;
+  submissionNumber: string; // e.g. 042/FGI-KONT/BAST-1/IX/2026
+  submissionDate: string;
+  targetHandoverDate: string;
+  contractorRepresentative: string;
+  contractorPosition: string;
+  contractorNotes: string;
+  stage: BASTWorkflowStage;
+  attachments: BASTAttachmentChecklist[];
+  punchList: BASTPunchListItem[];
+  mkRecommendationLetterNo?: string;
+  mkRecommendationDate?: string;
+  mkRecommendationNotes?: string;
+  mkVerifiedBy?: string;
+  ownerApprovalDate?: string;
+  ownerApprovalNotes?: string;
+  ownerApprovedBy?: string;
+  bastNumber: string;
+  title?: string;
+  scopeDescription?: string;
+  contractNominal?: number;
+  handoverDate: string;
+  maintenancePeriodDays: number;
+  maintenanceEndDate: string;
+  retentionPercent: number;
+  retentionValue: number;
+  contractorSignature: {
+    signed: boolean;
+    name: string;
+    signedAt: string;
+    signatureData: string;
+  };
+  mkSignature: {
+    signed: boolean;
+    name: string;
+    signedAt: string;
+    signatureData: string;
+  };
+  ownerSignature: {
+    signed: boolean;
+    name: string;
+    signedAt: string;
+    signatureData: string;
+  };
+  isCompleted: boolean;
+}
+
