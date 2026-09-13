@@ -1423,5 +1423,25 @@ export const INITIAL_PROJECT_DOCUMENTS: ProjectDocument[] = [
       { role: 'Owner', name: 'H. Bambang S., M.T.', signed: true, signedAt: '2026-08-25 10:00' },
     ],
   },
+  {
+    id: 'DOC-010',
+    title: 'DED Masterplan & Tata Letak Tapak Kawasan (Owner Direct Release)',
+    documentNumber: 'DED-OWN-001/FGI-2026',
+    category: 'drawing',
+    fileType: 'pdf',
+    fileSize: '4.2 MB',
+    fileName: 'DED_Masterplan_SitePlan_Foresyndo2_Owner.pdf',
+    uploadDate: '2026-09-04',
+    uploadedBy: 'H. Bambang S., M.T.',
+    uploadedByRole: 'Owner',
+    version: 'Rev.01',
+    status: 'Review',
+    description: 'Gambar rencana induk tapak bangunan 7 lantai, sirkulasi akses logistik material, dan area drop-off kendaraan dari Owner untuk dikaji dan direview kesiapan pelaksanaannya oleh Kontraktor.',
+    tags: ['Masterplan', 'Owner Release', 'DED', 'Site Layout'],
+    confidentiality: 'Khusus Tripartit (Owner-MK-Kontraktor)',
+    signatories: [
+      { role: 'Owner', name: 'H. Bambang S., M.T.', signed: true, signedAt: '2026-09-04 14:00' },
+    ],
+  },
 ];
 

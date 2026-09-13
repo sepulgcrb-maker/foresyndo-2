@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Files,
   FileText,
@@ -30,6 +30,8 @@ import {
   Calendar,
   Tag,
   ShieldCheck,
+  ShieldAlert,
+  HardHat,
   PenTool,
 } from 'lucide-react';
 import {
@@ -40,18 +42,23 @@ import {
   UserRole,
   RolePermissions,
   DocumentReviewNote,
+  ProjectInfo,
 } from '../../types';
 import { RoleBadge } from '../common/RoleBadge';
+import { generateProjectDocumentPDF } from '../../utils/exportEngine';
 
 interface DocumentManagementProps {
   documents: ProjectDocument[];
   userRole: UserRole;
   permissions?: RolePermissions;
   activeUserName?: string;
+  project?: Partial<ProjectInfo>;
   onAddDocument: (doc: ProjectDocument) => void;
   onUpdateDocument: (doc: ProjectDocument) => void;
   onDeleteDocument: (id: string) => void;
   onAddAuditLog?: (action: string, detail: string) => void;
+  onSimulateMKDocument?: () => void;
+  onSimulateOwnerDocument?: () => void;
 }
 
 const CATEGORY_TABS: { id: DocumentCategory | 'all'; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -67,10 +74,13 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
   userRole,
   permissions,
   activeUserName = 'Site Manager',
+  project,
   onAddDocument,
   onUpdateDocument,
   onDeleteDocument,
   onAddAuditLog,
+  onSimulateMKDocument,
+  onSimulateOwnerDocument,
 }) => {
   // Filter & Search State
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory | 'all'>('all');
@@ -93,9 +103,10 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
     title: string;
     documentNumber: string;
     category: DocumentCategory;
-    fileType: 'pdf' | 'dwg' | 'xlsx' | 'docx';
+    fileType: 'pdf' | 'dwg' | 'xlsx' | 'docx' | 'image' | 'png' | 'jpg' | 'jpeg';
     fileSize: string;
     fileName: string;
+    fileUrl?: string;
     version: string;
     confidentiality: DocumentConfidentiality;
     description: string;
@@ -107,6 +118,7 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
     fileType: 'pdf',
     fileSize: '3.5 MB',
     fileName: '',
+    fileUrl: undefined,
     version: 'Rev.00',
     confidentiality: 'Khusus Tripartit (Owner-MK-Kontraktor)',
     description: '',
@@ -115,27 +127,120 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [fakeFileSelected, setFakeFileSelected] = useState<string | null>(null);
 
-  // Permission checks
+  // Role classification & Permission checks
+  const isKontraktor = userRole === 'Kontraktor' || userRole === 'Site Manager';
   const canUpload = permissions?.canUploadDocuments ?? (userRole !== 'Viewer');
   const canApprove = permissions?.canApproveDocuments ?? (userRole === 'Owner' || userRole === 'Direktur' || userRole === 'Konsultan');
   const canDelete = permissions?.canDeleteDocuments ?? (userRole === 'Owner' || userRole === 'Direktur');
 
-  // Filtered documents
+  // Check if a document is classified as Legalitas or PBG / IMB
+  const isLegalOrPBGDoc = (doc: ProjectDocument): boolean => {
+    if (doc.category === 'legal_permit') return true;
+    const title = (doc.title || '').toLowerCase();
+    const desc = (doc.description || '').toLowerCase();
+    const num = (doc.documentNumber || '').toLowerCase();
+    const tags = (doc.tags || []).map((t) => t.toLowerCase());
+    return (
+      title.includes('pbg') ||
+      title.includes('imb') ||
+      title.includes('legalitas') ||
+      title.includes('perizinan') ||
+      title.includes('persetujuan bangunan') ||
+      desc.includes('pbg') ||
+      desc.includes('imb') ||
+      desc.includes('legalitas') ||
+      desc.includes('perizinan') ||
+      num.includes('pbg') ||
+      tags.some((t) => t.includes('pbg') || t.includes('imb') || t.includes('legalitas') || t.includes('perizinan'))
+    );
+  };
+
+  // Check if a document is accessible to the current active user
+  const isDocAccessibleToUser = (doc: ProjectDocument): boolean => {
+    // Kebijakan: Kontraktor TIDAK BISA melihat dokumen Legalitas dan PBG
+    if (isKontraktor && isLegalOrPBGDoc(doc)) {
+      return false;
+    }
+    // Confidentiality filter: Kontraktor and Viewer cannot see documents marked 'Rahasia (Owner & Konsultan MK)'
+    if (
+      (isKontraktor || userRole === 'Viewer') &&
+      doc.confidentiality === 'Rahasia (Owner & Konsultan MK)'
+    ) {
+      return false;
+    }
+    return true;
+  };
+
+  // Check if a document is a drawing (DED, Shop Drawing, Detail Arsitektur/Struktur)
+  const isDrawingDoc = (doc: ProjectDocument): boolean => {
+    return (
+      doc.category === 'drawing' ||
+      doc.fileType === 'dwg' ||
+      doc.fileType === 'image' ||
+      doc.fileType === 'png' ||
+      doc.fileType === 'jpg' ||
+      doc.fileType === 'jpeg'
+    );
+  };
+
+  // Check if a document is uploaded by Owner or Konsultan MK
+  const isUploadedByOwnerOrMK = (doc: ProjectDocument): boolean => {
+    const role = doc.uploadedByRole;
+    if (role === 'Owner' || role === 'Direktur' || role === 'Konsultan') {
+      return true;
+    }
+    const uploader = (doc.uploadedBy || '').toLowerCase();
+    return (
+      uploader.includes('owner') ||
+      uploader.includes('direktur') ||
+      uploader.includes('mk') ||
+      uploader.includes('konsultan') ||
+      uploader.includes('bambang') ||
+      uploader.includes('hendra')
+    );
+  };
+
+  // Check if user has permission to review this document
+  // Owner & MK can review/approve all documents; Kontraktor can review drawings uploaded by Owner and MK
+  const canUserReviewDoc = (doc: ProjectDocument): boolean => {
+    if (canApprove) {
+      return true;
+    }
+    if (isKontraktor) {
+      return isDrawingDoc(doc) && isUploadedByOwnerOrMK(doc);
+    }
+    return false;
+  };
+
+  // Auto-reset category filter if Kontraktor tries to access legal_permit
+  useEffect(() => {
+    if (isKontraktor && selectedCategory === 'legal_permit') {
+      setSelectedCategory('all');
+    }
+  }, [isKontraktor, selectedCategory]);
+
+  // Category tabs accessible to the active role (Kontraktor does not see Legalitas & PBG tab)
+  const visibleCategoryTabs = useMemo(() => {
+    if (isKontraktor) {
+      return CATEGORY_TABS.filter((tab) => tab.id !== 'legal_permit');
+    }
+    return CATEGORY_TABS;
+  }, [isKontraktor]);
+
+  // Documents accessible to the current user
+  const accessibleDocuments = useMemo(() => {
+    return documents.filter(isDocAccessibleToUser);
+  }, [documents, isKontraktor, userRole]);
+
+  // Filtered documents for active view
   const filteredDocuments = useMemo(() => {
-    return documents.filter((doc) => {
+    return accessibleDocuments.filter((doc) => {
       // Category filter
       if (selectedCategory !== 'all' && doc.category !== selectedCategory) {
         return false;
       }
       // Status filter
       if (statusFilter !== 'all' && doc.status !== statusFilter) {
-        return false;
-      }
-      // Confidentiality filter: Kontraktor and Viewer cannot see documents marked 'Rahasia (Owner & Konsultan MK)'
-      if (
-        (userRole === 'Kontraktor' || userRole === 'Site Manager' || userRole === 'Viewer') &&
-        doc.confidentiality === 'Rahasia (Owner & Konsultan MK)'
-      ) {
         return false;
       }
       // Search query
@@ -152,19 +257,24 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
       }
       return true;
     });
-  }, [documents, selectedCategory, statusFilter, searchQuery, userRole]);
+  }, [accessibleDocuments, selectedCategory, statusFilter, searchQuery]);
 
   // Summary counts
   const stats = useMemo(() => {
+    const ownerOrMKDrawings = accessibleDocuments.filter(
+      (d) => isDrawingDoc(d) && isUploadedByOwnerOrMK(d)
+    );
     return {
-      total: documents.length,
-      contracts: documents.filter((d) => d.category === 'contract').length,
-      drawings: documents.filter((d) => d.category === 'drawing').length,
-      minutes: documents.filter((d) => d.category === 'meeting_minute').length,
-      pendingReview: documents.filter((d) => d.status === 'Review' || d.status === 'Revision').length,
-      approved: documents.filter((d) => d.status === 'Approved').length,
+      total: accessibleDocuments.length,
+      contracts: accessibleDocuments.filter((d) => d.category === 'contract').length,
+      drawings: accessibleDocuments.filter((d) => d.category === 'drawing').length,
+      minutes: accessibleDocuments.filter((d) => d.category === 'meeting_minute').length,
+      legal: accessibleDocuments.filter((d) => d.category === 'legal_permit').length,
+      pendingReview: accessibleDocuments.filter((d) => d.status === 'Review' || d.status === 'Revision').length,
+      approved: accessibleDocuments.filter((d) => d.status === 'Approved').length,
+      ownerOrMKDrawingsCount: ownerOrMKDrawings.length,
     };
-  }, [documents]);
+  }, [accessibleDocuments]);
 
   // Helper for generating document number recommendation
   const handleCategoryChangeInUpload = (cat: DocumentCategory) => {
@@ -190,25 +300,48 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
     }));
   };
 
-  // Handle file select simulation
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const ext = file.name.split('.').pop()?.toLowerCase();
-      let type: 'pdf' | 'dwg' | 'xlsx' | 'docx' = 'pdf';
-      if (ext === 'dwg') type = 'dwg';
-      else if (ext === 'xlsx' || ext === 'xls') type = 'xlsx';
-      else if (ext === 'docx' || ext === 'doc') type = 'docx';
+  // Process selected or dropped file with real FileReader
+  const processSelectedFile = (file: File) => {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    let type: 'pdf' | 'dwg' | 'xlsx' | 'docx' | 'image' = 'pdf';
+    if (file.type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'svg', 'bmp'].includes(ext || '')) {
+      type = 'image';
+    } else if (ext === 'dwg') {
+      type = 'dwg';
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      type = 'xlsx';
+    } else if (ext === 'docx' || ext === 'doc') {
+      type = 'docx';
+    } else {
+      type = 'pdf';
+    }
 
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
-      setFakeFileSelected(file.name);
+    const sizeStr =
+      file.size > 1024 * 1024
+        ? (file.size / (1024 * 1024)).toFixed(1) + ' MB'
+        : (file.size / 1024).toFixed(0) + ' KB';
+
+    setFakeFileSelected(file.name);
+
+    // Read real file data URL for PDF/Image preview & download
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
       setUploadForm((prev) => ({
         ...prev,
         fileName: file.name,
         title: prev.title || file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
         fileType: type,
-        fileSize: sizeMB,
+        fileSize: sizeStr,
+        fileUrl: dataUrl,
       }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      processSelectedFile(e.target.files[0]);
     }
   };
 
@@ -233,6 +366,7 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
       fileType: uploadForm.fileType,
       fileSize: uploadForm.fileSize || '2.4 MB',
       fileName: uploadForm.fileName || `${uploadForm.documentNumber}.${uploadForm.fileType}`,
+      fileUrl: uploadForm.fileUrl,
       uploadDate: new Date().toISOString().split('T')[0],
       uploadedBy: activeUserName,
       uploadedByRole: userRole,
@@ -267,6 +401,7 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
       fileType: 'pdf',
       fileSize: '3.5 MB',
       fileName: '',
+      fileUrl: undefined,
       version: 'Rev.00',
       confidentiality: 'Khusus Tripartit (Owner-MK-Kontraktor)',
       description: '',
@@ -299,81 +434,62 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
     };
 
     onUpdateDocument(updatedDoc);
-    onAddAuditLog?.(
-      'Review & Verifikasi Dokumen',
-      `Memperbarui status ${updatedDoc.documentNumber} menjadi "${reviewStatusChoice}": "${reviewComment}"`
-    );
+    if (isKontraktor) {
+      onAddAuditLog?.(
+        'Review Gambar Kerja oleh Kontraktor',
+        `Kontraktor Pelaksana (${activeUserName}) memberikan review teknis pada gambar ${updatedDoc.documentNumber} (${updatedDoc.title}) status: "${reviewStatusChoice}": "${reviewComment}"`
+      );
+    } else {
+      onAddAuditLog?.(
+        'Review & Verifikasi Dokumen',
+        `Memperbarui status ${updatedDoc.documentNumber} menjadi "${reviewStatusChoice}": "${reviewComment}"`
+      );
+    }
 
     setSelectedDocForReview(null);
     setReviewComment('');
   };
 
-  // Handle Document File Download simulation
-  const handleDownloadDocument = (doc: ProjectDocument) => {
-    // Generate text/markdown export representation
-    const textContent = `
-================================================================================
-                    PT FORESYNDO GLOBAL INDONESIA
-               PROYEK PEMBANGUNAN GEDUNG FORESYNDO 2
-           Kec. Jatitujuh, Kab. Majalengka, Jawa Barat
-================================================================================
+  // Handle Document File Download (PDF generation or original file)
+  const handleDownloadDocument = (doc: ProjectDocument, format: 'pdf' | 'original' = 'pdf') => {
+    if (format === 'original' && doc.fileUrl) {
+      const link = document.createElement('a');
+      link.href = doc.fileUrl;
+      link.download = doc.fileName || `${doc.documentNumber}.${doc.fileType}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      onAddAuditLog?.('Unduh Berkas Asli', `Mengunduh berkas asli ${doc.documentNumber} (${doc.fileName})`);
+      return;
+    }
 
-ARSIP DOKUMEN RESMI KONSTRUKSI
-Nomor Dokumen   : ${doc.documentNumber}
-Judul Dokumen   : ${doc.title}
-Kategori        : ${doc.category.toUpperCase()}
-Versi           : ${doc.version}
-Status Approval : ${doc.status.toUpperCase()}
-Tanggal Unggah  : ${doc.uploadDate}
-Diunggah Oleh   : ${doc.uploadedBy} (${doc.uploadedByRole})
-Klasifikasi     : ${doc.confidentiality}
-Tipe Berkas     : ${doc.fileType.toUpperCase()} (${doc.fileSize})
+    // If uploaded PDF exists and user requests PDF, download it directly
+    if (
+      doc.fileUrl &&
+      (doc.fileUrl.startsWith('data:application/pdf') || doc.fileType === 'pdf') &&
+      doc.fileUrl.startsWith('data:')
+    ) {
+      const link = document.createElement('a');
+      link.href = doc.fileUrl;
+      const pdfName = doc.fileName.toLowerCase().endsWith('.pdf')
+        ? doc.fileName
+        : `${doc.fileName || doc.documentNumber}.pdf`;
+      link.download = pdfName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      onAddAuditLog?.('Unduh Dokumen PDF', `Mengunduh berkas PDF ${doc.documentNumber} (${doc.title})`);
+      return;
+    }
 
---------------------------------------------------------------------------------
-RINGKASAN & KETERANGAN TEKNIS:
-${doc.description}
-
-TAGS PROYEK:
-${doc.tags.join(', ')}
-
---------------------------------------------------------------------------------
-TANDA TANGAN & PENGESAHAN ELEKTRONIK (TRIPARTIT):
-${
-  doc.signatories && doc.signatories.length > 0
-    ? doc.signatories.map((s) => `[TERVERIFIKASI] ${s.role.toUpperCase()}: ${s.name} (Tgl: ${s.signedAt || doc.uploadDate})`).join('\n')
-    : '[MENUNGGU PENGESAHAN TRIPARTIT]'
-}
-
---------------------------------------------------------------------------------
-RIWAYAT CATATAN AUDIT & REVIEW TEKNIS:
-${
-  doc.reviewNotes && doc.reviewNotes.length > 0
-    ? doc.reviewNotes
-        .map(
-          (rn, i) =>
-            `${i + 1}. [${rn.timestamp}] ${rn.authorName} (${rn.authorRole}) -> Status: ${rn.statusChange || 'Review'}\n   "${rn.comment}"`
-        )
-        .join('\n')
-    : 'Belum ada catatan review lanjutan.'
-}
-
-================================================================================
-Dicetak otomatis melalui Sistem Monitoring Konstruksi Terpadu Foresyndo 2
-Waktu Unduh: ${new Date().toLocaleString('id-ID')}
-================================================================================
-    `.trim();
-
-    const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = doc.fileName || `${doc.documentNumber}_Foresyndo2.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    onAddAuditLog?.('Unduh Dokumen Proyek', `Mengunduh berkas ${doc.documentNumber} (${doc.title})`);
+    // Generate high quality official project PDF with letterhead, signatures & stamp
+    try {
+      generateProjectDocumentPDF(doc, project);
+      onAddAuditLog?.('Unduh Dokumen PDF Resmi', `Mengunduh arsip PDF resmi ${doc.documentNumber} (${doc.title})`);
+    } catch (err) {
+      console.error('Gagal generate PDF:', err);
+      alert('Gagal menghasilkan dokumen PDF. Silakan periksa kembali.');
+    }
   };
 
   const getStatusBadge = (status: DocumentStatus) => {
@@ -412,6 +528,16 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
         return (
           <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 font-bold shrink-0">
             <span className="text-xs font-black">PDF</span>
+          </div>
+        );
+      case 'image':
+      case 'png':
+      case 'jpg':
+      case 'jpeg':
+      case 'webp':
+        return (
+          <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 font-bold shrink-0">
+            <span className="text-[10px] font-black">IMG</span>
           </div>
         );
       case 'dwg':
@@ -486,6 +612,33 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
             </div>
           </div>
 
+          {/* Quick Simulation Buttons for testing bell badge */}
+          {(onSimulateMKDocument || onSimulateOwnerDocument) && (
+            <div className="flex items-center gap-1.5 bg-slate-800/80 p-1 rounded-2xl border border-sky-400/30">
+              <span className="text-[10px] font-bold text-sky-400 px-2 flex items-center gap-1">
+                <Bell className="w-3 h-3 text-sky-400" /> Uji Lonceng:
+              </span>
+              {onSimulateMKDocument && (
+                <button
+                  onClick={onSimulateMKDocument}
+                  className="px-2.5 py-1.5 rounded-xl bg-sky-600/30 hover:bg-sky-600 text-sky-200 hover:text-white text-[11px] font-bold border border-sky-500/40 transition-all cursor-pointer"
+                  title="Simulasi: Konsultan MK mengunggah gambar kerja baru (Badge Lonceng akan terupdate)"
+                >
+                  + Upload MK
+                </button>
+              )}
+              {onSimulateOwnerDocument && (
+                <button
+                  onClick={onSimulateOwnerDocument}
+                  className="px-2.5 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white text-[11px] font-bold border border-indigo-500/40 transition-all cursor-pointer"
+                  title="Simulasi: Owner menerbitkan instruksi lapangan baru (Badge Lonceng akan terupdate)"
+                >
+                  + Upload Owner
+                </button>
+              )}
+            </div>
+          )}
+
           {canUpload ? (
             <button
               onClick={() => setIsUploadModalOpen(true)}
@@ -508,6 +661,27 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
         <div className="absolute -right-16 -top-16 w-56 h-56 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
       </div>
 
+      {/* Kontraktor Access Policy Notification Banner */}
+      {isKontraktor && (
+        <div className="flex items-start sm:items-center gap-3.5 p-4 rounded-3xl bg-gradient-to-r from-amber-500/15 via-slate-900/90 to-slate-900 border border-amber-500/30 text-amber-200 shadow-lg">
+          <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400 shrink-0 border border-amber-500/30">
+            <HardHat className="w-5 h-5" />
+          </div>
+          <div className="space-y-1 flex-1 text-xs">
+            <div className="font-bold text-white flex items-center gap-2 flex-wrap">
+              <span>Kebijakan Otoritas Dokumen: Kontraktor Pelaksana</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                SOP Lapangan Aktif
+              </span>
+            </div>
+            <p className="text-slate-300 text-[11px] leading-relaxed">
+              &bull; <strong className="text-amber-300">Dokumen Legalitas & PBG:</strong> Dibatasi dan disembunyikan secara otomatis sesuai proteksi dokumen izin internal Owner & Konsultan MK.<br />
+              &bull; <strong className="text-cyan-300">Review Gambar Kerja Teknis:</strong> Anda memiliki wewenang untuk meninjau (review), memeriksa kesiapan lapangan, serta memberikan catatan persetujuan/revisi pada seluruh <strong>Gambar Teknis (DED & Shop Drawing)</strong> yang diterbitkan oleh <strong>Owner</strong> dan <strong>Konsultan MK</strong>.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* KPI Counters Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-1">
@@ -516,7 +690,9 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
             <Files className="w-3.5 h-3.5 text-orange-400" />
           </div>
           <div className="text-2xl font-black text-white">{stats.total}</div>
-          <div className="text-[10px] text-slate-500">Arsip aktif dalam sistem</div>
+          <div className="text-[10px] text-slate-500">
+            {isKontraktor ? 'Akses dokumen Kontraktor' : 'Arsip aktif dalam sistem'}
+          </div>
         </div>
 
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-1">
@@ -546,14 +722,25 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
           <div className="text-[10px] text-slate-500">PCM & SCM mingguan</div>
         </div>
 
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-1">
-          <div className="text-[11px] text-slate-400 font-medium flex items-center justify-between">
-            <span>Perlu Review / Revisi</span>
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+        {isKontraktor ? (
+          <div className="bg-slate-900/80 border border-amber-500/30 rounded-2xl p-3.5 space-y-1 bg-amber-500/5">
+            <div className="text-[11px] text-amber-300 font-medium flex items-center justify-between">
+              <span>Gambar Owner & MK</span>
+              <HardHat className="w-3.5 h-3.5 text-amber-400" />
+            </div>
+            <div className="text-2xl font-black text-amber-400">{stats.ownerOrMKDrawingsCount}</div>
+            <div className="text-[10px] text-amber-400/80 font-semibold">Bisa direview Kontraktor</div>
           </div>
-          <div className="text-2xl font-black text-amber-400">{stats.pendingReview}</div>
-          <div className="text-[10px] text-slate-500">Menunggu audit MK/Owner</div>
-        </div>
+        ) : (
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-1">
+            <div className="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+              <span>Legalitas & PBG</span>
+              <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+            </div>
+            <div className="text-2xl font-black text-purple-400">{stats.legal}</div>
+            <div className="text-[10px] text-slate-500">Izin IMB & AMDAL</div>
+          </div>
+        )}
 
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 space-y-1">
           <div className="text-[11px] text-slate-400 font-medium flex items-center justify-between">
@@ -569,13 +756,13 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
       <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-5 space-y-4 shadow-lg">
         {/* Category Pill Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-700">
-          {CATEGORY_TABS.map((tab) => {
+          {visibleCategoryTabs.map((tab) => {
             const Icon = tab.icon;
             const isSelected = selectedCategory === tab.id;
             const count =
               tab.id === 'all'
-                ? documents.length
-                : documents.filter((d) => d.category === tab.id).length;
+                ? accessibleDocuments.length
+                : accessibleDocuments.filter((d) => d.category === tab.id).length;
 
             return (
               <button
@@ -742,6 +929,21 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
                     ))}
                   </div>
                 )}
+
+                {/* Owner/MK Drawing Indicator */}
+                {isDrawingDoc(doc) && isUploadedByOwnerOrMK(doc) && (
+                  <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-[11px] font-medium">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <PenTool className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <span className="truncate">Terbitan {doc.uploadedByRole === 'Owner' || doc.uploadedByRole === 'Direktur' ? 'Owner Proyek' : 'Konsultan Pengawas (MK)'}</span>
+                    </div>
+                    {isKontraktor && (
+                      <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Bisa Direview
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Card Footer: Metadata & Actions */}
@@ -771,17 +973,26 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
                     <Download className="w-4 h-4" />
                   </button>
 
-                  {canApprove && (
+                  {canUserReviewDoc(doc) && (
                     <button
                       onClick={() => {
                         setSelectedDocForReview(doc);
                         setReviewStatusChoice(doc.status === 'Review' ? 'Approved' : doc.status);
                         setReviewComment('');
                       }}
-                      className="p-2 rounded-xl bg-slate-800 hover:bg-amber-500/20 text-amber-400 transition-colors cursor-pointer"
-                      title="Verifikasi & Beri Catatan Approval"
+                      className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
+                        isKontraktor
+                          ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3'
+                          : 'bg-slate-800 hover:bg-amber-500/20 text-amber-400'
+                      }`}
+                      title={
+                        isKontraktor
+                          ? 'Review Gambar Kerja (dari Owner / MK)'
+                          : 'Verifikasi & Beri Catatan Approval'
+                      }
                     >
-                      <CheckCircle2 className="w-4 h-4" />
+                      <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                      {isKontraktor && <span className="text-[11px] font-bold">Review</span>}
                     </button>
                   )}
 
@@ -833,6 +1044,18 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
                         {doc.title}
                       </div>
                       <div className="text-[10px] text-slate-400 line-clamp-1">{doc.description}</div>
+                      {isDrawingDoc(doc) && isUploadedByOwnerOrMK(doc) && (
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                            <PenTool className="w-2.5 h-2.5" /> Terbitan {doc.uploadedByRole === 'Owner' || doc.uploadedByRole === 'Direktur' ? 'Owner' : 'Konsultan MK'}
+                          </span>
+                          {isKontraktor && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              <CheckCircle2 className="w-2.5 h-2.5" /> Bisa Direview
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
@@ -864,15 +1087,23 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
                         >
                           <Download className="w-3.5 h-3.5" />
                         </button>
-                        {canApprove && (
+                        {canUserReviewDoc(doc) && (
                           <button
                             onClick={() => {
                               setSelectedDocForReview(doc);
                               setReviewStatusChoice(doc.status === 'Review' ? 'Approved' : doc.status);
                               setReviewComment('');
                             }}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-amber-500/20 text-amber-400 transition-colors"
-                            title="Approval / Review"
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              isKontraktor
+                                ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30'
+                                : 'bg-slate-800 hover:bg-amber-500/20 text-amber-400'
+                            }`}
+                            title={
+                              isKontraktor
+                                ? 'Review Gambar Kerja yang Diunggah Owner / MK'
+                                : 'Approval / Review Dokumen'
+                            }
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
                           </button>
@@ -901,7 +1132,26 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
       {/* ========================================================================= */}
       {selectedDocForPreview && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          {isKontraktor && isLegalOrPBGDoc(selectedDocForPreview) ? (
+            <div className="bg-slate-900 border border-rose-500/30 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 mx-auto flex items-center justify-center">
+                <ShieldAlert className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-base font-bold text-white">Akses Dokumen Dibatasi</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Sesuai tata kelola proyek, <strong>Kontraktor Pelaksana tidak memiliki izin akses</strong> untuk berkas Legalitas, Izin PBG, dan AMDAL. Dokumen ini merupakan arsip tertutup khusus <strong>Owner</strong> dan <strong>Konsultan MK</strong>.
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedDocForPreview(null)}
+                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all cursor-pointer"
+              >
+                Tutup Pratinjau
+              </button>
+            </div>
+          ) : (
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="px-6 py-4 bg-slate-800/80 border-b border-slate-700/80 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -922,11 +1172,21 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleDownloadDocument(selectedDocForPreview)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all cursor-pointer"
+                  onClick={() => handleDownloadDocument(selectedDocForPreview, 'pdf')}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-all shadow-md shadow-orange-500/20 cursor-pointer"
+                  title="Unduh Dokumen PDF Resmi Proyek"
                 >
-                  <Download className="w-3.5 h-3.5" /> Unduh Dokumen
+                  <Download className="w-3.5 h-3.5" /> Unduh Dokumen (PDF)
                 </button>
+                {selectedDocForPreview.fileUrl && (
+                  <button
+                    onClick={() => handleDownloadDocument(selectedDocForPreview, 'original')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold transition-all cursor-pointer"
+                    title="Unduh Berkas Asli yang Diunggah"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Berkas Asli ({selectedDocForPreview.fileType.toUpperCase()})
+                  </button>
+                )}
                 <button
                   onClick={() => setSelectedDocForPreview(null)}
                   className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
@@ -938,6 +1198,64 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
 
             {/* Modal Body: Document Preview Letterhead & Content */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-300 text-xs">
+              {/* Visual Attachment Preview (for Image) */}
+              {selectedDocForPreview.fileUrl &&
+                (selectedDocForPreview.fileType === 'image' ||
+                  selectedDocForPreview.fileType === 'png' ||
+                  selectedDocForPreview.fileType === 'jpg' ||
+                  selectedDocForPreview.fileType === 'jpeg' ||
+                  selectedDocForPreview.fileUrl.startsWith('data:image')) && (
+                  <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                        <Eye className="w-3.5 h-3.5" /> Lampiran Gambar / Dokumen Visual Teknis:
+                      </span>
+                      <a
+                        href={selectedDocForPreview.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-orange-400 hover:underline flex items-center gap-1"
+                      >
+                        Buka Tab Baru <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                    <div className="overflow-hidden rounded-xl border border-slate-800 bg-black/40 flex items-center justify-center p-2 max-h-80">
+                      <img
+                        src={selectedDocForPreview.fileUrl}
+                        alt={selectedDocForPreview.title}
+                        className="max-h-72 w-auto max-w-full object-contain rounded-lg shadow-md"
+                      />
+                    </div>
+                  </div>
+                )}
+
+              {/* PDF Embedded Preview */}
+              {selectedDocForPreview.fileUrl &&
+                (selectedDocForPreview.fileType === 'pdf' ||
+                  selectedDocForPreview.fileUrl.startsWith('data:application/pdf')) && (
+                  <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5" /> Pratinjau Berkas PDF:
+                      </span>
+                      <a
+                        href={selectedDocForPreview.fileUrl}
+                        download={selectedDocForPreview.fileName || `${selectedDocForPreview.documentNumber}.pdf`}
+                        className="text-[11px] text-rose-400 hover:underline flex items-center gap-1"
+                      >
+                        Unduh Berkas PDF Asli <Download className="w-3 h-3" />
+                      </a>
+                    </div>
+                    <div className="overflow-hidden rounded-xl border border-slate-800 h-80 bg-slate-900">
+                      <iframe
+                        src={selectedDocForPreview.fileUrl}
+                        title={selectedDocForPreview.title}
+                        className="w-full h-full rounded-xl"
+                      />
+                    </div>
+                  </div>
+                )}
+
               {/* Simulated Paper Letterhead */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-inner relative">
                 {/* Official Letterhead Header */}
@@ -1058,7 +1376,7 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
                 Berkas: <span className="font-mono text-slate-200">{selectedDocForPreview.fileName}</span> ({selectedDocForPreview.fileSize})
               </span>
               <div className="flex items-center gap-2">
-                {canApprove && (
+                {canUserReviewDoc(selectedDocForPreview) && (
                   <button
                     onClick={() => {
                       const doc = selectedDocForPreview;
@@ -1067,9 +1385,14 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
                       setReviewStatusChoice(doc.status === 'Review' ? 'Approved' : doc.status);
                       setReviewComment('');
                     }}
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs transition-colors cursor-pointer"
+                    className={`px-4 py-2 rounded-xl font-bold text-xs transition-colors cursor-pointer flex items-center gap-1.5 shadow-md ${
+                      isKontraktor
+                        ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-amber-500/25'
+                        : 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-amber-500/25'
+                    }`}
                   >
-                    Beri Catatan Approval
+                    <CheckCircle2 className="w-4 h-4" />
+                    {isKontraktor ? 'Review Gambar Kerja Ini' : 'Beri Catatan Approval'}
                   </button>
                 )}
                 <button
@@ -1081,6 +1404,7 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
               </div>
             </div>
           </div>
+          )}
         </div>
       )}
 
@@ -1092,8 +1416,23 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="px-6 py-4 bg-slate-800/80 border-b border-slate-700/80 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-amber-400" />
-                <h3 className="font-bold text-white text-sm">Verifikasi & Approval Dokumen</h3>
+                {isKontraktor ? (
+                  <HardHat className="w-5 h-5 text-amber-400" />
+                ) : (
+                  <CheckCircle2 className="w-5 h-5 text-amber-400" />
+                )}
+                <div>
+                  <h3 className="font-bold text-white text-sm">
+                    {isKontraktor
+                      ? 'Review Gambar Kerja (Owner & MK)'
+                      : 'Verifikasi & Approval Dokumen'}
+                  </h3>
+                  <p className="text-[10px] text-slate-400">
+                    {isKontraktor
+                      ? 'Tinjauan teknis lapangan oleh Kontraktor terhadap gambar terbitan Owner/Konsultan MK'
+                      : 'Audit dan pengesahan dokumen proyek konstruksi'}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedDocForReview(null)}
@@ -1107,11 +1446,17 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
               <div className="p-3.5 rounded-2xl bg-slate-800/50 border border-slate-700 space-y-1">
                 <div className="text-[11px] text-slate-400">Dokumen yang ditinjau:</div>
                 <div className="font-bold text-white text-xs">{selectedDocForReview.title}</div>
-                <div className="font-mono text-[10px] text-orange-400">{selectedDocForReview.documentNumber} ({selectedDocForReview.version})</div>
+                <div className="flex items-center gap-2 flex-wrap text-[10px]">
+                  <span className="font-mono text-orange-400">{selectedDocForReview.documentNumber} ({selectedDocForReview.version})</span>
+                  <span className="text-slate-500">&bull;</span>
+                  <span className="text-slate-300">Diupload oleh: <strong>{selectedDocForReview.uploadedBy}</strong> ({selectedDocForReview.uploadedByRole})</span>
+                </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-300 block">Keputusan Status Dokumen</label>
+                <label className="text-xs font-bold text-slate-300 block">
+                  {isKontraktor ? 'Hasil Review Gambar Lapangan' : 'Keputusan Status Dokumen'}
+                </label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
@@ -1122,7 +1467,7 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
                         : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
                     }`}
                   >
-                    Setujui (Approved)
+                    {isKontraktor ? 'Disetujui Kontraktor' : 'Setujui (Approved)'}
                   </button>
                   <button
                     type="button"
@@ -1133,7 +1478,7 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
                         : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
                     }`}
                   >
-                    Minta Revisi
+                    {isKontraktor ? 'Usul Revisi Lapangan' : 'Minta Revisi'}
                   </button>
                   <button
                     type="button"
@@ -1151,14 +1496,21 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
 
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-300 block">
-                  Catatan Review Teknis / Arahan Lapangan <span className="text-rose-400">*</span>
+                  {isKontraktor
+                    ? 'Catatan Teknis Lapangan / Respon Kontraktor'
+                    : 'Catatan Review Teknis / Arahan Lapangan'}{' '}
+                  <span className="text-rose-400">*</span>
                 </label>
                 <textarea
                   required
                   rows={4}
                   value={reviewComment}
                   onChange={(e) => setReviewComment(e.target.value)}
-                  placeholder="Tuliskan catatan teknis, instruksi revisi, atau konfirmasi persetujuan dokumen ini..."
+                  placeholder={
+                    isKontraktor
+                      ? 'Tuliskan hasil pengecekan dimensi gambar kerja, kesiapan material/bekisting di lapangan, atau catatan khusus sebelum eksekusi pekerjaan...'
+                      : 'Tuliskan catatan teknis, instruksi revisi, atau konfirmasi persetujuan dokumen ini...'
+                  }
                   className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
                 />
               </div>
@@ -1175,7 +1527,7 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md shadow-orange-500/25 transition-all cursor-pointer"
                 >
-                  Simpan Keputusan Review
+                  {isKontraktor ? 'Kirim Review Gambar' : 'Simpan Keputusan Review'}
                 </button>
               </div>
             </form>
@@ -1203,6 +1555,21 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
             </div>
 
             <form onSubmit={handleSubmitUpload} className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+              {/* Automatic notification alert for MK / Owner */}
+              {(userRole === 'Konsultan' || userRole === 'Owner' || userRole === 'Direktur') && (
+                <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-start gap-2 text-sky-200 text-xs">
+                  <Bell className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed">
+                    <span className="font-bold text-sky-300">Pemberitahuan Otomatis: </span>
+                    Dokumen yang Anda unggah sebagai{' '}
+                    <strong className="text-white font-bold">
+                      {userRole === 'Konsultan' ? 'Konsultan MK' : 'Owner Proyek'}
+                    </strong>{' '}
+                    akan langsung memicu pembaruan <span className="text-amber-300 font-bold">badge notifikasi pada ikon lonceng</span> seluruh tim proyek secara otomatis.
+                  </div>
+                </div>
+              )}
+
               {/* Drag & Drop File Zone */}
               <div
                 onDragOver={(e) => {
@@ -1214,16 +1581,10 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
                   e.preventDefault();
                   setIsDragging(false);
                   if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                    const file = e.dataTransfer.files[0];
-                    setFakeFileSelected(file.name);
-                    setUploadForm((prev) => ({
-                      ...prev,
-                      fileName: file.name,
-                      title: prev.title || file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
-                    }));
+                    processSelectedFile(e.dataTransfer.files[0]);
                   }
                 }}
-                className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                className={`border-2 border-dashed rounded-2xl p-5 text-center transition-all ${
                   isDragging
                     ? 'border-orange-500 bg-orange-500/10'
                     : fakeFileSelected
@@ -1236,24 +1597,40 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
                   id="doc-file-input"
                   onChange={handleFileSelect}
                   className="hidden"
-                  accept=".pdf,.dwg,.xlsx,.xls,.docx,.doc"
+                  accept=".pdf,image/png,image/jpeg,image/jpg,image/webp,.dwg,.xlsx,.xls,.docx,.doc"
                 />
                 <label htmlFor="doc-file-input" className="cursor-pointer space-y-2 block">
-                  <div className="w-12 h-12 rounded-2xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center mx-auto text-orange-400">
-                    <Upload className="w-6 h-6" />
-                  </div>
-                  {fakeFileSelected ? (
-                    <div>
-                      <div className="font-bold text-emerald-400 text-sm">{fakeFileSelected}</div>
-                      <div className="text-[11px] text-slate-400">Klik untuk mengganti berkas yang dipilih</div>
+                  {uploadForm.fileUrl && (uploadForm.fileType === 'image' || uploadForm.fileUrl.startsWith('data:image')) ? (
+                    <div className="space-y-2">
+                      <div className="max-h-36 overflow-hidden rounded-xl border border-emerald-500/30 mx-auto inline-block">
+                        <img
+                          src={uploadForm.fileUrl}
+                          alt="Thumbnail Pratinjau"
+                          className="max-h-36 object-contain mx-auto rounded-lg"
+                        />
+                      </div>
+                      <div className="font-bold text-emerald-400 text-xs">{fakeFileSelected} ({uploadForm.fileSize})</div>
+                      <div className="text-[11px] text-slate-400">Klik atau seret untuk mengganti berkas gambar</div>
                     </div>
                   ) : (
-                    <div>
-                      <div className="font-bold text-white text-sm">Tarik & Jatuhkan Berkas PDF / DWG di sini</div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        atau <span className="text-orange-400 underline font-bold">Pilih Berkas dari Komputer</span> (Mendukung .pdf, .dwg, .xlsx, .docx maks. 25 MB)
+                    <>
+                      <div className="w-12 h-12 rounded-2xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center mx-auto text-orange-400">
+                        <Upload className="w-6 h-6" />
                       </div>
-                    </div>
+                      {fakeFileSelected ? (
+                        <div>
+                          <div className="font-bold text-emerald-400 text-sm">{fakeFileSelected} ({uploadForm.fileSize})</div>
+                          <div className="text-[11px] text-slate-400">Klik untuk mengganti berkas yang dipilih</div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="font-bold text-white text-sm">Tarik & Jatuhkan Berkas PDF atau Gambar di sini</div>
+                          <div className="text-[11px] text-slate-400 mt-0.5">
+                            atau <span className="text-orange-400 underline font-bold">Pilih Berkas dari Komputer</span> (Mendukung .pdf, .png, .jpg, .dwg, .xlsx, .docx maks. 25 MB)
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </label>
               </div>
@@ -1271,7 +1648,7 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
                     <option value="drawing">Gambar Teknis (DED & Shop Drawing)</option>
                     <option value="contract">Kontrak & SPK / Addendum</option>
                     <option value="meeting_minute">Notulen Rapat PCM & SCM</option>
-                    <option value="legal_permit">Legalitas & PBG/IMB</option>
+                    {!isKontraktor && <option value="legal_permit">Legalitas & PBG/IMB</option>}
                   </select>
                 </div>
 
@@ -1312,6 +1689,7 @@ Waktu Unduh: ${new Date().toLocaleString('id-ID')}
                     className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-orange-500 font-mono"
                   >
                     <option value="pdf">PDF Document (.pdf)</option>
+                    <option value="image">Gambar / Foto Desain (.png, .jpg, .webp)</option>
                     <option value="dwg">AutoCAD Drawing (.dwg)</option>
                     <option value="xlsx">Excel Spreadsheet (.xlsx)</option>
                     <option value="docx">Word Document (.docx)</option>

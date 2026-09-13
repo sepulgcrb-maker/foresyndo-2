@@ -61,6 +61,7 @@ interface ExecutiveDashboardProps {
   onNavigateTab: (tab: ActiveTab) => void;
   onAddNotification?: (notif: Omit<NotificationItem, 'id' | 'timestamp' | 'isRead'>) => void;
   onAddAuditLog?: (action: string, details: string) => void;
+  darkMode?: boolean;
 }
 
 export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
@@ -73,6 +74,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   onNavigateTab,
   onAddNotification,
   onAddAuditLog,
+  darkMode = false,
 }) => {
   const [chartMode, setChartMode] = useState<'cumulative' | 'weekly'>('cumulative');
 
@@ -145,54 +147,96 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       )}
 
       {/* Main Hero Card: Project Banner */}
-      <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 text-white shadow-2xl relative overflow-hidden">
+      <div
+        className={`p-6 rounded-3xl border shadow-2xl relative overflow-hidden transition-all duration-200 ${
+          darkMode
+            ? 'bg-slate-900 border-slate-800 text-white'
+            : 'bg-gradient-to-br from-white via-sky-50 to-blue-50/70 border-sky-200/90 text-slate-800 shadow-sky-500/5'
+        }`}
+      >
         {/* Background Decorative Accent */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div
+          className={`absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl pointer-events-none ${
+            darkMode ? 'bg-orange-500/10' : 'bg-sky-400/15'
+          }`}
+        />
 
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center p-2 shrink-0 shadow-lg">
+            <div
+              className={`w-16 h-16 rounded-2xl border overflow-hidden flex items-center justify-center p-2 shrink-0 shadow-lg ${
+                darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-sky-200'
+              }`}
+            >
               {project.logoUrl ? (
                 <img src={project.logoUrl} alt="Logo FGI" className="w-full h-full object-cover rounded-xl" />
               ) : (
-                <Building2 className="w-8 h-8 text-orange-400" />
+                <Building2 className={`w-8 h-8 ${darkMode ? 'text-orange-400' : 'text-sky-600'}`} />
               )}
             </div>
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold border border-orange-500/30">
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                    darkMode
+                      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                      : 'bg-sky-100 text-sky-800 border-sky-200 shadow-xs'
+                  }`}
+                >
                   {project.owner}
                 </span>
-                <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/30 flex items-center gap-1 shadow-xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                   Status: {project.status}
                 </span>
                 <DeviasiBadge deviationPercent={deviation} />
               </div>
 
-              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white mt-2">
+              <h2
+                className={`text-2xl sm:text-3xl font-black tracking-tight mt-2 ${
+                  darkMode ? 'text-white' : 'text-slate-900'
+                }`}
+              >
                 PROYEK {project.name}
               </h2>
 
-              <p className="text-xs text-slate-400 flex items-center gap-2 mt-1">
-                <MapPin className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+              <p className={`text-xs flex items-center gap-2 mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                <MapPin className={`w-3.5 h-3.5 shrink-0 ${darkMode ? 'text-orange-400' : 'text-sky-600'}`} />
                 {project.location}
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-800/60 p-4 rounded-2xl border border-slate-700/60 backdrop-blur-sm">
+          <div
+            className={`grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-2xl border backdrop-blur-sm ${
+              darkMode
+                ? 'bg-slate-800/60 border-slate-700/60 text-slate-200'
+                : 'bg-white/85 border-sky-200 text-slate-700 shadow-xs'
+            }`}
+          >
             <div>
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Nilai Kontrak</span>
-              <span className="text-base font-black text-amber-400">{formatIDR(project.contractValue)}</span>
+              <span className={`text-[10px] uppercase font-semibold block ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                Nilai Kontrak
+              </span>
+              <span className={`text-base font-black ${darkMode ? 'text-amber-400' : 'text-blue-700'}`}>
+                {formatIDR(project.contractValue)}
+              </span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Durasi Kontrak</span>
-              <span className="text-base font-bold text-slate-200">{duration.totalDays} Hari</span>
+              <span className={`text-[10px] uppercase font-semibold block ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                Durasi Kontrak
+              </span>
+              <span className={`text-base font-bold ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                {duration.totalDays} Hari
+              </span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Sisa Hari Kerja</span>
-              <span className="text-base font-bold text-orange-400">{duration.remainingDays} Hari Lagi</span>
+              <span className={`text-[10px] uppercase font-semibold block ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                Sisa Hari Kerja
+              </span>
+              <span className={`text-base font-bold ${darkMode ? 'text-orange-400' : 'text-sky-700'}`}>
+                {duration.remainingDays} Hari Lagi
+              </span>
             </div>
           </div>
         </div>
@@ -225,36 +269,76 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       />
 
       {/* Featured Top Card: Project Performance KPI */}
-      <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 text-white border-2 border-orange-500/30 shadow-2xl relative overflow-hidden space-y-6">
+      <div
+        className={`p-6 rounded-3xl border-2 shadow-2xl relative overflow-hidden space-y-6 transition-all duration-200 ${
+          darkMode
+            ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 text-white border-orange-500/30'
+            : 'bg-gradient-to-br from-white via-sky-50/70 to-blue-50/80 text-slate-800 border-sky-300 shadow-sky-500/10'
+        }`}
+      >
         {/* Subtle background glow */}
-        <div className="absolute -right-10 -top-10 w-60 h-60 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -left-10 -bottom-10 w-60 h-60 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div
+          className={`absolute -right-10 -top-10 w-60 h-60 rounded-full blur-3xl pointer-events-none ${
+            darkMode ? 'bg-orange-500/10' : 'bg-sky-400/20'
+          }`}
+        />
+        <div
+          className={`absolute -left-10 -bottom-10 w-60 h-60 rounded-full blur-3xl pointer-events-none ${
+            darkMode ? 'bg-emerald-500/10' : 'bg-blue-400/15'
+          }`}
+        />
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4 relative z-10">
+        <div
+          className={`flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 relative z-10 ${
+            darkMode ? 'border-slate-800' : 'border-sky-200/80'
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-orange-500/20 text-orange-400 border border-orange-500/30 shadow-inner">
+            <div
+              className={`p-3 rounded-2xl border shadow-inner ${
+                darkMode
+                  ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                  : 'bg-sky-100 text-sky-700 border-sky-200'
+              }`}
+            >
               <Gauge className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-black text-white tracking-tight">
+                <h3
+                  className={`text-lg font-black tracking-tight ${
+                    darkMode ? 'text-white' : 'text-slate-900'
+                  }`}
+                >
                   PROJECT PERFORMANCE KPI
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-extrabold text-[10px] border border-emerald-500/30 uppercase tracking-widest flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-[10px] border border-emerald-500/30 uppercase tracking-widest flex items-center gap-1 shadow-xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   REAL-TIME METRICS
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className={`text-xs mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                 Dashboard indikator kinerja utama: Total anggaran terpakai, sisa hari kerja, dan status efisiensi proyek
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-800/80 px-3.5 py-2 rounded-2xl border border-slate-700/80 text-xs font-bold text-slate-300">
-            <Zap className="w-4 h-4 text-orange-400" />
+          <div
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl border text-xs font-bold ${
+              darkMode
+                ? 'bg-slate-800/80 border-slate-700/80 text-slate-300'
+                : 'bg-white/90 border-sky-200 text-slate-700 shadow-xs'
+            }`}
+          >
+            <Zap className={`w-4 h-4 ${darkMode ? 'text-orange-400' : 'text-sky-600'}`} />
             Status Efisiensi:
-            <span className={`font-black px-2 py-0.5 rounded-lg ${deviation >= 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+            <span
+              className={`font-black px-2 py-0.5 rounded-lg ${
+                deviation >= 0
+                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                  : 'bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30'
+              }`}
+            >
               {deviation >= 0 ? 'OPTIMAL & ON TRACK' : 'PERLU AKSELERASI'}
             </span>
           </div>
@@ -263,34 +347,62 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         {/* 3 Metric Column Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-10">
           {/* Metric 1: Total Budget Spent */}
-          <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/70 hover:border-slate-600 transition-all space-y-3">
+          <div
+            className={`p-4 rounded-2xl border transition-all space-y-3 ${
+              darkMode
+                ? 'bg-slate-800/60 border-slate-700/70 hover:border-slate-600'
+                : 'bg-white/90 border-sky-200/80 hover:border-sky-300 shadow-xs'
+            }`}
+          >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+              <span
+                className={`text-[11px] font-extrabold uppercase tracking-wider ${
+                  darkMode ? 'text-slate-400' : 'text-slate-500'
+                }`}
+              >
                 Total Anggaran Terpakai
               </span>
-              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
+              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
                 <DollarSign className="w-4 h-4" />
               </div>
             </div>
 
             <div>
-              <div className="text-2xl font-black text-amber-400 tracking-tight">
+              <div
+                className={`text-2xl font-black tracking-tight ${
+                  darkMode ? 'text-amber-400' : 'text-blue-700'
+                }`}
+              >
                 {formatIDR(finance.totalPaidGross)}
               </div>
-              <div className="text-xs text-slate-400 mt-1 flex items-center justify-between">
+              <div
+                className={`text-xs mt-1 flex items-center justify-between ${
+                  darkMode ? 'text-slate-400' : 'text-slate-500'
+                }`}
+              >
                 <span>Total Nilai Kontrak:</span>
-                <span className="font-bold text-slate-200">{formatIDR(project.contractValue)}</span>
+                <span className={`font-bold ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                  {formatIDR(project.contractValue)}
+                </span>
               </div>
             </div>
 
             <div className="space-y-1.5 pt-1">
               <div className="flex justify-between text-[11px] font-bold">
-                <span className="text-amber-400">{finance.financialProgressPercent}% Dicairkan</span>
-                <span className="text-slate-400">Sisa: {formatIDR(finance.remainingContractValue)}</span>
+                <span className={darkMode ? 'text-amber-400' : 'text-blue-600'}>
+                  {finance.financialProgressPercent}% Dicairkan
+                </span>
+                <span className={darkMode ? 'text-slate-400' : 'text-slate-500'}>
+                  Sisa: {formatIDR(finance.remainingContractValue)}
+                </span>
               </div>
-              <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+              <div
+                className={`w-full h-2.5 rounded-full overflow-hidden border ${
+                  darkMode ? 'bg-slate-900 border-slate-800' : 'bg-sky-100 border-sky-200'
+                }`}
+              >
                 <div
-                  className="bg-gradient-to-r from-amber-500 to-emerald-500 h-full rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-sky-500 to-blue-600 h-full rounded-full transition-all duration-500"
                   style={{ width: `${Math.min(100, finance.financialProgressPercent)}%` }}
                 />
               </div>
@@ -298,44 +410,92 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
 
           {/* Metric 2: Remaining Work Days */}
-          <div className={`p-4 rounded-2xl bg-slate-800/60 border hover:border-slate-600 transition-all space-y-3 ${
-            isProjectedOverdue ? 'border-red-500/60 bg-red-950/20' : 'border-slate-700/70'
-          }`}>
+          <div
+            className={`p-4 rounded-2xl border transition-all space-y-3 ${
+              isProjectedOverdue
+                ? darkMode
+                  ? 'border-red-500/60 bg-red-950/20'
+                  : 'border-red-300 bg-red-50/60'
+                : darkMode
+                ? 'bg-slate-800/60 border-slate-700/70 hover:border-slate-600'
+                : 'bg-white/90 border-sky-200/80 hover:border-sky-300 shadow-xs'
+            }`}
+          >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span
+                className={`text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 ${
+                  darkMode ? 'text-slate-400' : 'text-slate-500'
+                }`}
+              >
                 Sisa Hari Kerja Pelaksanaan
                 {isProjectedOverdue && (
-                  <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[9px] font-black border border-red-500/30">
+                  <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-600 dark:text-red-400 text-[9px] font-black border border-red-500/30">
                     RESIKO TERLAMBAT
                   </span>
                 )}
               </span>
-              <div className={`p-2 rounded-xl ${isProjectedOverdue ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'}`}>
+              <div
+                className={`p-2 rounded-xl ${
+                  isProjectedOverdue
+                    ? 'bg-red-500/20 text-red-500'
+                    : darkMode
+                    ? 'bg-orange-500/20 text-orange-400'
+                    : 'bg-sky-100 text-sky-600'
+                }`}
+              >
                 <Clock className="w-4 h-4" />
               </div>
             </div>
 
             <div>
-              <div className={`text-2xl font-black tracking-tight ${isProjectedOverdue ? 'text-red-400' : 'text-orange-400'}`}>
+              <div
+                className={`text-2xl font-black tracking-tight ${
+                  isProjectedOverdue
+                    ? 'text-red-500'
+                    : darkMode
+                    ? 'text-orange-400'
+                    : 'text-sky-700'
+                }`}
+              >
                 {duration.remainingDays} Hari Lagi
               </div>
-              <div className="text-xs text-slate-400 mt-1 flex items-center justify-between">
+              <div
+                className={`text-xs mt-1 flex items-center justify-between ${
+                  darkMode ? 'text-slate-400' : 'text-slate-500'
+                }`}
+              >
                 <span>Target Selesai:</span>
-                <span className="font-bold text-slate-200">{project.targetEndDate}</span>
+                <span className={`font-bold ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+                  {project.targetEndDate}
+                </span>
               </div>
             </div>
 
             <div className="space-y-1.5 pt-1">
               <div className="flex justify-between text-[11px] font-bold">
-                <span className={isProjectedOverdue ? 'text-red-400' : 'text-orange-400'}>
+                <span
+                  className={
+                    isProjectedOverdue
+                      ? 'text-red-500'
+                      : darkMode
+                      ? 'text-orange-400'
+                      : 'text-sky-600'
+                  }
+                >
                   {duration.elapsedDays} / {duration.totalDays} Hari Terlewati
                 </span>
-                <span className="text-slate-400">{duration.timePercentage}% Durasi</span>
+                <span className={darkMode ? 'text-slate-400' : 'text-slate-500'}>
+                  {duration.timePercentage}% Durasi
+                </span>
               </div>
-              <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+              <div
+                className={`w-full h-2.5 rounded-full overflow-hidden border ${
+                  darkMode ? 'bg-slate-900 border-slate-800' : 'bg-sky-100 border-sky-200'
+                }`}
+              >
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
-                    isProjectedOverdue ? 'bg-red-500' : 'bg-orange-500'
+                    isProjectedOverdue ? 'bg-red-500' : 'bg-gradient-to-r from-sky-400 to-blue-500'
                   }`}
                   style={{ width: `${Math.min(100, duration.timePercentage)}%` }}
                 />
@@ -343,8 +503,8 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             </div>
 
             {isProjectedOverdue && (
-              <div className="text-[10px] text-red-300 bg-red-500/10 border border-red-500/20 p-2 rounded-xl flex items-center gap-1.5 mt-2">
-                <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+              <div className="text-[10px] text-red-600 dark:text-red-300 bg-red-500/10 border border-red-500/20 p-2 rounded-xl flex items-center gap-1.5 mt-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
                 <span>
                   Kecepatan ({dailyVelocity.toFixed(2)}%/hari) diproyeksikan terlambat +{projectedDelayDays} hari dari target selesai.
                 </span>
@@ -353,26 +513,44 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
 
           {/* Metric 3: Overall Project Efficiency Status */}
-          <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/70 hover:border-slate-600 transition-all space-y-3">
+          <div
+            className={`p-4 rounded-2xl border transition-all space-y-3 ${
+              darkMode
+                ? 'bg-slate-800/60 border-slate-700/70 hover:border-slate-600'
+                : 'bg-white/90 border-sky-200/80 hover:border-sky-300 shadow-xs'
+            }`}
+          >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+              <span
+                className={`text-[11px] font-extrabold uppercase tracking-wider ${
+                  darkMode ? 'text-slate-400' : 'text-slate-500'
+                }`}
+              >
                 Status Efisiensi & Kinerja Proyek
               </span>
-              <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
+              <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
                 <Activity className="w-4 h-4" />
               </div>
             </div>
 
             <div>
-              <div className="text-2xl font-black text-emerald-400 tracking-tight flex items-center gap-2">
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight flex items-center gap-2">
                 {deviation >= 0 ? 'SANGAT EFISIEN' : 'PERLU PERHATIAN'}
-                <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/30 font-mono text-emerald-300">
+                <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/30 font-mono text-emerald-700 dark:text-emerald-300">
                   SPI: {(physicalProgress / Math.max(1, targetProgress)).toFixed(2)}
                 </span>
               </div>
-              <div className="text-xs text-slate-400 mt-1 flex items-center justify-between">
+              <div
+                className={`text-xs mt-1 flex items-center justify-between ${
+                  darkMode ? 'text-slate-400' : 'text-slate-500'
+                }`}
+              >
                 <span>Deviasi Jadwal:</span>
-                <span className={`font-bold ${deviation >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                <span
+                  className={`font-bold ${
+                    deviation >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'
+                  }`}
+                >
                   {deviation >= 0 ? `+${deviation}% (Surplus Progress)` : `${deviation}% (Terlambat)`}
                 </span>
               </div>
@@ -380,10 +558,16 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
             <div className="space-y-1.5 pt-1">
               <div className="flex justify-between text-[11px] font-bold">
-                <span className="text-emerald-400">Fisik: {physicalProgress}%</span>
-                <span className="text-slate-400">Target Plan: {targetProgress}%</span>
+                <span className="text-emerald-600 dark:text-emerald-400">Fisik: {physicalProgress}%</span>
+                <span className={darkMode ? 'text-slate-400' : 'text-slate-500'}>
+                  Target Plan: {targetProgress}%
+                </span>
               </div>
-              <div className="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
+              <div
+                className={`w-full h-2.5 rounded-full overflow-hidden border ${
+                  darkMode ? 'bg-slate-900 border-slate-800' : 'bg-sky-100 border-sky-200'
+                }`}
+              >
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
                     deviation >= 0 ? 'bg-emerald-500' : 'bg-red-500'

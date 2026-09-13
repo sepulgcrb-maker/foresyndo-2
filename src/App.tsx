@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   ProjectInfo,
   WorkItem,
@@ -61,14 +61,30 @@ import { SupabaseModal } from './components/common/SupabaseModal';
 import { NotificationDrawer } from './components/common/NotificationDrawer';
 import { ProjectSettingsModal } from './components/common/ProjectSettingsModal';
 import { RoleManagementModal } from './components/common/RoleManagementModal';
+import { SyncAlertBanner } from './components/common/SyncAlertBanner';
+import { SyncStatusModal } from './components/common/SyncStatusModal';
 import { LoginPage } from './components/auth/LoginPage';
 import { generatePDFReport } from './utils/exportEngine';
 import { calculatePhysicalProgress, calculateTargetProgress, calculateDeviation } from './utils/calculations';
+import { useSyncMonitor } from './hooks/useSyncMonitor';
+import { recordPrimaryStateUpdate, loadAllPrimaryProjectData } from './utils/syncManager';
 
 export default function App() {
   // Navigation & Role State
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('FORESYNDO_DARK_MODE');
+    return saved ? JSON.parse(saved) : false; // Default to white & light blue gradient
+  });
+
+  useEffect(() => {
+    localStorage.setItem('FORESYNDO_DARK_MODE', JSON.stringify(darkMode));
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
 
   // Authentication Session (Persistent)
   const [authSession, setAuthSession] = useState<AuthSession>(() => {
@@ -109,6 +125,7 @@ export default function App() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [roleModalTab, setRoleModalTab] = useState<'profiles' | 'permissions' | 'matrix' | 'workflow' | 'pins'>('profiles');
 
   // Role Security PINs (Owner authority - persistent)
@@ -342,17 +359,53 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Helper to append audit logs
+  // Snapshot Reloader for Session Cache Synchronization
+  const handleReloadFromSnapshot = useCallback((snapshot: ReturnType<typeof loadAllPrimaryProjectData>) => {
+    if (snapshot.project) setProject(snapshot.project);
+    if (snapshot.workItems) setWorkItems(snapshot.workItems);
+    if (snapshot.paymentTerms) setPaymentTerms(snapshot.paymentTerms);
+    if (snapshot.dailyLogs) setDailyLogs(snapshot.dailyLogs);
+    if (snapshot.photos) setPhotos(snapshot.photos);
+    if (snapshot.materials) setMaterials(snapshot.materials);
+    if (snapshot.workers) setWorkers(snapshot.workers);
+    if (snapshot.allocations) setAllocations(snapshot.allocations);
+    if (snapshot.equipments) setEquipments(snapshot.equipments);
+    if (snapshot.auditLogs) setAuditLogs(snapshot.auditLogs);
+    if (snapshot.notifications) setNotifications(snapshot.notifications);
+    if (snapshot.calendarEvents) setCalendarEvents(snapshot.calendarEvents);
+    if (snapshot.documents) setDocuments(snapshot.documents);
+  }, []);
+
+  const {
+    isOutOfSync,
+    syncStatus,
+    sessionVersion,
+    isChecking,
+    lastSyncCheckedAt,
+    syncWithPrimaryState,
+    dismissOutOfSync,
+    checkStatus,
+    markLocalEdit,
+  } = useSyncMonitor({
+    onSyncReload: handleReloadFromSnapshot,
+  });
+
+  // Helper to append audit logs and stamp primary state version
   const addAuditLog = (action: string, details: string) => {
+    const actorName = userNameMap[currentRole] || (currentRole === 'Direktur' ? 'H. Bambang S.' : currentRole === 'Site Manager' ? 'Ir. Agus Pratama' : 'Dedi Kurniawan');
     const newLog: AuditLog = {
       id: `AUD-${Date.now()}`,
       timestamp: new Date().toLocaleString('id-ID'),
-      userName: currentRole === 'Direktur' ? 'H. Bambang S.' : currentRole === 'Site Manager' ? 'Ir. Agus Pratama' : 'Dedi Kurniawan',
+      userName: actorName,
       userRole: currentRole,
       action,
       details,
     };
     setAuditLogs((prev) => [newLog, ...prev]);
+
+    // Stamp primary state version & advance local session version
+    const updatedMeta = recordPrimaryStateUpdate(action, currentRole, actorName);
+    markLocalEdit(updatedMeta.version);
   };
 
   // User Authentication & RBAC Handlers
@@ -713,7 +766,13 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans flex flex-col transition-colors duration-200">
+    <div
+      className={`min-h-screen ${
+        darkMode
+          ? 'dark bg-slate-950 text-slate-100'
+          : 'bg-gradient-to-br from-white via-sky-50/70 to-blue-100/60 text-slate-800'
+      } font-sans flex flex-col transition-colors duration-200`}
+    >
       {/* Top Fixed Header Bar */}
       <Header
         project={project}
@@ -737,6 +796,16 @@ export default function App() {
         }
         activeUserName={userNameMap[currentRole]}
         onLogout={handleLogout}
+        syncStatus={syncStatus}
+        onOpenSyncModal={() => setIsSyncModalOpen(true)}
+      />
+
+      {/* Prominent Session Cache Desynchronization Alert Banner */}
+      <SyncAlertBanner
+        syncStatus={syncStatus}
+        isChecking={isChecking}
+        onSync={syncWithPrimaryState}
+        onDismiss={dismissOutOfSync}
       />
 
       {/* Main Body Layout with Sidebar + Content Area */}
@@ -746,6 +815,7 @@ export default function App() {
           activeTab={activeTab}
           onSelectTab={setActiveTab}
           hasDeviasiWarning={deviation < -5}
+          darkMode={darkMode}
           onOpenSettingsModal={isOwner ? () => setIsSettingsModalOpen(true) : undefined}
           onOpenRoleModal={
             isOwner
@@ -793,6 +863,7 @@ export default function App() {
                   onNavigateTab={setActiveTab}
                   onAddNotification={handleAddNotification}
                   onAddAuditLog={addAuditLog}
+                  darkMode={darkMode}
                 />
               )}
 
@@ -891,6 +962,7 @@ export default function App() {
                   userRole={currentRole}
                   permissions={currentPermissions}
                   activeUserName={userNameMap[currentRole]}
+                  project={project}
                   onAddDocument={handleAddDocument}
                   onUpdateDocument={handleUpdateDocument}
                   onDeleteDocument={handleDeleteDocument}
@@ -973,6 +1045,20 @@ export default function App() {
         onAddAuditLog={addAuditLog}
         rolePins={rolePins}
         onUpdateRolePins={setRolePins}
+      />
+
+      {/* Session Storage & Persistence Integrity Diagnostic Modal */}
+      <SyncStatusModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        syncStatus={syncStatus}
+        lastSyncCheckedAt={lastSyncCheckedAt}
+        isChecking={isChecking}
+        onCheckSync={checkStatus}
+        onForceSync={() => {
+          syncWithPrimaryState();
+          setIsSyncModalOpen(false);
+        }}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-import { ProjectInfo, WorkItem, PaymentTerm, DailyLog, MaterialItem, BASTSubmissionData } from '../types';
+import { ProjectInfo, WorkItem, PaymentTerm, DailyLog, MaterialItem, BASTSubmissionData, ProjectDocument } from '../types';
 import { OFFICIAL_RAB_DOCUMENT, OfficialRABDocument } from '../data/initialData';
 import {
   formatIDR,
@@ -1640,5 +1640,306 @@ export function generateBASTPDF(
   const safeDocName = bast.bastNumber.replace(/[^a-zA-Z0-9]/g, '_');
   doc.save(`BAST_Resmi_${safeDocName}_${new Date().toISOString().split('T')[0]}.pdf`);
 }
+
+/**
+ * Generate official PDF for any Project Document (DED Drawing, SPK Contract, Meeting Minute, Legal Permit, or Uploaded PDF/Image)
+ */
+export function generateProjectDocumentPDF(
+  docItem: ProjectDocument,
+  project?: Partial<ProjectInfo>
+) {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  const navyColor: [number, number, number] = [15, 23, 42]; // #0F172A
+  const orangeColor: [number, number, number] = [249, 115, 22]; // #F97316
+  const emeraldColor: [number, number, number] = [16, 185, 129];
+  const redColor: [number, number, number] = [239, 68, 68];
+  const grayColor: [number, number, number] = [100, 116, 139];
+
+  // Letterhead Header
+  doc.setFillColor(...navyColor);
+  doc.rect(0, 0, pageWidth, 26, 'F');
+  doc.setFillColor(...orangeColor);
+  doc.rect(0, 26, pageWidth, 2, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text(project?.owner || 'PT. FORESYNDO GLOBAL INDONESIA', 14, 11);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.text(`Proyek Pembangunan Gedung: ${project?.name || 'Foresyndo 2'}`, 14, 16.5);
+  doc.text(
+    `Lokasi: ${project?.location || 'Kec. Jatitujuh, Kab. Majalengka, Jawa Barat'} | Kontrak: ${project?.contractNumber || 'PR-2026-FGI-004'}`,
+    14,
+    21.5
+  );
+
+  // Document Title Section
+  let currentY = 35;
+  doc.setTextColor(...navyColor);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('LEMBAR ARSIP DOKUMEN RESMI KONSTRUKSI', 14, currentY);
+
+  const printDateStr = new Date().toLocaleDateString('id-ID', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...grayColor);
+  doc.text(`Dicetak: ${printDateStr}`, pageWidth - 14, currentY, { align: 'right' });
+
+  // Document Profile Header Card
+  currentY += 4;
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(14, currentY, pageWidth - 28, 22, 2, 2, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(14, currentY, pageWidth - 28, 22, 2, 2, 'D');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(...navyColor);
+  const truncatedTitle = docItem.title.length > 70 ? docItem.title.substring(0, 67) + '...' : docItem.title;
+  doc.text(truncatedTitle, 18, currentY + 7);
+
+  doc.setFontSize(8.5);
+  doc.setTextColor(...orangeColor);
+  doc.text(`Nomor Dokumen: ${docItem.documentNumber}`, 18, currentY + 13);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...grayColor);
+  doc.text(
+    `Versi: ${docItem.version} | Status: ${docItem.status.toUpperCase()} | Klasifikasi: ${docItem.confidentiality}`,
+    18,
+    currentY + 18
+  );
+
+  currentY += 26;
+
+  // Metadata Table using autoTable
+  autoTable(doc, {
+    startY: currentY,
+    margin: { left: 14, right: 14 },
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2.5, font: 'helvetica' },
+    headStyles: { fillColor: navyColor, textColor: 255, fontStyle: 'bold' },
+    columns: [
+      { header: 'Parameter Dokumen', dataKey: 'key' },
+      { header: 'Rincian & Informasi Teknis', dataKey: 'value' },
+    ],
+    body: [
+      { key: 'Kategori Dokumen', value: docItem.category.toUpperCase() },
+      { key: 'Format & Ukuran Berkas', value: `${docItem.fileType.toUpperCase()} (${docItem.fileSize}) - ${docItem.fileName}` },
+      { key: 'Tanggal Penerbitan / Unggah', value: docItem.uploadDate },
+      { key: 'Pengunggah Resmi', value: `${docItem.uploadedBy} (${docItem.uploadedByRole})` },
+      { key: 'Tingkat Kerahasiaan', value: docItem.confidentiality },
+      { key: 'Kata Kunci / Tag Proyek', value: (docItem.tags || []).join(', ') || '-' },
+      { key: 'Uraian / Ringkasan Teknis', value: docItem.description || '-' },
+    ],
+  });
+
+  // @ts-ignore
+  currentY = (doc as any).lastAutoTable.finalY + 7;
+
+  // If there is an image (fileUrl is an image data URL or image type)
+  if (
+    docItem.fileUrl &&
+    (docItem.fileType === 'image' ||
+      docItem.fileType === 'png' ||
+      docItem.fileType === 'jpg' ||
+      docItem.fileType === 'jpeg' ||
+      docItem.fileUrl.startsWith('data:image'))
+  ) {
+    if (currentY + 80 > pageHeight - 40) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...navyColor);
+    doc.text('LAMPIRAN GAMBAR / DOKUMEN VISUAL RESMI:', 14, currentY);
+    currentY += 4;
+
+    try {
+      const imgWidth = pageWidth - 28;
+      const imgHeight = Math.min(85, pageHeight - currentY - 55);
+      doc.addImage(docItem.fileUrl, 'JPEG', 14, currentY, imgWidth, imgHeight, undefined, 'FAST');
+      doc.setDrawColor(203, 213, 225);
+      doc.rect(14, currentY, imgWidth, imgHeight, 'D');
+      currentY += imgHeight + 6;
+    } catch {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...grayColor);
+      doc.text('[Berkas gambar terdaftar dalam repositori digital]', 14, currentY);
+      currentY += 6;
+    }
+  }
+
+  // Tripartit Signatures Section
+  if (currentY + 45 > pageHeight - 20) {
+    doc.addPage();
+    currentY = 20;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(...navyColor);
+  doc.text('PENGESAHAN & TANDA TANGAN DIGITAL TRIPARTIT:', 14, currentY);
+  currentY += 4;
+
+  const signatories = [
+    {
+      role: 'Pemberi Tugas (Owner)',
+      name: project?.director || 'H. Bambang S., M.T.',
+      position: 'Direktur Utama PT Foresyndo',
+      signed: true,
+      time: docItem.uploadDate + ' 10:00',
+    },
+    {
+      role: 'Konsultan Pengawas (MK)',
+      name: project?.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+      position: 'Team Leader Manajemen Konstruksi',
+      signed: docItem.status === 'Approved',
+      time: docItem.uploadDate + ' 13:45',
+    },
+    {
+      role: 'Kontraktor Pelaksana',
+      name: project?.siteManager || 'Ir. Agus Pratama',
+      position: 'Site Manager Lapangan',
+      signed: true,
+      time: docItem.uploadDate + ' 09:15',
+    },
+  ];
+
+  const colWidth = (pageWidth - 28 - 6) / 3;
+  const boxHeight = 28;
+
+  signatories.forEach((sig, idx) => {
+    const boxX = 14 + idx * (colWidth + 3);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(boxX, currentY, colWidth, boxHeight, 1.5, 1.5, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(boxX, currentY, colWidth, boxHeight, 1.5, 1.5, 'D');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(...navyColor);
+    doc.text(sig.role, boxX + colWidth / 2, currentY + 4.5, { align: 'center' });
+
+    if (sig.signed) {
+      doc.setFillColor(236, 253, 245);
+      doc.roundedRect(boxX + 4, currentY + 7, colWidth - 8, 9, 1, 1, 'F');
+      doc.setDrawColor(...emeraldColor);
+      doc.roundedRect(boxX + 4, currentY + 7, colWidth - 8, 9, 1, 1, 'D');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...emeraldColor);
+      doc.text('[TERVERIFIKASI DIGITAL]', boxX + colWidth / 2, currentY + 11.5, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5);
+      doc.setTextColor(...grayColor);
+      doc.text(`Waktu: ${sig.time}`, boxX + colWidth / 2, currentY + 14.5, { align: 'center' });
+    } else {
+      doc.setFillColor(254, 242, 242);
+      doc.roundedRect(boxX + 4, currentY + 7, colWidth - 8, 9, 1, 1, 'F');
+      doc.setDrawColor(...redColor);
+      doc.roundedRect(boxX + 4, currentY + 7, colWidth - 8, 9, 1, 1, 'D');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...redColor);
+      doc.text('[MENUNGGU APPROVAL]', boxX + colWidth / 2, currentY + 13, { align: 'center' });
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...navyColor);
+    doc.text(sig.name, boxX + colWidth / 2, currentY + 21, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.5);
+    doc.setTextColor(...grayColor);
+    doc.text(sig.position, boxX + colWidth / 2, currentY + 25, { align: 'center' });
+  });
+
+  currentY += boxHeight + 6;
+
+  // Review Notes if available
+  if (docItem.reviewNotes && docItem.reviewNotes.length > 0) {
+    if (currentY + 28 > pageHeight - 20) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...navyColor);
+    doc.text('RIWAYAT AUDIT & CATATAN REVIEW TEKNIS:', 14, currentY);
+    currentY += 3;
+
+    autoTable(doc, {
+      startY: currentY,
+      margin: { left: 14, right: 14 },
+      theme: 'striped',
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [51, 65, 85], textColor: 255 },
+      columns: [
+        { header: 'No', dataKey: 'no' },
+        { header: 'Waktu', dataKey: 'timestamp' },
+        { header: 'Peninjau', dataKey: 'author' },
+        { header: 'Status', dataKey: 'status' },
+        { header: 'Catatan Teknis', dataKey: 'comment' },
+      ],
+      body: docItem.reviewNotes.map((rn, idx) => ({
+        no: idx + 1,
+        timestamp: rn.timestamp,
+        author: `${rn.authorName} (${rn.authorRole})`,
+        status: rn.statusChange || '-',
+        comment: rn.comment,
+      })),
+    });
+
+    // @ts-ignore
+    currentY = (doc as any).lastAutoTable.finalY + 6;
+  }
+
+  // Security Footer Certificate Strip
+  const footerY = Math.min(pageHeight - 10, Math.max(currentY + 2, pageHeight - 12));
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(14, footerY, pageWidth - 28, 7.5, 1, 1, 'F');
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(14, footerY, pageWidth - 28, 7.5, 1, 1, 'D');
+
+  doc.setFontSize(5.5);
+  doc.setTextColor(...navyColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SERTIFIKASI KEABSAHAN ARSIP ELEKTRONIK (UU ITE NO. 11/2008 & PP NO. 71/2019):', 17, footerY + 3.2);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5);
+  doc.setTextColor(...grayColor);
+  const safeDocNum = docItem.documentNumber.replace(/[^A-Z0-9]/gi, '');
+  doc.text(
+    `Keaslian arsip dokumen ini terdaftar dalam repositori digital Foresyndo 2 | Kode Verifikasi: DOC-AUTH-${safeDocNum} | Dicetak: ${new Date().toLocaleString('id-ID')}`,
+    17,
+    footerY + 5.8
+  );
+
+  const safeFileName = docItem.documentNumber.replace(/[^a-zA-Z0-9_-]/g, '_');
+  doc.save(`Dokumen_${safeFileName}_${docItem.version.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`);
+}
+
 
 

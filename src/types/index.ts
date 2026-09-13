@@ -280,6 +280,10 @@ export interface NotificationItem {
   title: string;
   message: string;
   isRead: boolean;
+  category?: 'document' | 'system' | 'progress' | 'schedule';
+  documentId?: string;
+  uploaderRole?: string;
+  uploaderName?: string;
 }
 
 export interface SCurveDataPoint {
@@ -339,7 +343,7 @@ export interface ProjectDocument {
   title: string;
   documentNumber: string;
   category: DocumentCategory;
-  fileType: 'pdf' | 'dwg' | 'xlsx' | 'docx';
+  fileType: 'pdf' | 'dwg' | 'xlsx' | 'docx' | 'image' | 'png' | 'jpg' | 'jpeg';
   fileSize: string;
   fileName: string;
   fileUrl?: string;
