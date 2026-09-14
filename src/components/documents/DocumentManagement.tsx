@@ -33,7 +33,10 @@ import {
   ShieldAlert,
   HardHat,
   PenTool,
+  Bell,
+  Image as ImageIcon,
 } from 'lucide-react';
+import { DocumentVisualViewer } from './DocumentVisualViewer';
 import {
   ProjectDocument,
   DocumentCategory,
@@ -343,6 +346,71 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
     if (e.target.files && e.target.files[0]) {
       processSelectedFile(e.target.files[0]);
     }
+  };
+
+  const handleLoadSampleImage = () => {
+    const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="900" height="600">
+      <rect width="900" height="600" fill="#0f172a" />
+      <pattern id="cadgrid" width="30" height="30" patternUnits="userSpaceOnUse">
+        <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1e293b" stroke-width="0.8" />
+      </pattern>
+      <rect width="900" height="600" fill="url(#cadgrid)" />
+      <rect x="40" y="40" width="820" height="520" fill="none" stroke="#38bdf8" stroke-width="2" />
+      <text x="450" y="80" fill="#f8fafc" font-size="20" font-family="sans-serif" font-weight="bold" text-anchor="middle">PROYEK GEDUNG FORESYNDO 2 - GAMBAR ELEVASI &amp; FASADE UTAMA</text>
+      <text x="450" y="105" fill="#94a3b8" font-size="13" font-family="sans-serif" text-anchor="middle">SKALA 1:50 | KONSULTAN MK: PT BINA MANDIRI KONSULTAN | TANGGAL: 14 SEPTEMBER 2026</text>
+      <rect x="180" y="140" width="540" height="340" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5" />
+      <rect x="220" y="180" width="100" height="80" fill="#0284c7" fill-opacity="0.4" stroke="#38bdf8" stroke-width="1.5" />
+      <rect x="360" y="180" width="180" height="80" fill="#0284c7" fill-opacity="0.4" stroke="#38bdf8" stroke-width="1.5" />
+      <rect x="580" y="180" width="100" height="80" fill="#0284c7" fill-opacity="0.4" stroke="#38bdf8" stroke-width="1.5" />
+      <rect x="220" y="300" width="100" height="80" fill="#0284c7" fill-opacity="0.4" stroke="#38bdf8" stroke-width="1.5" />
+      <rect x="360" y="300" width="180" height="80" fill="#0284c7" fill-opacity="0.4" stroke="#38bdf8" stroke-width="1.5" />
+      <rect x="580" y="300" width="100" height="80" fill="#0284c7" fill-opacity="0.4" stroke="#38bdf8" stroke-width="1.5" />
+      <polygon points="320,420 580,420 600,435 300,435" fill="#f59e0b" stroke="#d97706" stroke-width="2" />
+      <rect x="380" y="435" width="140" height="45" fill="#0f172a" stroke="#e2e8f0" stroke-width="2" />
+      <line x1="120" y1="140" x2="170" y2="140" stroke="#f43f5e" stroke-width="2" />
+      <text x="110" y="145" fill="#f43f5e" font-size="12" font-family="monospace" font-weight="bold" text-anchor="end">EL. +12.00 (ROOF)</text>
+      <line x1="120" y1="280" x2="170" y2="280" stroke="#f43f5e" stroke-width="2" />
+      <text x="110" y="285" fill="#f43f5e" font-size="12" font-family="monospace" font-weight="bold" text-anchor="end">EL. +6.00 (LT. 2)</text>
+      <line x1="120" y1="480" x2="170" y2="480" stroke="#f43f5e" stroke-width="2" />
+      <text x="110" y="485" fill="#f43f5e" font-size="12" font-family="monospace" font-weight="bold" text-anchor="end">EL. ±0.00 (GROUND)</text>
+      <line x1="180" y1="510" x2="720" y2="510" stroke="#38bdf8" stroke-width="1.5" />
+      <line x1="180" y1="500" x2="180" y2="520" stroke="#38bdf8" stroke-width="2" />
+      <line x1="720" y1="500" x2="720" y2="520" stroke="#38bdf8" stroke-width="2" />
+      <text x="450" y="530" fill="#38bdf8" font-size="13" font-family="monospace" font-weight="bold" text-anchor="middle">LEBAR FASADE BANGUNAN = 18.000 MM</text>
+      <rect x="680" y="470" width="160" height="70" fill="#047857" fill-opacity="0.2" stroke="#10b981" stroke-width="2" rx="6" />
+      <text x="760" y="495" fill="#34d399" font-size="11" font-family="sans-serif" font-weight="bold" text-anchor="middle">DISETUJUI OLEH MK</text>
+      <text x="760" y="515" fill="#a7f3d0" font-size="9" font-family="sans-serif" text-anchor="middle">IR. HENDRA GUNAWAN</text>
+      <text x="760" y="530" fill="#a7f3d0" font-size="9" font-family="monospace" text-anchor="middle">REV. 02 - VALID</text>
+    </svg>`;
+    const dataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}`;
+    setFakeFileSelected('DED_Fasade_Arsitektur_Rev02.png');
+    setUploadForm((prev) => ({
+      ...prev,
+      title: 'Gambar DED Arsitektur Fasade Utama & Kanopi Drop-Off',
+      documentNumber: 'DED-ARS-FASADE-02',
+      category: 'drawing',
+      fileType: 'image',
+      fileSize: '3.4 MB',
+      fileName: 'DED_Fasade_Arsitektur_Rev02.png',
+      fileUrl: dataUrl,
+      version: 'Rev.02',
+      description: 'Gambar kerja arsitektur tampak depan & potongan curtain wall kaca gedung utama, kisi aluminium louver, dan kanopi entrance.',
+    }));
+  };
+
+  const handleLoadSamplePdf = () => {
+    setFakeFileSelected('Surat_Instruksi_MK_Pengawasan_Pengecoran.pdf');
+    setUploadForm((prev) => ({
+      ...prev,
+      title: 'Surat Instruksi Lapangan MK: Prosedur Pengecoran Pelat Lantai 2',
+      documentNumber: 'INS-MK-COR-008',
+      category: 'drawing',
+      fileType: 'pdf',
+      fileSize: '1.6 MB',
+      fileName: 'Surat_Instruksi_MK_Pengawasan_Pengecoran.pdf',
+      version: 'v1.0',
+      description: 'Instruksi teknis pengawasan pengecoran pelat lantai 2 menggunakan beton ready mix K-350 dengan slump test 12±2 cm dan penggunaan vibrator merata.',
+    }));
   };
 
   // Submit Upload
@@ -1198,63 +1266,12 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
 
             {/* Modal Body: Document Preview Letterhead & Content */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-300 text-xs">
-              {/* Visual Attachment Preview (for Image) */}
-              {selectedDocForPreview.fileUrl &&
-                (selectedDocForPreview.fileType === 'image' ||
-                  selectedDocForPreview.fileType === 'png' ||
-                  selectedDocForPreview.fileType === 'jpg' ||
-                  selectedDocForPreview.fileType === 'jpeg' ||
-                  selectedDocForPreview.fileUrl.startsWith('data:image')) && (
-                  <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
-                        <Eye className="w-3.5 h-3.5" /> Lampiran Gambar / Dokumen Visual Teknis:
-                      </span>
-                      <a
-                        href={selectedDocForPreview.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] text-orange-400 hover:underline flex items-center gap-1"
-                      >
-                        Buka Tab Baru <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                    <div className="overflow-hidden rounded-xl border border-slate-800 bg-black/40 flex items-center justify-center p-2 max-h-80">
-                      <img
-                        src={selectedDocForPreview.fileUrl}
-                        alt={selectedDocForPreview.title}
-                        className="max-h-72 w-auto max-w-full object-contain rounded-lg shadow-md"
-                      />
-                    </div>
-                  </div>
-                )}
-
-              {/* PDF Embedded Preview */}
-              {selectedDocForPreview.fileUrl &&
-                (selectedDocForPreview.fileType === 'pdf' ||
-                  selectedDocForPreview.fileUrl.startsWith('data:application/pdf')) && (
-                  <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5" /> Pratinjau Berkas PDF:
-                      </span>
-                      <a
-                        href={selectedDocForPreview.fileUrl}
-                        download={selectedDocForPreview.fileName || `${selectedDocForPreview.documentNumber}.pdf`}
-                        className="text-[11px] text-rose-400 hover:underline flex items-center gap-1"
-                      >
-                        Unduh Berkas PDF Asli <Download className="w-3 h-3" />
-                      </a>
-                    </div>
-                    <div className="overflow-hidden rounded-xl border border-slate-800 h-80 bg-slate-900">
-                      <iframe
-                        src={selectedDocForPreview.fileUrl}
-                        title={selectedDocForPreview.title}
-                        className="w-full h-full rounded-xl"
-                      />
-                    </div>
-                  </div>
-                )}
+              {/* Document Visual Viewer (High-res Images, PDFs, CAD Blueprints & Official Legal Docs) */}
+              <DocumentVisualViewer
+                document={selectedDocForPreview}
+                onDownloadPdf={() => handleDownloadDocument(selectedDocForPreview, 'pdf')}
+                onDownloadOriginal={() => handleDownloadDocument(selectedDocForPreview, 'original')}
+              />
 
               {/* Simulated Paper Letterhead */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-inner relative">
@@ -1633,6 +1650,29 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
                     </>
                   )}
                 </label>
+              </div>
+
+              {/* Quick Sample Presets for Testing Image & Document Upload */}
+              <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/80 flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-[11px] font-bold text-slate-400">Pilihan Cepat Berkas Uji Coba:</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleLoadSampleImage}
+                    className="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Muat Contoh Gambar DED Arsitektur Fasade"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5 text-sky-400" /> Muat Contoh Gambar (.png)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLoadSamplePdf}
+                    className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Muat Contoh PDF Instruksi Pengawasan"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-rose-400" /> Muat Contoh Berkas (.pdf)
+                  </button>
+                </div>
               </div>
 
               {/* Form Input Fields */}

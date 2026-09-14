@@ -695,11 +695,21 @@ export default function App() {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
   };
 
+  const handleMarkNotificationItemRead = (id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+  };
+
   const handleAddNotification = (newNotif: Omit<NotificationItem, 'id' | 'timestamp' | 'isRead'>) => {
     const item: NotificationItem = {
       ...newNotif,
       id: `NOTIF-${Date.now()}`,
-      timestamp: new Date().toLocaleString('id-ID'),
+      timestamp: new Date().toLocaleString('id-ID', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
       isRead: false,
     };
     setNotifications((prev) => [item, ...prev]);
@@ -707,11 +717,111 @@ export default function App() {
 
   const handleAddDocument = (newDoc: ProjectDocument) => {
     setDocuments((prev) => [newDoc, ...prev]);
+
+    const isMK = newDoc.uploadedByRole === 'Konsultan';
+    const isOwner = newDoc.uploadedByRole === 'Owner' || newDoc.uploadedByRole === 'Direktur';
+
+    let notifTitle = '📄 Dokumen Baru Diunggah';
+    let notifType: NotificationItem['type'] = 'info';
+
+    if (isMK) {
+      notifTitle = '📄 Dokumen Baru dari Konsultan MK';
+      notifType = 'reminder';
+    } else if (isOwner) {
+      notifTitle = '📄 Dokumen Baru dari Owner Proyek';
+      notifType = 'reminder';
+    }
+
     handleAddNotification({
-      title: 'Dokumen Baru Diunggah',
-      message: `${newDoc.documentNumber}: ${newDoc.title} (${newDoc.version})`,
-      type: 'info',
+      title: notifTitle,
+      message: `Dokumen "${newDoc.documentNumber}: ${newDoc.title}" (${newDoc.version}) diterbitkan oleh ${newDoc.uploadedBy} [${newDoc.uploadedByRole}].`,
+      type: notifType,
+      category: 'document',
+      documentId: newDoc.id,
+      uploaderRole: newDoc.uploadedByRole,
+      uploaderName: newDoc.uploadedBy,
     });
+  };
+
+  const handleSimulateMKDocument = () => {
+    const timestamp = Date.now().toString().slice(-4);
+    const mockMKDoc: ProjectDocument = {
+      id: `DOC-MK-${Date.now()}`,
+      title: 'Shop Drawing Revisi Penulangan Balok & Kolom Sektor 2',
+      documentNumber: `SHD-MK-${timestamp}`,
+      category: 'drawing',
+      fileType: 'pdf',
+      fileSize: '4.2 MB',
+      fileName: `SHD-MK-${timestamp}-Revisi-Struktur.pdf`,
+      uploadDate: new Date().toISOString().split('T')[0],
+      uploadedBy: 'PT Bina Mandiri Konsultan (MK)',
+      uploadedByRole: 'Konsultan',
+      version: 'Rev.02',
+      status: 'Approved',
+      description: 'Review komprehensif penulangan balok B1 & kolom K2 serta rekomendasi perbaikan pembesian lapangan oleh Konsultan MK.',
+      tags: ['Struktur', 'Shop Drawing', 'Konsultan MK'],
+      confidentiality: 'Khusus Tripartit (Owner-MK-Kontraktor)',
+      signatories: [
+        {
+          role: 'Konsultan',
+          name: 'Ir. Hendra Gunawan (Team Leader MK)',
+          signed: true,
+          signedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        },
+      ],
+      reviewNotes: [
+        {
+          id: `REV-MK-${Date.now()}`,
+          authorName: 'Ir. Hendra Gunawan',
+          authorRole: 'Konsultan',
+          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          statusChange: 'Approved',
+          comment: 'Disetujui untuk dilaksanakan dengan memperhatikan selimut beton minimal 30 mm.',
+        },
+      ],
+    };
+
+    handleAddDocument(mockMKDoc);
+    addAuditLog(
+      'Unggah Dokumen MK',
+      `Konsultan MK menerbitkan gambar kerja baru: ${mockMKDoc.documentNumber} - ${mockMKDoc.title}`
+    );
+  };
+
+  const handleSimulateOwnerDocument = () => {
+    const timestamp = Date.now().toString().slice(-4);
+    const mockOwnerDoc: ProjectDocument = {
+      id: `DOC-OWNER-${Date.now()}`,
+      title: 'Surat Instruksi Lapangan & Addendum Spek Material Finishing',
+      documentNumber: `INST-OWNER-${timestamp}`,
+      category: 'contract',
+      fileType: 'pdf',
+      fileSize: '1.8 MB',
+      fileName: `INST-OWNER-${timestamp}-Instruksi.pdf`,
+      uploadDate: new Date().toISOString().split('T')[0],
+      uploadedBy: 'H. Bambang S., M.T. (Owner / Direktur)',
+      uploadedByRole: 'Owner',
+      version: 'v1.0',
+      status: 'Approved',
+      description: 'Instruksi resmi Owner terkait penyesuaian spesifikasi granit lantai dan armature pencahayaan koridor.',
+      tags: ['Instruksi Owner', 'Addendum', 'Finishing'],
+      confidentiality: 'Khusus Tripartit (Owner-MK-Kontraktor)',
+      signatories: [
+        {
+          role: 'Owner',
+          name: 'H. Bambang S., M.T.',
+          signed: true,
+          signedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        },
+      ],
+      reviewNotes: [],
+    };
+
+    handleAddDocument(mockOwnerDoc);
+    addAuditLog(
+      'Unggah Dokumen Owner',
+      `Owner menerbitkan dokumen instruksi baru: ${mockOwnerDoc.documentNumber} - ${mockOwnerDoc.title}`
+    );
   };
 
   const handleUpdateDocument = (updatedDoc: ProjectDocument) => {
@@ -749,6 +859,17 @@ export default function App() {
   const physicalProgress = calculatePhysicalProgress(workItems);
   const targetProgress = calculateTargetProgress(workItems);
   const deviation = calculateDeviation(physicalProgress, targetProgress);
+
+  const unreadDocCount = notifications.filter(
+    (n) =>
+      !n.isRead &&
+      (n.category === 'document' ||
+        n.title.toLowerCase().includes('dokumen') ||
+        n.message.toLowerCase().includes('dokumen') ||
+        n.uploaderRole === 'Owner' ||
+        n.uploaderRole === 'Direktur' ||
+        n.uploaderRole === 'Konsultan')
+  ).length;
 
   const isOwner = currentRole === 'Owner' || currentRole === 'Direktur';
 
@@ -816,6 +937,7 @@ export default function App() {
           onSelectTab={setActiveTab}
           hasDeviasiWarning={deviation < -5}
           darkMode={darkMode}
+          unreadDocCount={unreadDocCount}
           onOpenSettingsModal={isOwner ? () => setIsSettingsModalOpen(true) : undefined}
           onOpenRoleModal={
             isOwner
@@ -967,6 +1089,8 @@ export default function App() {
                   onUpdateDocument={handleUpdateDocument}
                   onDeleteDocument={handleDeleteDocument}
                   onAddAuditLog={addAuditLog}
+                  onSimulateMKDocument={handleSimulateMKDocument}
+                  onSimulateOwnerDocument={handleSimulateOwnerDocument}
                 />
               )}
 
@@ -1002,6 +1126,14 @@ export default function App() {
         onClose={() => setIsNotificationsOpen(false)}
         notifications={notifications}
         onMarkAllRead={handleMarkAllNotificationsRead}
+        onMarkItemRead={handleMarkNotificationItemRead}
+        onNavigateToDocument={(docId) => {
+          setActiveTab('documents');
+          setIsNotificationsOpen(false);
+        }}
+        onSimulateMKDocument={handleSimulateMKDocument}
+        onSimulateOwnerDocument={handleSimulateOwnerDocument}
+        darkMode={darkMode}
       />
 
       <ProjectSettingsModal
