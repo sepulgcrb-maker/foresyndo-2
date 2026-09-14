@@ -58,6 +58,7 @@ import { DocumentManagement } from './components/documents/DocumentManagement';
 import { FinalInspection } from './components/inspection/FinalInspection';
 import { ReportCenter } from './components/reports/ReportCenter';
 import { SupabaseModal } from './components/common/SupabaseModal';
+import { pushAllDataToSupabase, pullAllDataFromSupabase, subscribeToSupabaseRealtime } from './lib/supabaseService';
 import { NotificationDrawer } from './components/common/NotificationDrawer';
 import { ProjectSettingsModal } from './components/common/ProjectSettingsModal';
 import { RoleManagementModal } from './components/common/RoleManagementModal';
@@ -127,6 +128,9 @@ export default function App() {
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [roleModalTab, setRoleModalTab] = useState<'profiles' | 'permissions' | 'matrix' | 'workflow' | 'pins'>('profiles');
+  const [lastSupabaseSync, setLastSupabaseSync] = useState<string | null>(() => {
+    return localStorage.getItem('FORESYNDO_LAST_SUPABASE_SYNC');
+  });
 
   // Role Security PINs (Owner authority - persistent)
   const [rolePins, setRolePins] = useState<Record<StakeholderRoleKey, string>>(() => {
@@ -837,6 +841,101 @@ export default function App() {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
   };
 
+  // Supabase Cloud Sync Handlers
+  const handlePushToSupabase = async () => {
+    const payload = {
+      projectId: project.id || 'FORESYNDO-PROJECT-2',
+      projectInfo: project,
+      documents,
+      dailyLogs,
+      materials,
+      workItems,
+      workers,
+      allocations,
+      equipments,
+      auditLogs,
+      paymentTerms,
+      photos,
+      syncedBy: `${currentRole} - ${userNameMap[currentRole] || 'User'}`,
+    };
+
+    const result = await pushAllDataToSupabase(payload);
+    if (result.success) {
+      const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+      setLastSupabaseSync(timeStr);
+      localStorage.setItem('FORESYNDO_LAST_SUPABASE_SYNC', timeStr);
+      addAuditLog(
+        'Sinkronisasi Supabase',
+        `Berhasil mengunggah data proyek ke Supabase Cloud (${result.counts.documents} dokumen, ${result.counts.dailyLogs} laporan harian)`
+      );
+      handleAddNotification({
+        title: 'Sinkronisasi Supabase Berhasil',
+        message: `${result.counts.documents} dokumen & ${result.counts.dailyLogs} laporan tersimpan di cloud.`,
+        type: 'info',
+      });
+    }
+    return result;
+  };
+
+  const handlePullFromSupabase = async () => {
+    try {
+      const remoteData = await pullAllDataFromSupabase(project.id || 'FORESYNDO-PROJECT-2');
+      if (!remoteData) {
+        return {
+          success: false,
+          message: 'Tidak ada snapshot data proyek yang ditemukan di Supabase. Silakan unggah data terlebih dahulu.',
+        };
+      }
+
+      if (remoteData.documents && Array.isArray(remoteData.documents)) setDocuments(remoteData.documents);
+      if (remoteData.dailyLogs && Array.isArray(remoteData.dailyLogs)) setDailyLogs(remoteData.dailyLogs);
+      if (remoteData.materials && Array.isArray(remoteData.materials)) setMaterials(remoteData.materials);
+      if (remoteData.workItems && Array.isArray(remoteData.workItems)) setWorkItems(remoteData.workItems);
+      if (remoteData.workers && Array.isArray(remoteData.workers)) setWorkers(remoteData.workers);
+      if (remoteData.allocations && Array.isArray(remoteData.allocations)) setAllocations(remoteData.allocations);
+      if (remoteData.equipments && Array.isArray(remoteData.equipments)) setEquipments(remoteData.equipments);
+      if (remoteData.paymentTerms && Array.isArray(remoteData.paymentTerms)) setPaymentTerms(remoteData.paymentTerms);
+      if (remoteData.projectInfo) setProject(remoteData.projectInfo);
+
+      const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+      setLastSupabaseSync(timeStr);
+      localStorage.setItem('FORESYNDO_LAST_SUPABASE_SYNC', timeStr);
+      addAuditLog('Tarik Data Supabase', 'Berhasil memperbarui data proyek lokal dari Supabase Cloud.');
+
+      handleAddNotification({
+        title: 'Data Supabase Berhasil Dimuat',
+        message: 'Data proyek berhasil diperbarui dari database Supabase Cloud.',
+        type: 'info',
+      });
+
+      return {
+        success: true,
+        message: 'Data proyek berhasil diperbarui dari Supabase Cloud!',
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message || 'Gagal menarik data dari Supabase',
+      };
+    }
+  };
+
+  // Realtime Supabase change listener
+  useEffect(() => {
+    const unsubscribe = subscribeToSupabaseRealtime((payload) => {
+      console.log('Supabase Realtime event detected:', payload);
+      handleAddNotification({
+        title: 'Supabase Cloud Update',
+        message: 'Terdeteksi pembaruan data proyek di Supabase Cloud.',
+        type: 'info',
+      });
+    }, project.id);
+
+    return () => {
+      unsubscribe();
+    };
+  }, [project.id]);
+
   const handleResetProject = () => {
     if (window.confirm('Apakah Anda yakin ingin mereset data proyek ke status BELUM MULAI (Progress 0%)?')) {
       setProject(INITIAL_PROJECT_INFO);
@@ -1119,7 +1218,16 @@ export default function App() {
       </div>
 
       {/* Modals & Drawers */}
-      <SupabaseModal isOpen={isSupabaseModalOpen} onClose={() => setIsSupabaseModalOpen(false)} />
+      <SupabaseModal
+        isOpen={isSupabaseModalOpen}
+        onClose={() => setIsSupabaseModalOpen(false)}
+        onPushToSupabase={handlePushToSupabase}
+        onPullFromSupabase={handlePullFromSupabase}
+        lastSyncedAt={lastSupabaseSync}
+        documentsCount={documents.length}
+        reportsCount={dailyLogs.length}
+        issuesCount={0}
+      />
 
       <NotificationDrawer
         isOpen={isNotificationsOpen}

@@ -186,6 +186,57 @@ Berikan analisis dampak teknis terhadap pekerjaan lapangan (pengecoran beton, op
     }
   });
 
+  // Supabase Server Status & Verification API Route
+  app.get('/api/supabase/status', async (req, res) => {
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    const hasServiceRoleKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+    const configured = Boolean(supabaseUrl && (supabaseAnonKey || hasServiceRoleKey));
+
+    let liveStatus = 'not_configured';
+    let latencyMs = 0;
+    let errorDetail = null;
+
+    if (configured) {
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const keyToUse = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey;
+        const startTime = Date.now();
+        const client = createClient(supabaseUrl, keyToUse, {
+          auth: { persistSession: false },
+        });
+
+        const { error } = await client.from('project_snapshots').select('id').limit(1);
+        latencyMs = Date.now() - startTime;
+
+        if (error) {
+          if (error.code === '42P01' || error.message.includes('relation')) {
+            liveStatus = 'connected_schema_needed';
+          } else {
+            liveStatus = 'error';
+            errorDetail = error.message;
+          }
+        } else {
+          liveStatus = 'ready';
+        }
+      } catch (err: any) {
+        liveStatus = 'unreachable';
+        errorDetail = err.message;
+      }
+    }
+
+    res.json({
+      configured,
+      url: supabaseUrl ? supabaseUrl.replace(/^(https?:\/\/)([^.]+)(.*)$/, '$1$2$3') : null,
+      liveStatus,
+      latencyMs,
+      hasServiceRoleKey,
+      error: errorDetail,
+      envSupported: true,
+    });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
