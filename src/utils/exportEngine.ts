@@ -775,9 +775,7 @@ export function generateOfficialRABPDF(
     ],
     body: detailTableData,
     foot: [
-      ['', '', 'SUBTOTAL PEKERJAAN FISIK (97 ITEM)', '', '', formatIDR(rabDoc.subtotalFisik || 13028613496), '90.090%', ''],
-      ['', '', 'PPN 11% KONSTRUKSI', '', '', formatIDR(rabDoc.ppn11Percent || 1433147485), '9.910%', ''],
-      ['', '', 'TOTAL NILAI KONTRAK RAB (100.00%)', '', '', formatIDR(rabDoc.totalNominal), '100.000%', ''],
+      ['', '', `TOTAL NILAI KONTRAK RAB (${rabDoc.detailItems?.length || 40} ITEM)`, '', '', formatIDR(rabDoc.totalNominal), '100.00%', ''],
     ],
     theme: 'grid',
     headStyles: {
