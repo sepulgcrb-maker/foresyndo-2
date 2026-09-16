@@ -65,7 +65,7 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
     setTimeout(() => {
       setIsUploading(false);
       setUploadSuccessMessage(
-        `File "${file.name}" berhasil diunggah & diverifikasi. 14 Sektor & 40 Sub-item RAB telah disinkronisasi sesuai Bobot Progres 25.0%.`
+        `File "${file.name}" berhasil diunggah & disinkronkan. Seluruh 14 Sektor & 124 Sub-item RAB resmi teraudit telah aktif di sistem.`
       );
     }, 1200);
   };
@@ -226,7 +226,7 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
         </div>
 
         {/* Project Detail Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
           <div>
             <span className="text-[10px] text-slate-500 uppercase block font-semibold">Nomor Kontrak</span>
             <strong className="text-slate-800 font-mono">{rab.contractNumber}</strong>
@@ -236,11 +236,15 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
             <strong className="text-slate-800">{rab.issueDate}</strong>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 uppercase block font-semibold">Toleransi Audit</span>
-            <strong className="text-slate-800">{rab.tolerance}</strong>
+            <span className="text-[10px] text-slate-500 uppercase block font-semibold">Subtotal Fisik Konstruksi</span>
+            <strong className="text-slate-900 font-mono">{formatIDR(rab.subtotalFisik || 13028613496)}</strong>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 uppercase block font-semibold">Total Nilai Kontrak</span>
+            <span className="text-[10px] text-slate-500 uppercase block font-semibold">PPN Pajak 11%</span>
+            <strong className="text-slate-900 font-mono">{formatIDR(rab.ppn11Percent || 1433147485)}</strong>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 uppercase block font-semibold">Total Nilai Kontrak Resmi</span>
             <strong className="text-orange-600 font-mono font-black">{formatIDR(totalRABValue)}</strong>
           </div>
         </div>
@@ -280,12 +284,28 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-300">
+              <tfoot className="bg-slate-100 font-black text-slate-900 border-t-2 border-slate-300 divide-y divide-slate-200">
                 <tr>
-                  <td colSpan={2} className="p-2.5 text-right uppercase">Total Nilai Kontrak (14 Sektor):</td>
+                  <td colSpan={2} className="p-2.5 text-right uppercase text-slate-700 font-bold">Subtotal Nilai Dasar Fisik (14 Sektor):</td>
+                  <td className="p-2.5 text-right font-mono text-slate-800 font-bold">{formatIDR(rab.subtotalFisik || 13028613496)}</td>
+                  <td className="p-2.5 text-right font-mono text-slate-800 font-bold">90.09%</td>
+                  <td className="p-2.5 text-center"><span className="text-[10px] text-slate-500 font-semibold">14 Sektor</span></td>
+                </tr>
+                <tr>
+                  <td colSpan={2} className="p-2.5 text-right uppercase text-slate-700 font-bold">Pajak Pertambahan Nilai (PPN 11%):</td>
+                  <td className="p-2.5 text-right font-mono text-slate-800 font-bold">{formatIDR(rab.ppn11Percent || 1433147485)}</td>
+                  <td className="p-2.5 text-right font-mono text-slate-800 font-bold">9.91%</td>
+                  <td className="p-2.5 text-center"><span className="text-[10px] text-slate-500 font-semibold">PPN 11%</span></td>
+                </tr>
+                <tr className="bg-orange-50/80 text-orange-950 font-black text-[13px]">
+                  <td colSpan={2} className="p-2.5 text-right uppercase">Total Nilai Kontrak Resmi (Termasuk PPN 11%):</td>
                   <td className="p-2.5 text-right font-mono text-blue-950">{formatIDR(totalRABValue)}</td>
                   <td className="p-2.5 text-right font-mono text-blue-950">100.00%</td>
-                  <td></td>
+                  <td className="p-2.5 text-center">
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                      TERAUDIT
+                    </span>
+                  </td>
                 </tr>
               </tfoot>
             </table>
