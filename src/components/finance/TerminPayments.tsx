@@ -461,8 +461,8 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
 
       {/* Official RAB Document Modal */}
       {showRABModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-4 overflow-y-auto flex items-center justify-center">
-          <div className="w-full max-w-6xl my-8">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md p-1 sm:p-3 lg:p-4 overflow-y-auto flex items-start justify-center">
+          <div className="w-full max-w-[98vw] 2xl:max-w-[1600px] my-1 sm:my-2">
             <OfficialRABViewer
               onClose={() => setShowRABModal(false)}
               project={project}

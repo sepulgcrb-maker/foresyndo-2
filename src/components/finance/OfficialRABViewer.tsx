@@ -14,6 +14,8 @@ import {
   Layers,
   FileSpreadsheet,
   Zap,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { ProjectInfo } from '../../types';
 
@@ -28,6 +30,8 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
   const [selectedSector, setSelectedSector] = useState<number | 'ALL'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [filter25Only, setFilter25Only] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showAllRows, setShowAllRows] = useState(true);
 
   const [isUploading, setIsUploading] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -80,7 +84,13 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
   });
 
   return (
-    <div className="bg-slate-900 text-slate-100 p-4 sm:p-6 rounded-3xl border border-slate-800 shadow-2xl space-y-6 max-w-6xl mx-auto">
+    <div
+      className={`${
+        isFullscreen
+          ? 'fixed inset-0 z-[70] w-full h-screen rounded-none overflow-y-auto p-3 sm:p-6'
+          : 'w-full max-w-full rounded-2xl sm:rounded-3xl p-3 sm:p-5 md:p-6'
+      } bg-slate-900 text-slate-100 border border-slate-800 shadow-2xl space-y-6 transition-all`}
+    >
       {/* Top Header & Actions */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-800 pb-5">
         <div className="flex items-center gap-3">
@@ -133,6 +143,15 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
           >
             <Download className={`w-4 h-4 ${isGeneratingPDF ? 'animate-spin' : ''}`} />
             {isGeneratingPDF ? 'Menyiapkan PDF...' : 'Download PDF RAB'}
+          </button>
+
+          <button
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            title={isFullscreen ? 'Keluar Layar Penuh' : 'Tampilkan Layar Penuh'}
+            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer"
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4 text-cyan-400" /> : <Maximize2 className="w-4 h-4 text-cyan-400" />}
+            <span>{isFullscreen ? 'Kecilkan' : 'Layar Penuh'}</span>
           </button>
 
           <button
@@ -312,17 +331,26 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
                 onClick={() => setFilter25Only(!filter25Only)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   filter25Only
-                    ? 'bg-orange-500 text-white'
+                    ? 'bg-orange-500 text-white shadow-sm'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
                 }`}
               >
                 🎯 Item 25% {filter25Only ? '✓' : ''}
               </button>
+
+              {/* Show All Rows Toggle */}
+              <button
+                onClick={() => setShowAllRows(!showAllRows)}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-all cursor-pointer whitespace-nowrap"
+                title={showAllRows ? 'Batasi tinggi tabel dengan scroll internal' : 'Buka tinggi tabel penuh di layar'}
+              >
+                {showAllRows ? '↕ Batasi Scroll' : '↕ Tampilkan Semua Baris'}
+              </button>
             </div>
           </div>
 
           {/* Detail Items Table */}
-          <div className="overflow-x-auto rounded-xl border border-slate-200 max-h-96 overflow-y-auto">
+          <div className={`overflow-x-auto rounded-xl border border-slate-200 ${showAllRows ? 'max-h-none' : 'max-h-[500px]'} overflow-y-auto transition-all`}>
             <table className="w-full text-left text-xs border-collapse">
               <thead className="sticky top-0 bg-slate-100 text-slate-700 font-bold border-b border-slate-200 shadow-sm z-10">
                 <tr>
