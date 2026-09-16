@@ -774,6 +774,11 @@ export function generateOfficialRABPDF(
       ],
     ],
     body: detailTableData,
+    foot: [
+      ['', '', 'SUBTOTAL PEKERJAAN FISIK (97 ITEM)', '', '', formatIDR(rabDoc.subtotalFisik || 13028613496), '90.090%', ''],
+      ['', '', 'PPN 11% KONSTRUKSI', '', '', formatIDR(rabDoc.ppn11Percent || 1433147485), '9.910%', ''],
+      ['', '', 'TOTAL NILAI KONTRAK RAB (100.00%)', '', '', formatIDR(rabDoc.totalNominal), '100.000%', ''],
+    ],
     theme: 'grid',
     headStyles: {
       fillColor: navyColor,
@@ -781,6 +786,12 @@ export function generateOfficialRABPDF(
       fontSize: 6.5,
       fontStyle: 'bold',
       halign: 'center',
+    },
+    footStyles: {
+      fillColor: [241, 245, 249],
+      textColor: navyColor,
+      fontSize: 6.5,
+      fontStyle: 'bold',
     },
     bodyStyles: { fontSize: 6, textColor: [30, 41, 59] },
     columnStyles: {

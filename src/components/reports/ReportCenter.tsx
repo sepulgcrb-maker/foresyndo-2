@@ -27,7 +27,7 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
   const reportTypes: { id: ReportType; label: string; desc: string }[] = [
     { id: 'Kurva-S', label: 'Analisis Kurva-S', desc: 'Evaluasi jadwal S-Curve rencana vs realisasi & Schedule Variance' },
     { id: 'Termin', label: 'Laporan Termin', desc: 'Breakdown tagihan termin 1-5 dan potongan retensi 5%' },
-    { id: 'RAB', label: 'Dokumen RAB', desc: 'Rencana Anggaran Biaya resmi 14 sektor & 40 item terverifikasi' },
+    { id: 'RAB', label: 'Dokumen RAB', desc: 'Rencana Anggaran Biaya resmi 14 sektor & 97 sub-item detail terverifikasi' },
     { id: 'Progress', label: 'Laporan Progress', desc: 'Time Schedule lengkap dengan bobot & persentase' },
     { id: 'Harian', label: 'Laporan Harian', desc: 'Rincian kegiatan, cuaca, dan tenaga kerja harian' },
     { id: 'Mingguan', label: 'Laporan Mingguan', desc: 'Rekapitulasi fisik dan deviasi mingguan' },
