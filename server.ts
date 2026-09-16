@@ -86,7 +86,7 @@ async function startServer() {
 Berikan analisis dampak teknis terhadap pekerjaan lapangan (pengecoran beton, operasi alat berat, pengerjaan luar, K3) serta rekomendasi praktis untuk Site Manager.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: 'gemini-flash-latest',
         contents: prompt,
         config: {
           tools: [{ googleSearch: {} }],
