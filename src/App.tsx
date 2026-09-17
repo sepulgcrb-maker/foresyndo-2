@@ -87,38 +87,45 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Authentication Session (Persistent)
+  // Authentication Session (Persistent per active session, requires login first)
   const [authSession, setAuthSession] = useState<AuthSession>(() => {
-    const saved = localStorage.getItem('FORESYNDO_AUTH_SESSION');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed.isAuthenticated === 'boolean') {
-          return parsed;
+    const isSessionActive = sessionStorage.getItem('FORESYNDO_SESSION_ACTIVE') === 'true';
+    if (isSessionActive) {
+      const saved = localStorage.getItem('FORESYNDO_AUTH_SESSION');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed.isAuthenticated === 'boolean' && parsed.isAuthenticated) {
+            return parsed;
+          }
+        } catch {
+          // fallback
         }
-      } catch {
-        // fallback
       }
     }
+    // Default: Must log in first before entering the application
     return {
-      isAuthenticated: true,
-      role: 'Owner',
-      userName: 'H. Bambang S., M.T.',
-      loginTime: new Date().toISOString(),
+      isAuthenticated: false,
+      role: 'Kontraktor',
+      userName: '',
+      loginTime: '',
     };
   });
 
   const [currentRole, setCurrentRole] = useState<UserRole>(() => {
-    const saved = localStorage.getItem('FORESYNDO_AUTH_SESSION');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed?.role) return parsed.role as UserRole;
-      } catch {
-        // fallback
+    const isSessionActive = sessionStorage.getItem('FORESYNDO_SESSION_ACTIVE') === 'true';
+    if (isSessionActive) {
+      const saved = localStorage.getItem('FORESYNDO_AUTH_SESSION');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed?.role && parsed?.isAuthenticated) return parsed.role as UserRole;
+        } catch {
+          // fallback
+        }
       }
     }
-    return 'Owner';
+    return 'Kontraktor';
   });
 
   // Modals & Drawers
@@ -423,6 +430,7 @@ export default function App() {
     setAuthSession(newSession);
     setCurrentRole(role as UserRole);
     localStorage.setItem('FORESYNDO_AUTH_SESSION', JSON.stringify(newSession));
+    sessionStorage.setItem('FORESYNDO_SESSION_ACTIVE', 'true');
     addAuditLog('Login Berhasil', `Pengguna ${userName} masuk dengan peran ${role}`);
 
     // If currently active tab is not allowed for this role, redirect to dashboard
@@ -441,6 +449,7 @@ export default function App() {
     };
     setAuthSession(loggedOutSession);
     localStorage.removeItem('FORESYNDO_AUTH_SESSION');
+    sessionStorage.removeItem('FORESYNDO_SESSION_ACTIVE');
     addAuditLog('Logout Sistem', `Sesi pengguna (${currentRole}) telah keluar.`);
   };
 
