@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
-import { EquipmentItem, UserRole } from '../../types';
+import { EquipmentItem, UserRole, RolePermissions } from '../../types';
 import { Truck, Plus, Wrench, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 
 interface EquipmentMonitoringProps {
   equipments: EquipmentItem[];
   userRole: UserRole;
+  permissions?: RolePermissions;
   onAddEquipment: (eq: Omit<EquipmentItem, 'id'>) => void;
 }
 
-export const EquipmentMonitoring: React.FC<EquipmentMonitoringProps> = ({ equipments, userRole, onAddEquipment }) => {
+export const EquipmentMonitoring: React.FC<EquipmentMonitoringProps> = ({
+  equipments,
+  userRole,
+  permissions,
+  onAddEquipment,
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newEq, setNewEq] = useState<Omit<EquipmentItem, 'id'>>({
     name: '',
@@ -20,7 +26,14 @@ export const EquipmentMonitoring: React.FC<EquipmentMonitoringProps> = ({ equipm
     notes: '',
   });
 
-  const canEdit = userRole === 'Admin' || userRole === 'Site Manager' || userRole === 'Direktur';
+  const canEdit =
+    permissions?.canManageEquipment ??
+    (userRole === 'Kontraktor' ||
+      userRole === 'Konsultan' ||
+      userRole === 'Owner' ||
+      userRole === 'Site Manager' ||
+      userRole === 'Direktur' ||
+      userRole === 'Admin');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

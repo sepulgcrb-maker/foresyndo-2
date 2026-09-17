@@ -8,6 +8,7 @@ import {
   MaterialItem,
   UserRole,
   ProjectInfo,
+  RolePermissions,
 } from '../../types';
 import {
   format,
@@ -60,6 +61,7 @@ interface ProjectCalendarProps {
   materials: MaterialItem[];
   calendarEvents: CalendarEvent[];
   userRole: UserRole;
+  permissions?: RolePermissions;
   onAddCalendarEvent: (e: Omit<CalendarEvent, 'id'>) => void;
   onDeleteCalendarEvent?: (id: string) => void;
   onUpdateCalendarEvent?: (e: CalendarEvent) => void;
@@ -72,6 +74,7 @@ export const ProjectCalendar: React.FC<ProjectCalendarProps> = ({
   materials,
   calendarEvents,
   userRole,
+  permissions,
   onAddCalendarEvent,
   onDeleteCalendarEvent,
   onUpdateCalendarEvent,
@@ -113,7 +116,14 @@ export const ProjectCalendar: React.FC<ProjectCalendarProps> = ({
     isCustom: true,
   });
 
-  const canEdit = userRole === 'Admin' || userRole === 'Site Manager' || userRole === 'Direktur';
+  const canEdit =
+    (permissions?.canEditSchedule ?? true) &&
+    (userRole === 'Kontraktor' ||
+      userRole === 'Konsultan' ||
+      userRole === 'Owner' ||
+      userRole === 'Admin' ||
+      userRole === 'Site Manager' ||
+      userRole === 'Direktur');
 
   // 1. Consolidated Events Engine
   const allConsolidatedEvents = useMemo(() => {

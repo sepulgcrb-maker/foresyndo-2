@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MaterialItem, WorkItem, UserRole } from '../../types';
+import { MaterialItem, WorkItem, UserRole, RolePermissions } from '../../types';
 import { MaterialProjectionTool } from './MaterialProjectionTool';
 import { calculateMaterialProjections } from '../../utils/materialProjection';
 import {
@@ -37,6 +37,7 @@ interface MaterialMonitoringProps {
   materials: MaterialItem[];
   workItems: WorkItem[];
   userRole: UserRole;
+  permissions?: RolePermissions;
   onAddMaterial: (mat: Omit<MaterialItem, 'id'>) => void;
   onUpdateMaterial: (mat: MaterialItem) => void;
   onAddAuditLog?: (action: string, details: string) => void;
@@ -46,6 +47,7 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
   materials,
   workItems,
   userRole,
+  permissions,
   onAddMaterial,
   onUpdateMaterial,
   onAddAuditLog,
@@ -80,7 +82,14 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
     minAlertStock: 20,
   });
 
-  const canEdit = userRole === 'Admin' || userRole === 'Site Manager' || userRole === 'Direktur';
+  const canEdit =
+    permissions?.canManageMaterial ??
+    (userRole === 'Kontraktor' ||
+      userRole === 'Konsultan' ||
+      userRole === 'Owner' ||
+      userRole === 'Site Manager' ||
+      userRole === 'Direktur' ||
+      userRole === 'Admin');
 
   const filtered = materials.filter(
     (m) =>

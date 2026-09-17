@@ -1,17 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { DailyLog, UserRole, WeatherCondition } from '../../types';
+import { DailyLog, UserRole, WeatherCondition, RolePermissions } from '../../types';
 import { ClipboardList, Plus, Sun, Cloud, CloudRain, Users, Calendar, Camera, FileText, RefreshCw, Loader2, MapPin } from 'lucide-react';
 
 interface DailyMonitoringProps {
   dailyLogs: DailyLog[];
   userRole: UserRole;
+  permissions?: RolePermissions;
+  activeUserName?: string;
   onAddDailyLog: (log: Omit<DailyLog, 'id'>) => void;
 }
 
-export const DailyMonitoring: React.FC<DailyMonitoringProps> = ({ dailyLogs, userRole, onAddDailyLog }) => {
+export const DailyMonitoring: React.FC<DailyMonitoringProps> = ({
+  dailyLogs,
+  userRole,
+  permissions,
+  activeUserName,
+  onAddDailyLog,
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFetchingWeather, setIsFetchingWeather] = useState(false);
   const [weatherInfo, setWeatherInfo] = useState<{ temp?: number; condition?: WeatherCondition; error?: string } | null>(null);
+
+  const defaultCreator =
+    activeUserName ||
+    (userRole === 'Konsultan'
+      ? 'Ir. Hendra Gunawan, ST, IPU (Konsultan MK)'
+      : userRole === 'Kontraktor'
+      ? 'Ir. Agus Pratama (Kontraktor Pelaksana)'
+      : userRole === 'Owner' || userRole === 'Direktur'
+      ? 'H. Bambang S., M.T. (Owner)'
+      : 'Ir. Agus Pratama');
 
   const [newLog, setNewLog] = useState<Omit<DailyLog, 'id'>>({
     date: new Date().toISOString().split('T')[0],
@@ -22,12 +40,20 @@ export const DailyMonitoring: React.FC<DailyMonitoringProps> = ({ dailyLogs, use
     volumeDone: '',
     photos: [],
     notes: '',
-    createdBy: 'Ir. Agus Pratama',
+    createdBy: defaultCreator,
   });
 
   const [photoUrlInput, setPhotoUrlInput] = useState('');
 
-  const canInput = userRole === 'Admin' || userRole === 'Site Manager' || userRole === 'Direktur';
+  // Allow Kontraktor, Konsultan Pengawas, Owner, and internal roles to input daily logs
+  const canInput =
+    permissions?.canInputDailyLog ??
+    (userRole === 'Kontraktor' ||
+      userRole === 'Konsultan' ||
+      userRole === 'Owner' ||
+      userRole === 'Site Manager' ||
+      userRole === 'Direktur' ||
+      userRole === 'Admin');
 
   // Function to fetch realtime weather from Open-Meteo API for Jatitujuh, Majalengka (-6.6575, 108.2256)
   const fetchJatitujuhWeather = async () => {
@@ -89,7 +115,7 @@ export const DailyMonitoring: React.FC<DailyMonitoringProps> = ({ dailyLogs, use
       volumeDone: '',
       photos: [],
       notes: '',
-      createdBy: 'Ir. Agus Pratama',
+      createdBy: defaultCreator,
     });
   };
 

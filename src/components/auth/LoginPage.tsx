@@ -15,7 +15,6 @@ import {
   Layers,
   ChevronRight,
   Shield,
-  Info,
 } from 'lucide-react';
 import { StakeholderRoleKey, StakeholderRoleProfile } from '../../types';
 
@@ -36,7 +35,6 @@ interface AccountConfig {
   badgeText: string;
   borderActive: string;
   scopeDesc: string;
-  isRestrictedNotice?: string;
 }
 
 const ACCOUNTS: AccountConfig[] = [
@@ -69,7 +67,6 @@ const ACCOUNTS: AccountConfig[] = [
     badgeText: 'text-amber-400 border-amber-500/30',
     borderActive: 'border-amber-500 shadow-amber-500/20',
     scopeDesc: 'Pengisian laporan harian, material & logistik, absensi pekerja, upload gambar kerja & ajukan termin.',
-    isRestrictedNotice: 'Terisolasi: Tidak memiliki akses dan tidak dapat melihat data peran Owner & Konsultan MK.',
   },
   {
     role: 'Viewer',
@@ -169,7 +166,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             Pilih Peran & Masuk ke Sistem
           </h2>
           <p className="text-xs sm:text-sm text-slate-600">
-            Akses sistem dikelola secara ketat berbasis peran Tripartit konstruksi. Setiap pihak memiliki ruang kerja dan wewenang terisolasi.
+            Silakan pilih peran Anda dan masukkan PIN akses untuk membuka dasbor proyek.
           </p>
         </div>
 
@@ -233,13 +230,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                           <div className="text-[11px] text-slate-500 truncate">{profile?.company || 'Instansi Terdaftar'}</div>
 
                           <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">{acc.scopeDesc}</p>
-
-                          {acc.isRestrictedNotice && (
-                            <div className="mt-2 text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-1.5 flex items-center gap-1.5">
-                              <Info className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-                              <span>{acc.isRestrictedNotice}</span>
-                            </div>
-                          )}
                         </div>
                       </div>
 
@@ -304,11 +294,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <Lock className="w-3.5 h-3.5 text-sky-600" />
-                    <span>PIN Keamanan / Sandi Akses</span>
+                    <span>PIN Akses</span>
                   </label>
-                  <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3 text-sky-600" /> Otoritas Owner
-                  </span>
                 </div>
 
                 <div className="relative">
@@ -343,26 +330,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
-
-            {/* Security Isolation Notice */}
-            <div className="pt-4 border-t border-sky-100 space-y-2 text-[11px] text-slate-600">
-              <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Aturan Hak Akses & PIN Sandi:</span>
-              </div>
-              <p className="leading-relaxed">
-                Sistem mewajibkan input PIN keamanan yang valid untuk setiap peran. Pengguna tidak dapat masuk tanpa memasukkan PIN. Seluruh PIN peran dikonfigurasi secara eksklusif oleh <strong className="text-slate-900">Pemilik Proyek (Owner)</strong> melalui menu Pengaturan Hak Akses & Peran.
-              </p>
-              {selectedRole === 'Kontraktor' ? (
-                <p className="text-amber-800 font-medium leading-relaxed bg-amber-50 p-2 rounded-xl border border-amber-200">
-                  Perhatian: Saat Anda login sebagai Kontraktor Pelaksana, seluruh dokumen legalitas & PBG disembunyikan dan wewenang dibatasi sesuai hak akses lapangan.
-                </p>
-              ) : (
-                <p className="text-slate-500 leading-relaxed">
-                  Setiap peran memiliki kredensial independen. Sesi masuk Anda akan disimpan secara aman pada peramban hingga Anda menekan tombol Keluar (Logout).
-                </p>
-              )}
-            </div>
           </div>
         </div>
       </main>

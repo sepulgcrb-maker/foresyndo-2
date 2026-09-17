@@ -1,17 +1,35 @@
 import React, { useState } from 'react';
-import { PhotoItem, PhotoCategory, UserRole } from '../../types';
+import { PhotoItem, PhotoCategory, UserRole, RolePermissions } from '../../types';
 import { Camera, Plus, ZoomIn, Download, Maximize2, X, Calendar, User, Tag } from 'lucide-react';
 
 interface PhotoGalleryProps {
   photos: PhotoItem[];
   userRole: UserRole;
+  permissions?: RolePermissions;
+  activeUserName?: string;
   onAddPhoto: (photo: Omit<PhotoItem, 'id'>) => void;
 }
 
-export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ photos, userRole, onAddPhoto }) => {
+export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
+  photos,
+  userRole,
+  permissions,
+  activeUserName,
+  onAddPhoto,
+}) => {
   const [selectedCategory, setSelectedCategory] = useState<PhotoCategory | 'Semua'>('Semua');
   const [lightboxPhoto, setLightboxPhoto] = useState<PhotoItem | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+
+  const defaultUploader =
+    activeUserName ||
+    (userRole === 'Konsultan'
+      ? 'Ir. Hendra Gunawan, ST, IPU (Konsultan MK)'
+      : userRole === 'Kontraktor'
+      ? 'Ir. Agus Pratama (Kontraktor Pelaksana)'
+      : userRole === 'Owner' || userRole === 'Direktur'
+      ? 'H. Bambang S., M.T. (Owner)'
+      : 'Ir. Agus Pratama');
 
   // New photo state
   const [newPhoto, setNewPhoto] = useState<Omit<PhotoItem, 'id'>>({
@@ -19,11 +37,18 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ photos, userRole, on
     category: 'Struktur',
     title: '',
     url: '',
-    uploadedBy: 'Ir. Agus Pratama',
+    uploadedBy: defaultUploader,
     notes: '',
   });
 
-  const canUpload = userRole === 'Admin' || userRole === 'Site Manager' || userRole === 'Direktur';
+  const canUpload =
+    permissions?.canUploadDocumentation ??
+    (userRole === 'Kontraktor' ||
+      userRole === 'Konsultan' ||
+      userRole === 'Owner' ||
+      userRole === 'Site Manager' ||
+      userRole === 'Direktur' ||
+      userRole === 'Admin');
 
   const categories: (PhotoCategory | 'Semua')[] = [
     'Semua',
@@ -51,7 +76,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({ photos, userRole, on
       category: 'Progress Hari Ini',
       title: '',
       url: '',
-      uploadedBy: 'Ir. Agus Pratama',
+      uploadedBy: defaultUploader,
       notes: '',
     });
   };

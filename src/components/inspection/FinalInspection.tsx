@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { WorkItem, ProjectInfo, UserRole, AuditLog, BASTSubmissionData } from '../../types';
+import { WorkItem, ProjectInfo, UserRole, AuditLog, BASTSubmissionData, RolePermissions } from '../../types';
 import {
   ShieldCheck,
   CheckCircle2,
@@ -232,6 +232,8 @@ interface FinalInspectionProps {
   project: ProjectInfo;
   workItems: WorkItem[];
   userRole: UserRole;
+  permissions?: RolePermissions;
+  activeUserName?: string;
   onUpdateProjectStatus: (status: ProjectInfo['status']) => void;
   onAddAuditLog: (action: string, details: string) => void;
 }
@@ -240,6 +242,8 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
   project,
   workItems,
   userRole,
+  permissions,
+  activeUserName,
   onUpdateProjectStatus,
   onAddAuditLog,
 }) => {
@@ -428,9 +432,25 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
   const allDirApproved = dirApprovedCount === totalItems;
   const isFullyApproved = allSMApproved && allDirApproved;
 
+  // Inspection permissions
+  const canSM =
+    permissions?.canConductQCInspection ??
+    (userRole === 'Kontraktor' ||
+      userRole === 'Site Manager' ||
+      userRole === 'Konsultan' ||
+      userRole === 'Admin' ||
+      userRole === 'Direktur' ||
+      userRole === 'Owner');
+
+  const canDir =
+    permissions?.canApproveBAST ??
+    (userRole === 'Owner' ||
+      userRole === 'Direktur' ||
+      userRole === 'Konsultan' ||
+      userRole === 'Admin');
+
   // Toggle item inspection approval
   const handleToggleSMApprove = (id: string) => {
-    const canSM = userRole === 'Kontraktor' || userRole === 'Site Manager' || userRole === 'Konsultan' || userRole === 'Admin' || userRole === 'Direktur' || userRole === 'Owner';
     if (!canSM) return;
     setInspections((prev) => ({
       ...prev,
@@ -442,7 +462,6 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
   };
 
   const handleToggleDirApprove = (id: string) => {
-    const canDir = userRole === 'Owner' || userRole === 'Direktur' || userRole === 'Konsultan' || userRole === 'Admin';
     if (!canDir) return;
     setInspections((prev) => ({
       ...prev,
@@ -977,7 +996,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
                   Lakukan pemeriksaan berkala untuk memastikan tidak ada cacat fisik (Punch List) sebelum penandatanganan Berita Acara Serah Terima.
                 </span>
               </div>
-              {(userRole === 'Direktur' || userRole === 'Site Manager' || userRole === 'Admin') && (
+              {(canSM || canDir) && (
                 <button
                   onClick={handleApproveAll}
                   className="px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shrink-0 shadow-sm transition-all"
@@ -1033,7 +1052,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
                         <td className="py-3 px-3 text-center">
                           <button
                             onClick={() => handleToggleSMApprove(wi.id)}
-                            disabled={userRole !== 'Site Manager' && userRole !== 'Direktur' && userRole !== 'Admin'}
+                            disabled={!canSM}
                             className={`px-3 py-1.5 rounded-xl font-bold text-[11px] flex items-center justify-center gap-1.5 mx-auto transition-all ${
                               insp.siteManagerApproved
                                 ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30'
@@ -1049,7 +1068,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
                         <td className="py-3 px-3 text-center">
                           <button
                             onClick={() => handleToggleDirApprove(wi.id)}
-                            disabled={userRole !== 'Direktur' && userRole !== 'Admin'}
+                            disabled={!canDir}
                             className={`px-3 py-1.5 rounded-xl font-bold text-[11px] flex items-center justify-center gap-1.5 mx-auto transition-all ${
                               insp.directorApproved
                                 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'

@@ -15,12 +15,13 @@ import {
   MoveDown,
   ArrowUpDown,
 } from 'lucide-react';
-import { WorkItem, UserRole, CategoryPekerjaan } from '../../types';
+import { WorkItem, UserRole, CategoryPekerjaan, RolePermissions } from '../../types';
 import { calculatePhysicalProgress, calculateTargetProgress } from '../../utils/calculations';
 
 interface TimeScheduleTableProps {
   workItems: WorkItem[];
   userRole: UserRole;
+  permissions?: RolePermissions;
   onUpdateWorkItem: (item: WorkItem) => void;
   onAddWorkItem: (item: Omit<WorkItem, 'id'>) => void;
   onDeleteWorkItem: (id: string) => void;
@@ -30,6 +31,7 @@ interface TimeScheduleTableProps {
 export const TimeScheduleTable: React.FC<TimeScheduleTableProps> = ({
   workItems,
   userRole,
+  permissions,
   onUpdateWorkItem,
   onAddWorkItem,
   onDeleteWorkItem,
@@ -63,7 +65,14 @@ export const TimeScheduleTable: React.FC<TimeScheduleTableProps> = ({
     updatedAt: new Date().toISOString().split('T')[0],
   });
 
-  const canEdit = userRole === 'Direktur' || userRole === 'Site Manager';
+  const canEdit =
+    permissions?.canEditSchedule ??
+    (userRole === 'Kontraktor' ||
+      userRole === 'Konsultan' ||
+      userRole === 'Owner' ||
+      userRole === 'Direktur' ||
+      userRole === 'Site Manager' ||
+      userRole === 'Admin');
 
   // Drag and Drop Handlers
   const handleDragStart = (e: React.DragEvent, index: number) => {

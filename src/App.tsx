@@ -199,6 +199,28 @@ export default function App() {
           }
         }
       });
+      // Ensure Kontraktor and Konsultan have full field input permissions
+      if (merged.Konsultan?.permissions) {
+        merged.Konsultan.permissions.canInputDailyLog = true;
+        merged.Konsultan.permissions.canManageMaterial = true;
+        merged.Konsultan.permissions.canManageWorkers = true;
+        merged.Konsultan.permissions.canManageEquipment = true;
+        merged.Konsultan.permissions.canEditSchedule = true;
+      }
+      if (merged.Kontraktor?.permissions) {
+        merged.Kontraktor.permissions.canInputDailyLog = true;
+        merged.Kontraktor.permissions.canManageMaterial = true;
+        merged.Kontraktor.permissions.canManageWorkers = true;
+        merged.Kontraktor.permissions.canManageEquipment = true;
+        merged.Kontraktor.permissions.canEditSchedule = true;
+      }
+      if (merged.Owner?.permissions) {
+        merged.Owner.permissions.canInputDailyLog = true;
+        merged.Owner.permissions.canManageMaterial = true;
+        merged.Owner.permissions.canManageWorkers = true;
+        merged.Owner.permissions.canManageEquipment = true;
+        merged.Owner.permissions.canEditSchedule = true;
+      }
       return merged;
     } catch {
       return INITIAL_STAKEHOLDER_PROFILES;
@@ -1101,6 +1123,7 @@ export default function App() {
                 <TimeScheduleTable
                   workItems={workItems}
                   userRole={currentRole}
+                  permissions={currentPermissions}
                   onUpdateWorkItem={handleUpdateWorkItem}
                   onAddWorkItem={handleAddWorkItem}
                   onDeleteWorkItem={handleDeleteWorkItem}
@@ -1116,6 +1139,7 @@ export default function App() {
                   materials={materials}
                   calendarEvents={calendarEvents}
                   userRole={currentRole}
+                  permissions={currentPermissions}
                   onAddCalendarEvent={handleAddCalendarEvent}
                   onDeleteCalendarEvent={handleDeleteCalendarEvent}
                   onUpdateCalendarEvent={handleUpdateCalendarEvent}
@@ -1138,12 +1162,20 @@ export default function App() {
                 <DailyMonitoring
                   dailyLogs={dailyLogs}
                   userRole={currentRole}
+                  permissions={currentPermissions}
+                  activeUserName={userNameMap[currentRole]}
                   onAddDailyLog={handleAddDailyLog}
                 />
               )}
 
               {activeTab === 'photos' && (
-                <PhotoGallery photos={photos} userRole={currentRole} onAddPhoto={handleAddPhoto} />
+                <PhotoGallery
+                  photos={photos}
+                  userRole={currentRole}
+                  permissions={currentPermissions}
+                  activeUserName={userNameMap[currentRole]}
+                  onAddPhoto={handleAddPhoto}
+                />
               )}
 
               {activeTab === 'termin' && (
@@ -1163,6 +1195,7 @@ export default function App() {
                   materials={materials}
                   workItems={workItems}
                   userRole={currentRole}
+                  permissions={currentPermissions}
                   onAddMaterial={handleAddMaterial}
                   onUpdateMaterial={handleUpdateMaterial}
                   onAddAuditLog={addAuditLog}
@@ -1175,6 +1208,7 @@ export default function App() {
                   workItems={workItems}
                   allocations={allocations}
                   userRole={currentRole}
+                  permissions={currentPermissions}
                   onAddWorker={handleAddWorker}
                   onAddAllocation={handleAddAllocation}
                   onUpdateAllocation={handleUpdateAllocation}
@@ -1183,7 +1217,12 @@ export default function App() {
               )}
 
               {activeTab === 'equipment' && (
-                <EquipmentMonitoring equipments={equipments} userRole={currentRole} onAddEquipment={handleAddEquipment} />
+                <EquipmentMonitoring
+                  equipments={equipments}
+                  userRole={currentRole}
+                  permissions={currentPermissions}
+                  onAddEquipment={handleAddEquipment}
+                />
               )}
 
               {activeTab === 'documents' && (
@@ -1207,6 +1246,8 @@ export default function App() {
                   project={project}
                   workItems={workItems}
                   userRole={currentRole}
+                  permissions={currentPermissions}
+                  activeUserName={userNameMap[currentRole]}
                   onUpdateProjectStatus={handleUpdateProjectStatus}
                   onAddAuditLog={addAuditLog}
                 />

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { WorkerItem, WorkItem, WorkerAllocation, UserRole } from '../../types';
+import { WorkerItem, WorkItem, WorkerAllocation, UserRole, RolePermissions } from '../../types';
 import {
   Users,
   Plus,
@@ -30,6 +30,7 @@ interface WorkforceMonitoringProps {
   workItems?: WorkItem[];
   allocations?: WorkerAllocation[];
   userRole: UserRole;
+  permissions?: RolePermissions;
   onAddWorker: (w: Omit<WorkerItem, 'id'>) => void;
   onAddAllocation?: (a: Omit<WorkerAllocation, 'id'>) => void;
   onUpdateAllocation?: (a: WorkerAllocation) => void;
@@ -41,6 +42,7 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
   workItems = [],
   allocations = [],
   userRole,
+  permissions,
   onAddWorker,
   onAddAllocation,
   onUpdateAllocation,
@@ -88,7 +90,14 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
     notes: '',
   });
 
-  const canEdit = userRole === 'Admin' || userRole === 'Site Manager' || userRole === 'Direktur';
+  const canEdit =
+    permissions?.canManageWorkers ??
+    (userRole === 'Kontraktor' ||
+      userRole === 'Konsultan' ||
+      userRole === 'Owner' ||
+      userRole === 'Site Manager' ||
+      userRole === 'Direktur' ||
+      userRole === 'Admin');
 
   // Roster Calculations
   const totalDailyPayroll = workers.reduce((acc, w) => acc + (w.status === 'Aktif' ? w.dailyWage : 0), 0);
