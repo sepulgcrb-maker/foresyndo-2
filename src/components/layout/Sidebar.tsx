@@ -20,6 +20,8 @@ import {
   KeyRound,
   Files,
   LogOut,
+  HardHat,
+  QrCode,
 } from 'lucide-react';
 import { ActiveTab, UserRole } from '../../types';
 
@@ -30,6 +32,7 @@ interface SidebarProps {
   onSelectTab: (tab: ActiveTab) => void;
   hasDeviasiWarning?: boolean;
   onOpenSettingsModal?: () => void;
+  onOpenContractorModal?: () => void;
   onOpenRoleModal?: (subTab?: 'profiles' | 'permissions' | 'matrix' | 'workflow' | 'pins') => void;
   activeUserName?: string;
   projectName?: string;
@@ -38,6 +41,7 @@ interface SidebarProps {
   onLogout?: () => void;
   darkMode?: boolean;
   unreadDocCount?: number;
+  onOpenQrModal?: () => void;
 }
 
 interface NavItem {
@@ -52,6 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   hasDeviasiWarning = false,
   onOpenSettingsModal,
+  onOpenContractorModal,
   onOpenRoleModal,
   activeUserName = 'Site Manager',
   projectName = 'FORESYNDO 2',
@@ -60,6 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   darkMode = false,
   unreadDocCount = 0,
+  onOpenQrModal,
 }) => {
   const isOwner = currentRole === 'Owner' || currentRole === 'Direktur';
   const navItems: NavItem[] = [
@@ -237,6 +243,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <UserCheck className="w-3.5 h-3.5 text-blue-600" />
                 </button>
               </>
+            )}
+            {onOpenContractorModal && (
+              <button
+                onClick={onOpenContractorModal}
+                className={`p-1.5 rounded-lg transition-all cursor-pointer border ${
+                  darkMode
+                    ? 'bg-amber-500/20 hover:bg-amber-500 hover:text-slate-950 text-amber-300 border-transparent'
+                    : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200 shadow-xs'
+                }`}
+                title="Pengaturan Profil & Legalitas Kontraktor (NPWP, NIB, Manajemen, Logo)"
+              >
+                <HardHat className="w-3.5 h-3.5 text-amber-600" />
+              </button>
+            )}
+            {onOpenQrModal && (
+              <button
+                onClick={onOpenQrModal}
+                className={`p-1.5 rounded-lg transition-all cursor-pointer border ${
+                  darkMode
+                    ? 'bg-indigo-500/20 hover:bg-indigo-500 hover:text-white text-indigo-300 border-transparent'
+                    : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 shadow-xs'
+                }`}
+                title="QR Code Verifikasi Lapangan & Akses Cepat"
+              >
+                <QrCode className="w-3.5 h-3.5 text-indigo-600" />
+              </button>
             )}
             {onOpenSettingsModal && (
               <button

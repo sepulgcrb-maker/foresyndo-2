@@ -33,6 +33,8 @@ import {
   HelpCircle,
   FilePlus2,
   Eye,
+  HardHat,
+  RotateCcw,
 } from 'lucide-react';
 import { formatIDR, calculatePhysicalProgress } from '../../utils/calculations';
 import { BASTDocumentList } from './BASTDocumentList';
@@ -145,8 +147,10 @@ interface ContractorBASTWorkflowProps {
   onGoToChecklist: () => void;
   onAddAuditLog: (action: string, details: string) => void;
   onOpenNewBASTModal?: () => void;
+  onOpenContractorSettings?: () => void;
   bastList?: BASTSubmissionData[];
   onSelectSubmission?: (submission: BASTSubmissionData) => void;
+  onResetWorkflow?: () => void;
 }
 
 export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
@@ -159,8 +163,10 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
   onGoToChecklist,
   onAddAuditLog,
   onOpenNewBASTModal,
+  onOpenContractorSettings,
   bastList,
   onSelectSubmission,
+  onResetWorkflow,
 }) => {
   const [activeWorkflowTab, setActiveWorkflowTab] = useState<'overview' | 'list' | 'form' | 'attachments' | 'punchlist' | 'letter'>('overview');
   const [showNewPunchModal, setShowNewPunchModal] = useState(false);
@@ -541,6 +547,16 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
                 <FilePlus2 className="w-3.5 h-3.5" /> + Pengajuan BAST Baru
               </button>
             )}
+            {onResetWorkflow && (
+              <button
+                type="button"
+                onClick={onResetWorkflow}
+                className="mt-1.5 w-full px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-950/60 text-slate-300 hover:text-rose-200 border border-slate-700/80 hover:border-rose-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                title="Reset alur pengajuan BAST aktif kembali ke status Draft awal"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-rose-400" /> Reset Alur BAST
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -562,6 +578,26 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {onResetWorkflow && (
+              <button
+                type="button"
+                onClick={onResetWorkflow}
+                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 hover:text-rose-700 dark:hover:bg-rose-950/60 dark:hover:text-rose-300 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-rose-300 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Kembalikan tahapan pengajuan BAST ke status Draft"
+              >
+                <RotateCcw className="w-4 h-4 text-rose-500" /> Reset Alur ke Draft
+              </button>
+            )}
+            {onOpenContractorSettings && (
+              <button
+                type="button"
+                onClick={onOpenContractorSettings}
+                className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                title="Pengaturan Legalitas, NPWP, NIB, Tim Manajemen & Logo Kontraktor"
+              >
+                <HardHat className="w-4 h-4" /> Profil Kontraktor
+              </button>
+            )}
             {onOpenNewBASTModal && (
               <button
                 type="button"
@@ -717,7 +753,7 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
               : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
-          <FileCheck2 className="w-4 h-4 text-emerald-400" /> Daftar Dokumen BAST &amp; Tanda Tangan ({bastList?.length || 1})
+          <FileCheck2 className="w-4 h-4 text-emerald-400" /> Daftar Dokumen BAST &amp; Tanda Tangan ({bastList?.length ?? 0})
         </button>
         <button
           onClick={() => setActiveWorkflowTab('form')}
@@ -1115,7 +1151,7 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
                   <div>
                     <span className="text-[10px] font-bold text-orange-500 block">PIHAK KONTRAKTOR</span>
                     <span className="font-bold text-slate-900 dark:text-white">
-                      {submission.contractorRepresentative || project.siteManager || 'Ir. Agus Pratama'}
+                      {submission.contractorRepresentative || project.contractorProfile?.management?.siteManager || project.siteManager || 'Ir. Agus Pratama'}
                     </span>
                   </div>
                   <span
@@ -1169,8 +1205,81 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
               </div>
             </div>
 
+            {/* Profil & Legalitas Kontraktor Pelaksana */}
+            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-amber-500/30 shadow-sm space-y-3.5">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <HardHat className="w-4 h-4 text-amber-500" /> Profil Kontraktor Pelaksana
+                </h4>
+                {onOpenContractorSettings && (
+                  <button
+                    onClick={onOpenContractorSettings}
+                    className="text-[11px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 flex items-center gap-1 cursor-pointer"
+                  >
+                    Edit Data <ExternalLink className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 p-1.5 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+                  <img
+                    src={project.contractorProfile?.logoUrl || project.logoUrl || '/assets/logo.png'}
+                    alt="Logo"
+                    className="w-full h-full object-contain"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h5 className="text-xs font-black text-slate-900 dark:text-white truncate">
+                    {project.contractorProfile?.companyName || project.contractor}
+                  </h5>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate">
+                    {project.contractorProfile?.brandName || 'PT FORESYNDO GLOBAL INDONESIA'}
+                  </span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold">
+                      NPWP: {project.contractorProfile?.npwp || '01.889.345.2-438.000'}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
+                      NIB: {project.contractorProfile?.nib || '9120003481902'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 text-[11px]">
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400">Direktur Utama:</span>
+                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.director || project.director || 'H. Bambang S., M.T.'}</strong>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400">Project Manager (PM):</span>
+                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.projectManager || project.projectManager || 'Hendra Wijaya, ST'}</strong>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500 dark:text-slate-400">Site Manager (SM):</span>
+                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.siteManager || project.siteManager || 'Ir. Agus Pratama'}</strong>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-500 dark:text-slate-400">Lead QC Engineer:</span>
+                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.qcEngineer || project.qcEngineer || 'Hendra Gunawan, ST'}</strong>
+                </div>
+              </div>
+
+              {onOpenContractorSettings && (
+                <button
+                  type="button"
+                  onClick={onOpenContractorSettings}
+                  className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                >
+                  <HardHat className="w-3.5 h-3.5" /> Atur Legalitas, Tim &amp; Logo Kontraktor
+                </button>
+              )}
+            </div>
+
             {/* Pratinjau Cepat Status Tanda Tangan Digital Dokumen BAST */}
-            {bastList && bastList.length > 0 && (
+            {bastList && bastList.length > 0 ? (
               <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
@@ -1257,6 +1366,24 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
                     );
                   })}
                 </div>
+              </div>
+            ) : (
+              <div className="p-5 rounded-2xl bg-slate-50/70 dark:bg-slate-900/40 border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-2.5">
+                <div className="w-10 h-10 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                  <PenTool className="w-5 h-5" />
+                </div>
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Daftar Dokumen BAST &amp; TTD Belum Diterbitkan
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+                  Pekerjaan konstruksi fisik belum dimulai atau belum ada berkas BAST yang diterbitkan. Daftar dokumen dan status tanda tangan digital akan tampil di sini setelah pengajuan serah terima dibuat.
+                </p>
+                <button
+                  onClick={() => setActiveWorkflowTab('list')}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 cursor-pointer pt-1"
+                >
+                  Lihat Status Daftar BAST <ChevronRight className="w-3 h-3" />
+                </button>
               </div>
             )}
           </div>
@@ -1612,20 +1739,33 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
           {/* Official Printable Contractor Submission Letter Sheet */}
           <div className="bg-white text-slate-900 rounded-2xl p-8 sm:p-12 shadow-2xl font-sans text-xs space-y-6 max-w-4xl mx-auto border border-slate-200 print:p-0 print:shadow-none print:border-none">
             {/* Kop Surat Kontraktor */}
-            <div className="border-b-2 border-blue-950 pb-4 flex justify-between items-start">
-              <div>
-                <span className="text-xs font-black tracking-widest text-blue-950 uppercase block">
-                  PT FORESYNDO GLOBAL INDONESIA
-                </span>
-                <span className="text-[10px] font-bold text-slate-700 block">
-                  DIVISI GENERAL CONTRACTOR &amp; REKAYASA KONSTRUKSI
-                </span>
-                <span className="text-[10px] text-slate-500 block">
-                  Kawasan Aerocity Bandara Kertajati, Majalengka, Jawa Barat | Email: proyek@foresyndo.co.id
-                </span>
+            <div className="border-b-2 border-blue-950 pb-4 flex justify-between items-start gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-xl border border-slate-200 bg-white p-1 flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+                  <img
+                    src={project.contractorProfile?.logoUrl || project.logoUrl || '/assets/logo.png'}
+                    alt="Logo Kontraktor"
+                    className="w-full h-full object-contain"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div>
+                  <span className="text-sm font-black tracking-wider text-blue-950 uppercase block">
+                    {project.contractorProfile?.companyName || project.contractor || 'PT FORESYNDO GLOBAL INDONESIA'}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-700 block">
+                    {project.contractorProfile?.classification || 'DIVISI GENERAL CONTRACTOR & REKAYASA KONSTRUKSI'}
+                  </span>
+                  <span className="text-[10px] text-slate-600 block mt-0.5">
+                    {project.contractorProfile?.address || 'Jl. Raya Jatitujuh No. 88'}, {project.contractorProfile?.city || 'Majalengka'} | Telp: {project.contractorProfile?.phone || '(0233) 881900'} | Email: {project.contractorProfile?.email || 'konstruksi@foresyndo.co.id'}
+                  </span>
+                  <span className="text-[9px] font-mono text-slate-500 block">
+                    NPWP: {project.contractorProfile?.npwp || '01.889.345.2-438.000'} | NIB: {project.contractorProfile?.nib || '9120003481902'} | IUJK: {project.contractorProfile?.iujkNumber || '1-0233-2-0045-1-3210-998822'}
+                  </span>
+                </div>
               </div>
-              <div className="text-right">
-                <span className="text-[9px] font-black uppercase bg-blue-950 text-white px-2 py-1 rounded">
+              <div className="text-right shrink-0">
+                <span className="text-[9px] font-black uppercase bg-blue-950 text-white px-2.5 py-1 rounded shadow-xs">
                   SURAT RESMI KONTRAKTOR
                 </span>
                 <span className="text-[10px] text-slate-500 font-mono block mt-1">
@@ -1695,7 +1835,7 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
                   Hormat kami,<br />KONTRAKTOR PELAKSANA
                 </span>
                 <span className="text-[10px] font-bold text-slate-900 block">
-                  PT FORESYNDO GLOBAL INDONESIA
+                  {project.contractorProfile?.companyName || project.contractor || 'PT FORESYNDO GLOBAL INDONESIA'}
                 </span>
                 <div className="h-24 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 p-2">
                   <span className="text-[10px] font-mono font-bold text-blue-900">
@@ -1703,9 +1843,11 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
                   </span>
                 </div>
                 <span className="font-bold text-slate-900 block underline">
-                  {submission.contractorRepresentative || project.siteManager || 'Ir. Agus Pratama'}
+                  {submission.contractorRepresentative || project.contractorProfile?.management?.siteManager || project.siteManager || 'Ir. Agus Pratama'}
                 </span>
-                <span className="text-[10px] text-slate-500 block">Site Manager / Project Manager</span>
+                <span className="text-[10px] text-slate-500 block">
+                  Site Manager {project.contractorProfile?.management?.projectManager ? `/ PM: ${project.contractorProfile.management.projectManager}` : ''}
+                </span>
               </div>
             </div>
           </div>

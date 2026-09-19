@@ -60,6 +60,41 @@ export interface StakeholderRoleProfile {
   permissions: RolePermissions;
 }
 
+export interface ContractorManagementTeam {
+  director: string; // Direktur Utama
+  projectManager: string; // Project Manager (PM)
+  siteManager: string; // Site Manager (SM) / Kepala Proyek
+  qcEngineer: string; // Lead QC Engineer / Pengawas Mutu
+  hseOfficer: string; // Ahli K3 Konstruksi / HSE Officer
+  estimatorQS: string; // Lead Quantity Surveyor / Estimator RAB
+  financeAdmin: string; // Admin Keuangan & Logistik
+  siteEngineer?: string; // Site Engineer / Drafter Pelaksana
+}
+
+export interface ContractorProfile {
+  companyName: string; // Nama Badan Usaha / PT / CV
+  brandName?: string; // Nama Merk / Divisi Pelaksana
+  address: string; // Alamat Lengkap Kantor
+  city: string; // Kota / Kabupaten
+  province: string; // Provinsi
+  postalCode: string; // Kode Pos
+  phone: string; // Nomor Telepon Kantor
+  whatsapp?: string; // Nomor WhatsApp Hotline
+  email: string; // Email Resmi
+  website?: string; // Website Resmi
+  npwp: string; // NPWP (Nomor Pokok Wajib Pajak)
+  nib: string; // NIB (Nomor Induk Berusaha) OSS
+  iujkNumber: string; // No. IUJK / PB-UMKU (Izin Usaha Jasa Konstruksi)
+  sbuNumber?: string; // No. Sertifikat Badan Usaha (SBU)
+  classification?: string; // Klasifikasi & Kualifikasi (e.g. M1 - BG004)
+  logoUrl?: string; // Logo Resmi Kontraktor
+  bankName?: string; // Nama Bank
+  bankAccountNumber?: string; // Nomor Rekening
+  bankAccountHolder?: string; // Atas Nama Rekening
+  notes?: string; // Keterangan / Catatan Tambahan
+  management: ContractorManagementTeam; // Susunan Nama Tim Manajemen
+}
+
 export interface ProjectInfo {
   id: string;
   name: string;
@@ -72,6 +107,7 @@ export interface ProjectInfo {
   logoUrl?: string;
   contractNumber: string;
   contractor: string;
+  contractorProfile?: ContractorProfile;
   director?: string; // Direktur Utama
   siteManager?: string; // Site Manager / Kepala Proyek
   qcEngineer?: string; // Lead QC Engineer / Pengawas Mutu

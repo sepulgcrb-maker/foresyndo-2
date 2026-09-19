@@ -19,6 +19,7 @@ import {
   Zap,
   Activity,
   FileText,
+  QrCode,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -62,6 +63,7 @@ interface ExecutiveDashboardProps {
   onAddNotification?: (notif: Omit<NotificationItem, 'id' | 'timestamp' | 'isRead'>) => void;
   onAddAuditLog?: (action: string, details: string) => void;
   darkMode?: boolean;
+  onOpenQrModal?: () => void;
 }
 
 export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
@@ -75,6 +77,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   onAddNotification,
   onAddAuditLog,
   darkMode = false,
+  onOpenQrModal,
 }) => {
   const [chartMode, setChartMode] = useState<'cumulative' | 'weekly'>('cumulative');
 
@@ -190,6 +193,20 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                   Status: {project.status}
                 </span>
                 <DeviasiBadge deviationPercent={deviation} />
+                {onOpenQrModal && (
+                  <button
+                    onClick={onOpenQrModal}
+                    className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                      darkMode
+                        ? 'bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border-indigo-500/40'
+                        : 'bg-white hover:bg-indigo-50 text-indigo-700 border-indigo-200 shadow-2xs'
+                    }`}
+                    title="Buka QR Code Verifikasi Lapangan & Akses Cepat"
+                  >
+                    <QrCode className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>QR Verifikasi Lapangan</span>
+                  </button>
+                )}
               </div>
 
               <h2

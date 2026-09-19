@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ProjectInfo, UserRole } from '../../types';
+import { ProjectInfo, UserRole, ContractorProfile } from '../../types';
+import { INITIAL_CONTRACTOR_PROFILE } from '../../data/initialData';
 import {
   X,
   Settings,
@@ -14,6 +15,15 @@ import {
   ShieldCheck,
   DollarSign,
   Briefcase,
+  ImageIcon,
+  Upload,
+  HardHat,
+  Users,
+  Phone,
+  Mail,
+  FileCheck2,
+  CreditCard,
+  Lock,
 } from 'lucide-react';
 import { formatIDR } from '../../utils/calculations';
 
@@ -43,7 +53,11 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   onUpdateUserNameMap,
   onAddAuditLog,
 }) => {
-  const [activeTab, setActiveTab] = useState<'project' | 'roles' | 'contract'>('project');
+  const [activeTab, setActiveTab] = useState<'project' | 'contractor' | 'roles' | 'contract'>('project');
+
+  // Role permissions: Kontraktor tidak dapat mengubah logo perusahaan Owner
+  const isOwnerRole = currentRole === 'Owner' || currentRole === 'Direktur' || currentRole === 'Admin';
+  const isContractorRole = currentRole === 'Kontraktor' || currentRole === 'Site Manager';
 
   // Form State initialized with current project values
   const [name, setName] = useState(project.name);
@@ -55,6 +69,38 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const [startDate, setStartDate] = useState(project.startDate);
   const [targetEndDate, setTargetEndDate] = useState(project.targetEndDate);
   const [status, setStatus] = useState(project.status);
+  const [logoUrl, setLogoUrl] = useState(project.logoUrl || '/assets/logo.png');
+
+  // Contractor Profile fields
+  const initContractor = project.contractorProfile || INITIAL_CONTRACTOR_PROFILE;
+  const [contractorAddress, setContractorAddress] = useState(initContractor.address || 'Jl. Raya Jatitujuh No. 88');
+  const [contractorCity, setContractorCity] = useState(initContractor.city || 'Majalengka');
+  const [contractorProvince, setContractorProvince] = useState(initContractor.province || 'Jawa Barat');
+  const [contractorPostalCode, setContractorPostalCode] = useState(initContractor.postalCode || '45458');
+  const [contractorPhone, setContractorPhone] = useState(initContractor.phone || '(0233) 881900');
+  const [contractorWhatsapp, setContractorWhatsapp] = useState(initContractor.whatsapp || '+62 811-3344-5566');
+  const [contractorEmail, setContractorEmail] = useState(initContractor.email || 'konstruksi@foresyndo.co.id');
+  const [contractorNpwp, setContractorNpwp] = useState(initContractor.npwp || '01.889.345.2-438.000');
+  const [contractorNib, setContractorNib] = useState(initContractor.nib || '9120003481902');
+  const [contractorIujk, setContractorIujk] = useState(initContractor.iujkNumber || '1-0233-2-0045-1-3210-998822');
+  const [contractorSbu, setContractorSbu] = useState(initContractor.sbuNumber || '0-3210-07-002-1-10-918234 (BG004)');
+  const [contractorClassification, setContractorClassification] = useState(
+    initContractor.classification || 'Kualifikasi Menengah (M1) - Subklasifikasi BG004 Gedung Komersial'
+  );
+  const [contractorLogoUrl, setContractorLogoUrl] = useState(initContractor.logoUrl || '/assets/logo.png');
+  const [contractorHseOfficer, setContractorHseOfficer] = useState(
+    initContractor.management?.hseOfficer || 'Ahmad Fauzi, S.Si (Ahli K3 Konstruksi)'
+  );
+  const [contractorSiteEngineer, setContractorSiteEngineer] = useState(
+    initContractor.management?.siteEngineer || 'Deni Kurniawan, ST'
+  );
+  const [contractorBankName, setContractorBankName] = useState(initContractor.bankName || 'Bank Mandiri (Persero) Tbk');
+  const [contractorBankAccountNumber, setContractorBankAccountNumber] = useState(
+    initContractor.bankAccountNumber || '131-00-998822-1'
+  );
+  const [contractorBankAccountHolder, setContractorBankAccountHolder] = useState(
+    initContractor.bankAccountHolder || 'PT FORESYNDO GLOBAL INDONESIA'
+  );
 
   // Official names state
   const [director, setDirector] = useState(project.director || userNameMap.Direktur || 'H. Bambang S., M.T.');
@@ -72,17 +118,57 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
 
+    const currentContractorProfile: ContractorProfile = {
+      companyName: contractor.trim() || 'PT Foresyndo Global Indonesia (Divisi Konstruksi)',
+      brandName: contractor.trim() || 'PT FORESYNDO GLOBAL INDONESIA',
+      address: contractorAddress.trim() || 'Jl. Raya Jatitujuh No. 88, Jatitujuh',
+      city: contractorCity.trim() || 'Majalengka',
+      province: contractorProvince.trim() || 'Jawa Barat',
+      postalCode: contractorPostalCode.trim() || '45458',
+      phone: contractorPhone.trim() || '(0233) 881900',
+      whatsapp: contractorWhatsapp.trim() || '+62 811-3344-5566',
+      email: contractorEmail.trim() || 'konstruksi@foresyndo.co.id',
+      website: initContractor.website || 'https://foresyndo.co.id',
+      npwp: contractorNpwp.trim() || '01.889.345.2-438.000',
+      nib: contractorNib.trim() || '9120003481902',
+      iujkNumber: contractorIujk.trim() || '1-0233-2-0045-1-3210-998822',
+      sbuNumber: contractorSbu.trim() || '0-3210-07-002-1-10-918234 (BG004)',
+      classification: contractorClassification.trim() || 'Kualifikasi Menengah (M1) - BG004 & BG009',
+      logoUrl: contractorLogoUrl.trim() || logoUrl.trim() || '/assets/logo.png',
+      bankName: contractorBankName.trim() || 'Bank Mandiri (Persero) Tbk',
+      bankAccountNumber: contractorBankAccountNumber.trim() || '131-00-998822-1',
+      bankAccountHolder: contractorBankAccountHolder.trim() || 'PT FORESYNDO GLOBAL INDONESIA',
+      notes: initContractor.notes || '',
+      management: {
+        director: director.trim() || 'H. Bambang S., M.T.',
+        projectManager: projectManager.trim() || 'Hendra Wijaya, ST',
+        siteManager: siteManager.trim() || 'Ir. Agus Pratama',
+        qcEngineer: qcEngineer.trim() || 'Hendra Gunawan, ST',
+        hseOfficer: contractorHseOfficer.trim() || 'Ahmad Fauzi, S.Si (Ahli K3 Konstruksi)',
+        estimatorQS: estimator.trim() || 'Ir. Agus Pratama',
+        financeAdmin: financeAdmin.trim() || 'Siti Rahmawati, S.T.',
+        siteEngineer: contractorSiteEngineer.trim() || 'Deni Kurniawan, ST',
+      },
+    };
+
+    // Hak Akses Ketat: Kontraktor TIDAK BISA merubah logo perusahaan Owner!
+    // Hanya Owner / Direktur / Admin yang berwenang merubah logoUrl dan identitas pemilik proyek.
+    const finalOwnerLogo = isOwnerRole ? (logoUrl.trim() || '/assets/logo.png') : (project.logoUrl || '/assets/logo.png');
+    const finalOwnerName = isOwnerRole ? (owner.trim() || project.owner) : project.owner;
+
     const updatedProject: ProjectInfo = {
       ...project,
       name: name.trim() || project.name,
-      owner: owner.trim() || project.owner,
+      owner: finalOwnerName,
       contractor: contractor.trim() || project.contractor,
+      contractorProfile: currentContractorProfile,
       location: location.trim() || project.location,
       contractNumber: contractNumber.trim() || project.contractNumber,
       contractValue: Number(contractValue) || project.contractValue,
       startDate: startDate || project.startDate,
       targetEndDate: targetEndDate || project.targetEndDate,
       status,
+      logoUrl: finalOwnerLogo,
       director: director.trim() || 'H. Bambang S., M.T.',
       siteManager: siteManager.trim() || 'Ir. Agus Pratama',
       qcEngineer: qcEngineer.trim() || 'Hendra Gunawan, ST',
@@ -169,7 +255,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('project')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'project'
                 ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
                 : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -179,8 +265,19 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('contractor')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'contractor'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <HardHat className="w-4 h-4 text-amber-300" /> Profil Kontraktor (NPWP, NIB, dll)
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('roles')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'roles'
                 ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
                 : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -191,7 +288,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('contract')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'contract'
                 ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
                 : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -225,16 +322,28 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                    <Briefcase className="w-3.5 h-3.5 text-blue-500" /> Nama Pemilik Proyek / Client / Developer
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Briefcase className="w-3.5 h-3.5 text-blue-500" /> Nama Pemilik Proyek (Owner)
+                    </label>
+                    {!isOwnerRole && (
+                      <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> Terkunci
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={owner}
-                    onChange={(e) => setOwner(e.target.value)}
+                    onChange={(e) => isOwnerRole && setOwner(e.target.value)}
                     placeholder="Contoh: PT Foresyndo Global Indonesia"
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                    disabled={!isOwnerRole}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-semibold outline-none transition-all ${
+                      isOwnerRole
+                        ? 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+                    }`}
                   />
                 </div>
 
@@ -265,6 +374,365 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                   required
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none transition-all"
                 />
+              </div>
+
+              {/* Logo Perusahaan Pemilik (Owner) - Restricted to Owner/Direktur only */}
+              <div className={`p-4 rounded-2xl border space-y-3 ${
+                isOwnerRole
+                  ? 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50'
+                  : 'border-amber-300/80 dark:border-amber-800/60 bg-amber-50/40 dark:bg-amber-950/20'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-sky-500" /> Logo Resmi Perusahaan Pemilik (Owner)
+                  </label>
+                  {!isOwnerRole ? (
+                    <span className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 text-[10px] font-bold flex items-center gap-1 border border-amber-300 dark:border-amber-700">
+                      <Lock className="w-3 h-3 text-amber-600 dark:text-amber-400" /> Terkunci (Khusus Owner / Direktur)
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      ✓ Wewenang Owner
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-1 flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+                    <img
+                      src={isOwnerRole ? (logoUrl || '/assets/logo.png') : (project.logoUrl || '/assets/logo.png')}
+                      alt="Logo Owner Proyek"
+                      className="w-full h-full object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      type="text"
+                      value={isOwnerRole ? logoUrl : (project.logoUrl || '/assets/logo.png')}
+                      onChange={(e) => isOwnerRole && setLogoUrl(e.target.value)}
+                      disabled={!isOwnerRole}
+                      placeholder="/assets/logo.png"
+                      className={`w-full px-3 py-2 rounded-xl border text-xs font-mono outline-none ${
+                        isOwnerRole
+                          ? 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500'
+                          : 'border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+                      }`}
+                    />
+                    {isOwnerRole ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setLogoUrl('/assets/logo.png')}
+                          className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline font-semibold cursor-pointer"
+                        >
+                          Gunakan Logo FGI Default (/assets/logo.png)
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-1.5 font-medium bg-white/80 dark:bg-slate-900/60 p-2 rounded-xl border border-amber-200 dark:border-amber-800/80">
+                        <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>Proteksi Akses:</strong> Logo perusahaan Owner tidak bisa diubah oleh kontraktor. Kontraktor hanya dapat mengubah logo resmi kontraktor sendiri pada tab <strong>Profil Kontraktor</strong>.
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: PROFIL & LEGALITAS KONTRAKTOR */}
+          {activeTab === 'contractor' && (
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 font-medium">
+                Kelola identitas resmi kontraktor pelaksana: susunan manajemen lapangan, domisili kantor, NPWP, NIB, dan logo perusahaan untuk dokumen resmi BAST-1 serta penagihan termin.
+              </div>
+
+              {/* Nama & Brand */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-amber-500" /> Nama Badan Usaha Kontraktor (PT/CV)
+                  </label>
+                  <input
+                    type="text"
+                    value={contractor}
+                    onChange={(e) => setContractor(e.target.value)}
+                    placeholder="Contoh: PT FORESYNDO GLOBAL INDONESIA"
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                    <Briefcase className="w-3.5 h-3.5 text-amber-500" /> Klasifikasi &amp; Kualifikasi Jasa Konstruksi
+                  </label>
+                  <input
+                    type="text"
+                    value={contractorClassification}
+                    onChange={(e) => setContractorClassification(e.target.value)}
+                    placeholder="M1 - Subklasifikasi BG004 & BG009"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Legalitas: NPWP, NIB, IUJK, SBU */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                    <FileCheck2 className="w-3.5 h-3.5 text-sky-500" /> NPWP Perusahaan
+                  </label>
+                  <input
+                    type="text"
+                    value={contractorNpwp}
+                    onChange={(e) => setContractorNpwp(e.target.value)}
+                    placeholder="01.889.345.2-438.000"
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> NIB (Nomor Induk Berusaha) OSS
+                  </label>
+                  <input
+                    type="text"
+                    value={contractorNib}
+                    onChange={(e) => setContractorNib(e.target.value)}
+                    placeholder="9120003481902"
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    No. IUJK / PB-UMKU
+                  </label>
+                  <input
+                    type="text"
+                    value={contractorIujk}
+                    onChange={(e) => setContractorIujk(e.target.value)}
+                    placeholder="1-0233-2-0045-1-3210-998822"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    No. Sertifikat Badan Usaha (SBU)
+                  </label>
+                  <input
+                    type="text"
+                    value={contractorSbu}
+                    onChange={(e) => setContractorSbu(e.target.value)}
+                    placeholder="0-3210-07-002-1-10-918234"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Alamat & Domisili */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-red-500" /> Alamat Kantor / Domisili Kontraktor
+                </label>
+                <input
+                  type="text"
+                  value={contractorAddress}
+                  onChange={(e) => setContractorAddress(e.target.value)}
+                  placeholder="Jl. Raya Jatitujuh No. 88, Jatitujuh"
+                  required
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Kota / Kabupaten
+                  </label>
+                  <input
+                    type="text"
+                    value={contractorCity}
+                    onChange={(e) => setContractorCity(e.target.value)}
+                    placeholder="Majalengka"
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Provinsi
+                  </label>
+                  <input
+                    type="text"
+                    value={contractorProvince}
+                    onChange={(e) => setContractorProvince(e.target.value)}
+                    placeholder="Jawa Barat"
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Kode Pos
+                  </label>
+                  <input
+                    type="text"
+                    value={contractorPostalCode}
+                    onChange={(e) => setContractorPostalCode(e.target.value)}
+                    placeholder="45458"
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-mono font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Kontak */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-sky-500" /> Telepon Kantor
+                  </label>
+                  <input
+                    type="text"
+                    value={contractorPhone}
+                    onChange={(e) => setContractorPhone(e.target.value)}
+                    placeholder="(0233) 881900"
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-emerald-500" /> WhatsApp Hotline
+                  </label>
+                  <input
+                    type="text"
+                    value={contractorWhatsapp}
+                    onChange={(e) => setContractorWhatsapp(e.target.value)}
+                    placeholder="+62 811-3344-5566"
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                    <Mail className="w-3 h-3 text-rose-500" /> Email Resmi
+                  </label>
+                  <input
+                    type="email"
+                    value={contractorEmail}
+                    onChange={(e) => setContractorEmail(e.target.value)}
+                    placeholder="konstruksi@foresyndo.co.id"
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Rekening Bank */}
+              <div className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-2.5">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-emerald-500" /> Rekening Bank Pembayaran Proyek
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Nama Bank</label>
+                    <input
+                      type="text"
+                      value={contractorBankName}
+                      onChange={(e) => setContractorBankName(e.target.value)}
+                      placeholder="Bank Mandiri"
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-0.5">No. Rekening</label>
+                    <input
+                      type="text"
+                      value={contractorBankAccountNumber}
+                      onChange={(e) => setContractorBankAccountNumber(e.target.value)}
+                      placeholder="131-00-998822-1"
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Atas Nama</label>
+                    <input
+                      type="text"
+                      value={contractorBankAccountHolder}
+                      onChange={(e) => setContractorBankAccountHolder(e.target.value)}
+                      placeholder="PT FORESYNDO GLOBAL INDONESIA"
+                      className="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Logo Kontraktor Preview & Upload */}
+              <div className="p-4 rounded-2xl border border-amber-300 dark:border-amber-800/60 bg-amber-50/40 dark:bg-amber-950/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-amber-500" /> Logo Resmi Kontraktor Pelaksana
+                  </label>
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold flex items-center gap-1 border border-emerald-300 dark:border-emerald-700">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Hak Akses Kontraktor
+                  </span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-xl border border-slate-200 dark:border-slate-700 bg-white p-1 flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+                    <img
+                      src={contractorLogoUrl || '/assets/logo.png'}
+                      alt="Logo Kontraktor"
+                      className="w-full h-full object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      type="text"
+                      value={contractorLogoUrl}
+                      onChange={(e) => setContractorLogoUrl(e.target.value)}
+                      placeholder="/assets/logo.png atau data:image/..."
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors">
+                        <Upload className="w-3 h-3" /> Unggah File Logo
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                if (evt.target?.result) {
+                                  setContractorLogoUrl(evt.target.result as string);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setContractorLogoUrl('/assets/logo.png')}
+                        className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline font-semibold"
+                      >
+                        Default (/assets/logo.png)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 italic">
+                  * Logo ini digunakan pada kop dokumen penyerahan BAST, kartu profil pelaksana, dan surat permohonan PHO kontraktor.
+                </p>
               </div>
             </div>
           )}

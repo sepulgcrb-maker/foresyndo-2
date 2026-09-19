@@ -126,7 +126,12 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
         {/* Letterhead Kop Surat */}
         <div className="border-b-4 border-slate-900 pb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Building2 className="w-10 h-10 text-orange-600 shrink-0" />
+            <img
+              src="/assets/logo.png"
+              alt="Logo PT Foresyndo Global Indonesia"
+              className="w-12 h-12 object-contain shrink-0"
+              referrerPolicy="no-referrer"
+            />
             <div>
               <h1 className="text-xl font-black text-slate-900 tracking-tight">PT. FORESYNDO GLOBAL INDONESIA</h1>
               <p className="text-xs text-slate-600 font-medium">

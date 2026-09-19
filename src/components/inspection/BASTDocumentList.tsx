@@ -27,6 +27,9 @@ import {
   Check,
   FileDown,
   Loader2,
+  HardHat,
+  ClipboardList,
+  AlertCircle,
 } from 'lucide-react';
 import { formatIDR } from '../../utils/calculations';
 import { generateBASTPDF } from '../../utils/exportEngine';
@@ -170,21 +173,31 @@ export const BASTDocumentList: React.FC<BASTDocumentListProps> = ({
         <div className="absolute top-0 right-0 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-orange-500 text-white">
                 Verifikasi Dokumen Resmi
               </span>
               <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
                 Tanda Tangan Digital Tripartit
               </span>
+              {project.status === 'Belum Mulai' ? (
+                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  Status Proyek: Belum Mulai
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                  Status: {project.status}
+                </span>
+              )}
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
               <FileCheck2 className="w-6 h-6 text-orange-400" />
               Daftar Dokumen BAST &amp; Status Tanda Tangan Digital
             </h2>
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              Pantau seluruh berkas Berita Acara Serah Terima (BAST-1 Utama, Parsial, dan Komisioning) beserta pratinjau
-              visual status tanda tangan digital Kontraktor Pelaksana dan Konsultan Pengawas MK.
+              {bastList.length === 0
+                ? 'Daftar berkas Berita Acara Serah Terima (BAST-1 Utama, Parsial, dan Komisioning) beserta pratinjau status tanda tangan digital masih kosong karena pekerjaan fisik konstruksi belum dimulai.'
+                : 'Pantau seluruh berkas Berita Acara Serah Terima (BAST-1 Utama, Parsial, dan Komisioning) beserta pratinjau visual status tanda tangan digital Kontraktor Pelaksana dan Konsultan Pengawas MK.'}
             </p>
           </div>
 
@@ -310,8 +323,85 @@ export const BASTDocumentList: React.FC<BASTDocumentListProps> = ({
         </div>
       </div>
 
-      {/* Filter, Search & View Mode Switcher */}
-      <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      {/* KONDISI JIKA BELUM DIMULAI PEKERJAAN: TAMPILKAN EMPTY STATE KHUSUS & PENJELASAN LEGALITAS */}
+      {bastList.length === 0 ? (
+        <div className="p-8 sm:p-12 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm text-center space-y-6">
+          <div className="relative inline-flex items-center justify-center">
+            <div className="w-20 h-20 rounded-3xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center text-amber-500 shadow-inner">
+              <ClipboardList className="w-10 h-10 stroke-[1.75]" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 p-1.5 rounded-xl bg-blue-600 text-white shadow-md">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+
+          <div className="max-w-xl mx-auto space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+              <HardHat className="w-3.5 h-3.5" /> Pekerjaan Konstruksi Belum Dimulai
+            </div>
+            <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+              Daftar Dokumen BAST &amp; Status Tanda Tangan Digital Masih Kosong
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Sesuai ketentuan standar kontrak konstruksi (Permen PUPR No. 14/2020), Berita Acara Serah Terima (BAST-1 Utama, BAST Parsial, dan Komisioning) beserta proses tanda tangan digital Tripartit baru dapat diterbitkan setelah tahapan pelaksanaan pekerjaan fisik di lapangan mulai berlangsung atau telah mencapai progres serah terima.
+            </p>
+          </div>
+
+          {/* 3 Penjelasan Kebijakan Dokumen */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto text-left pt-2">
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xs">
+                1
+              </div>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                Fisik Pekerjaan Masih 0%
+              </h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                Kontrak proyek bernomor <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">{project.contractNumber}</span> saat ini berstatus <strong>{project.status}</strong>. Belum ada volume pekerjaan terpasang yang dapat diserahterimakan.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black text-xs">
+                2
+              </div>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                Verifikasi Opname &amp; QC
+              </h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                Penerbitan BAST-1 PHO mensyaratkan checklist 14 sektor 100%, penyelesaian punch list, dan uji fungsi MEP / komisioning yang disetujui Konsultan MK.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center font-black text-xs">
+                3
+              </div>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                Integritas TTD Tripartit
+              </h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                Tanda tangan digital Kontraktor, Rekomendasi Konsultan MK, dan Pengesahan Direktur Owner memiliki kekuatan hukum sah dan dibubuhkan pasca inspeksi lapangan.
+              </p>
+            </div>
+          </div>
+
+          {/* Action CTA Box */}
+          <div className="pt-2 max-w-md mx-auto flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={onOpenNewBASTModal}
+              className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
+            >
+              <FilePlus2 className="w-4 h-4" />
+              <span>Buat Pengajuan Draft BAST Awal</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Filter, Search & View Mode Switcher */}
+          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="flex flex-1 items-center gap-2">
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -825,6 +915,8 @@ export const BASTDocumentList: React.FC<BASTDocumentListProps> = ({
             );
           })}
         </div>
+      )}
+        </>
       )}
 
       {/* POPUP MODAL: PRATINJAU VISUAL TANDA TANGAN DIGITAL & QR VERIFIKASI */}

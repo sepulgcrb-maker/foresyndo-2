@@ -19,6 +19,7 @@ import {
   HardHat,
   Radio,
   RefreshCw,
+  QrCode,
 } from 'lucide-react';
 import { ProjectInfo, UserRole, NotificationItem } from '../../types';
 import { RoleBadge } from '../common/RoleBadge';
@@ -37,11 +38,13 @@ interface HeaderProps {
   onQuickExport: () => void;
   onResetProject?: () => void;
   onOpenSettingsModal?: () => void;
+  onOpenContractorModal?: () => void;
   onOpenRoleModal?: (subTab?: 'profiles' | 'permissions' | 'matrix' | 'workflow' | 'pins') => void;
   activeUserName?: string;
   onLogout?: () => void;
   syncStatus?: SyncStatusResult;
   onOpenSyncModal?: () => void;
+  onOpenQrModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -56,11 +59,13 @@ export const Header: React.FC<HeaderProps> = ({
   onQuickExport,
   onResetProject,
   onOpenSettingsModal,
+  onOpenContractorModal,
   onOpenRoleModal,
   activeUserName,
   onLogout,
   syncStatus,
   onOpenSyncModal,
+  onOpenQrModal,
 }) => {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const unreadDocNotifications = notifications.filter(
@@ -95,8 +100,17 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Left: Brand & Project Name */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 border border-sky-400/40 flex items-center justify-center text-white font-bold shrink-0 shadow-md shadow-sky-500/20">
-            <Building2 className="w-5 h-5" />
+          <div
+            className={`w-9 h-9 rounded-xl flex items-center justify-center p-1 shrink-0 border shadow-xs ${
+              darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-sky-200'
+            }`}
+          >
+            <img
+              src={project.logoUrl || '/assets/logo.png'}
+              alt="Logo PT Foresyndo Global Indonesia"
+              className="w-full h-full object-contain"
+              referrerPolicy="no-referrer"
+            />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -172,6 +186,22 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
+          {/* QR Code Verifikasi Lapangan Button */}
+          {onOpenQrModal && (
+            <button
+              onClick={onOpenQrModal}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer border ${
+                darkMode
+                  ? 'bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border-indigo-500/40'
+                  : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200/90 shadow-xs'
+              }`}
+              title="QR Code Verifikasi Lapangan & Akses Cepat Proyek"
+            >
+              <QrCode className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span className="hidden sm:inline">QR Proyek</span>
+            </button>
+          )}
+
           {/* Session Cache Sync Status Pill */}
           {syncStatus && onOpenSyncModal && (
             <button
@@ -244,17 +274,33 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Role Display / Switcher */}
           {isKontraktor ? (
             /* KONTRAKTOR: STRICTLY CANNOT SEE OWNER & MK ROLES */
-            <div
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-sm ${
-                darkMode
-                  ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
-                  : 'bg-amber-50 border-amber-200 text-amber-800'
-              }`}
-              title="Peran Aktif: Kontraktor Pelaksana Lapangan"
-            >
-              <HardHat className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              <span className="truncate max-w-[130px] sm:max-w-[200px]">{activeUserName || 'Kontraktor Pelaksana'}</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Sesi Terverifikasi" />
+            <div className="flex items-center gap-1.5">
+              <div
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-sm ${
+                  darkMode
+                    ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                    : 'bg-amber-50 border-amber-200 text-amber-800'
+                }`}
+                title="Peran Aktif: Kontraktor Pelaksana Lapangan"
+              >
+                <HardHat className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span className="truncate max-w-[130px] sm:max-w-[200px]">{activeUserName || 'Kontraktor Pelaksana'}</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Sesi Terverifikasi" />
+              </div>
+              {onOpenContractorModal && (
+                <button
+                  onClick={onOpenContractorModal}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                    darkMode
+                      ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/30'
+                      : 'bg-amber-100/70 hover:bg-amber-100 text-amber-900 border-amber-300'
+                  }`}
+                  title="Pengaturan Profil Kontraktor (Manajemen, Alamat, NPWP, NIB, Logo)"
+                >
+                  <Settings className="w-3.5 h-3.5 text-amber-600" />
+                  <span className="hidden lg:inline">Profil Kontraktor</span>
+                </button>
+              )}
             </div>
           ) : isOwner ? (
             /* OWNER: Can switch between roles & configure permissions */
@@ -374,6 +420,20 @@ export const Header: React.FC<HeaderProps> = ({
                       <Settings className="w-3.5 h-3.5 text-slate-500" />
                       <span>Kelola Profil & RACI</span>
                     </button>
+
+                    {onOpenContractorModal && (
+                      <button
+                        onClick={onOpenContractorModal}
+                        className={`w-full text-left px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          darkMode
+                            ? 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/30 text-amber-300'
+                            : 'bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-800'
+                        }`}
+                      >
+                        <HardHat className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Profil &amp; Legalitas Kontraktor</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

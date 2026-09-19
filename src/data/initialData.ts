@@ -1,5 +1,6 @@
 import {
   ProjectInfo,
+  ContractorProfile,
   WorkItem,
   PaymentTerm,
   DailyLog,
@@ -97,6 +98,39 @@ export const OFFICIAL_RAB_DOCUMENT: OfficialRABDocument = {
   pmSignatureId: 'PM-RABID-PN1CU',
 };
 
+export const INITIAL_CONTRACTOR_PROFILE: ContractorProfile = {
+  companyName: 'PT Foresyndo Global Indonesia (Divisi Konstruksi)',
+  brandName: 'PT FORESYNDO GLOBAL INDONESIA',
+  address: 'Jl. Raya Jatitujuh No. 88, Jatitujuh, Kec. Jatitujuh',
+  city: 'Majalengka',
+  province: 'Jawa Barat',
+  postalCode: '45458',
+  phone: '(0233) 881900',
+  whatsapp: '+62 811-3344-5566',
+  email: 'konstruksi@foresyndo.co.id',
+  website: 'https://foresyndo.co.id',
+  npwp: '01.889.345.2-438.000',
+  nib: '9120003481902',
+  iujkNumber: '1-0233-2-0045-1-3210-998822',
+  sbuNumber: '0-3210-07-002-1-10-918234 (BG004 Jasa Pelaksana Konstruksi Gedung)',
+  classification: 'Kualifikasi Menengah (M1) - Subklasifikasi BG004 & BG009',
+  logoUrl: '/assets/logo.png',
+  bankName: 'Bank Mandiri (Persero) Tbk',
+  bankAccountNumber: '131-00-998822-1',
+  bankAccountHolder: 'PT FORESYNDO GLOBAL INDONESIA',
+  notes: 'Spesialis Pekerjaan Struktur Beton Bertulang, Baja Berat, Finishing Arsitektur, dan Mekanikal Elektrikal Plumbing Gedung Bertingkat.',
+  management: {
+    director: 'H. Bambang S., M.T.',
+    projectManager: 'Hendra Wijaya, ST',
+    siteManager: 'Ir. Agus Pratama',
+    qcEngineer: 'Hendra Gunawan, ST',
+    hseOfficer: 'Ahmad Fauzi, S.Si (Ahli K3 Konstruksi)',
+    estimatorQS: 'Ir. Agus Pratama',
+    financeAdmin: 'Siti Rahmawati, S.T.',
+    siteEngineer: 'Deni Kurniawan, ST',
+  },
+};
+
 export const INITIAL_PROJECT_INFO: ProjectInfo = {
   id: 'PROJ-FORESYNDO-02',
   name: 'Pembangunan Gedung 7 Lantai (Foresyndo 2)',
@@ -106,9 +140,10 @@ export const INITIAL_PROJECT_INFO: ProjectInfo = {
   startDate: '2026-09-01',
   targetEndDate: '2027-06-01',
   status: 'Belum Mulai',
-  logoUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?w=300&auto=format&fit=crop&q=80',
+  logoUrl: '/assets/logo.png',
   contractNumber: 'PR-2026-FGI-004',
   contractor: 'PT Foresyndo Global Indonesia (Internal Construction Division)',
+  contractorProfile: INITIAL_CONTRACTOR_PROFILE,
   director: 'H. Bambang S., M.T.',
   siteManager: 'Ir. Agus Pratama',
   qcEngineer: 'Hendra Gunawan, ST',

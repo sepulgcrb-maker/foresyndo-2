@@ -39,6 +39,7 @@ import {
   INITIAL_STAKEHOLDER_PROFILES,
   ALL_PROJECT_TABS,
   INITIAL_PROJECT_DOCUMENTS,
+  INITIAL_CONTRACTOR_PROFILE,
 } from './data/initialData';
 import { Header } from './components/layout/Header';
 import { Sidebar, ActiveTab } from './components/layout/Sidebar';
@@ -61,9 +62,11 @@ import { SupabaseModal } from './components/common/SupabaseModal';
 import { pushAllDataToSupabase, pullAllDataFromSupabase, subscribeToSupabaseRealtime } from './lib/supabaseService';
 import { NotificationDrawer } from './components/common/NotificationDrawer';
 import { ProjectSettingsModal } from './components/common/ProjectSettingsModal';
+import { ContractorSettingsModal } from './components/common/ContractorSettingsModal';
 import { RoleManagementModal } from './components/common/RoleManagementModal';
 import { SyncAlertBanner } from './components/common/SyncAlertBanner';
 import { SyncStatusModal } from './components/common/SyncStatusModal';
+import { ProjectQRCodeModal } from './components/common/ProjectQRCodeModal';
 import { LoginPage } from './components/auth/LoginPage';
 import { generatePDFReport } from './utils/exportEngine';
 import { calculatePhysicalProgress, calculateTargetProgress, calculateDeviation } from './utils/calculations';
@@ -132,8 +135,10 @@ export default function App() {
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isContractorSettingsModalOpen, setIsContractorSettingsModalOpen] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [roleModalTab, setRoleModalTab] = useState<'profiles' | 'permissions' | 'matrix' | 'workflow' | 'pins'>('profiles');
   const [lastSupabaseSync, setLastSupabaseSync] = useState<string | null>(() => {
     return localStorage.getItem('FORESYNDO_LAST_SUPABASE_SYNC');
@@ -263,7 +268,19 @@ export default function App() {
   // Core Data State (Loaded from LocalStorage if available, fallback to initial)
   const [project, setProject] = useState<ProjectInfo>(() => {
     const saved = localStorage.getItem('FORESYNDO_V3_PROJECT_INFO');
-    return saved ? JSON.parse(saved) : INITIAL_PROJECT_INFO;
+    if (!saved) return INITIAL_PROJECT_INFO;
+    try {
+      const parsed = JSON.parse(saved);
+      if (!parsed.logoUrl || parsed.logoUrl.includes('unsplash.com')) {
+        parsed.logoUrl = '/assets/logo.png';
+      }
+      if (!parsed.contractorProfile) {
+        parsed.contractorProfile = INITIAL_CONTRACTOR_PROFILE;
+      }
+      return parsed;
+    } catch {
+      return INITIAL_PROJECT_INFO;
+    }
   });
 
   const [workItems, setWorkItems] = useState<WorkItem[]>(() => {
@@ -1037,6 +1054,7 @@ export default function App() {
         onQuickExport={() => generatePDFReport('Progress', project, workItems, paymentTerms, dailyLogs, materials)}
         onResetProject={isOwner ? handleResetProject : undefined}
         onOpenSettingsModal={isOwner ? () => setIsSettingsModalOpen(true) : undefined}
+        onOpenContractorModal={() => setIsContractorSettingsModalOpen(true)}
         onOpenRoleModal={
           isOwner
             ? (subTab) => {
@@ -1049,6 +1067,7 @@ export default function App() {
         onLogout={handleLogout}
         syncStatus={syncStatus}
         onOpenSyncModal={() => setIsSyncModalOpen(true)}
+        onOpenQrModal={() => setIsQrModalOpen(true)}
       />
 
       {/* Prominent Session Cache Desynchronization Alert Banner */}
@@ -1069,6 +1088,8 @@ export default function App() {
           darkMode={darkMode}
           unreadDocCount={unreadDocCount}
           onOpenSettingsModal={isOwner ? () => setIsSettingsModalOpen(true) : undefined}
+          onOpenContractorModal={() => setIsContractorSettingsModalOpen(true)}
+          onOpenQrModal={() => setIsQrModalOpen(true)}
           onOpenRoleModal={
             isOwner
               ? (subTab) => {
@@ -1116,6 +1137,7 @@ export default function App() {
                   onAddNotification={handleAddNotification}
                   onAddAuditLog={addAuditLog}
                   darkMode={darkMode}
+                  onOpenQrModal={() => setIsQrModalOpen(true)}
                 />
               )}
 
@@ -1250,6 +1272,8 @@ export default function App() {
                   activeUserName={userNameMap[currentRole]}
                   onUpdateProjectStatus={handleUpdateProjectStatus}
                   onAddAuditLog={addAuditLog}
+                  onOpenContractorSettings={() => setIsContractorSettingsModalOpen(true)}
+                  onOpenQrModal={() => setIsQrModalOpen(true)}
                 />
               )}
 
@@ -1305,6 +1329,20 @@ export default function App() {
         onAddAuditLog={addAuditLog}
       />
 
+      <ContractorSettingsModal
+        isOpen={isContractorSettingsModalOpen}
+        onClose={() => setIsContractorSettingsModalOpen(false)}
+        project={project}
+        onUpdateProject={(updated) => {
+          setProject(updated);
+        }}
+        currentRole={currentRole}
+        onAddAuditLog={addAuditLog}
+        userNameMap={userNameMap}
+        onUpdateUserNameMap={setUserNameMap}
+        darkMode={darkMode}
+      />
+
       <RoleManagementModal
         isOpen={isRoleModalOpen && isOwner}
         onClose={() => setIsRoleModalOpen(false)}
@@ -1349,6 +1387,13 @@ export default function App() {
           syncWithPrimaryState();
           setIsSyncModalOpen(false);
         }}
+      />
+
+      {/* Project QR Code Modal for Field Inspection & Quick Verification */}
+      <ProjectQRCodeModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        project={project}
       />
     </div>
   );

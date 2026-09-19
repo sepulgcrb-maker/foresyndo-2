@@ -136,8 +136,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <header className="relative z-10 border-b border-sky-200/80 px-4 sm:px-8 py-4 bg-white/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 border border-sky-400/40 flex items-center justify-center text-white font-bold shadow-md shadow-sky-500/20">
-              <Building2 className="w-5 h-5" />
+            <div className="w-11 h-11 rounded-xl bg-white border border-sky-200 overflow-hidden flex items-center justify-center p-1 shadow-md shadow-sky-500/10 shrink-0">
+              <img
+                src="/assets/logo.png"
+                alt="Logo PT Foresyndo Global Indonesia"
+                className="w-full h-full object-contain"
+                referrerPolicy="no-referrer"
+              />
             </div>
             <div>
               <h1 className="text-sm sm:text-base font-bold tracking-tight text-slate-900 flex items-center gap-2">
