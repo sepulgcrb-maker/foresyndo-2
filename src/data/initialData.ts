@@ -670,6 +670,9 @@ export const INITIAL_MATERIALS: MaterialItem[] = [
     dailyBurnRate: 35,
     relatedSectorNos: [1, 2, 4, 10],
     category: 'Struktur & Sipil',
+    barcode: '899100100101',
+    batchNumber: 'LOT-PCC-2609A',
+    locationRack: 'Gudang Utama - Rak A1',
   },
   {
     id: 'MAT-02',
@@ -687,6 +690,9 @@ export const INITIAL_MATERIALS: MaterialItem[] = [
     dailyBurnRate: 28,
     relatedSectorNos: [1, 2],
     category: 'Struktur & Sipil',
+    barcode: '899100200202',
+    batchNumber: 'LOT-KS-D16-08',
+    locationRack: 'Halaman Terbuka Sektor 1',
   },
   {
     id: 'MAT-03',
@@ -704,6 +710,9 @@ export const INITIAL_MATERIALS: MaterialItem[] = [
     dailyBurnRate: 4.5,
     relatedSectorNos: [4],
     category: 'Arsitektur',
+    barcode: '899100300303',
+    batchNumber: 'LOT-HBL-260902',
+    locationRack: 'Gudang Transit Sektor 4',
   },
   {
     id: 'MAT-04',
@@ -721,6 +730,9 @@ export const INITIAL_MATERIALS: MaterialItem[] = [
     dailyBurnRate: 8,
     relatedSectorNos: [1, 2],
     category: 'Struktur & Sipil',
+    barcode: '899100400404',
+    batchNumber: 'BATCH-MIX-K350',
+    locationRack: 'Silo Mixer / Direct Pour',
   },
   {
     id: 'MAT-05',
@@ -738,6 +750,9 @@ export const INITIAL_MATERIALS: MaterialItem[] = [
     dailyBurnRate: 22,
     relatedSectorNos: [1, 2],
     category: 'Struktur & Sipil',
+    barcode: '899100500505',
+    batchNumber: 'LOT-KS-D10-09',
+    locationRack: 'Halaman Terbuka Sektor 1',
   },
   {
     id: 'MAT-06',
@@ -755,6 +770,9 @@ export const INITIAL_MATERIALS: MaterialItem[] = [
     dailyBurnRate: 6,
     relatedSectorNos: [1, 2, 4],
     category: 'Struktur & Sipil',
+    barcode: '899100600606',
+    batchNumber: 'DUMP-PSR-09A',
+    locationRack: 'Stok Yard Agregat Barat',
   },
   {
     id: 'MAT-07',
@@ -772,6 +790,9 @@ export const INITIAL_MATERIALS: MaterialItem[] = [
     dailyBurnRate: 12,
     relatedSectorNos: [4],
     category: 'Arsitektur',
+    barcode: '899100700707',
+    batchNumber: 'LOT-MU-380-9A',
+    locationRack: 'Gudang Utama - Rak B2',
   },
   {
     id: 'MAT-08',
@@ -788,6 +809,9 @@ export const INITIAL_MATERIALS: MaterialItem[] = [
     dailyBurnRate: 18,
     relatedSectorNos: [4, 5, 11],
     category: 'Finishing',
+    barcode: '899100800808',
+    batchNumber: 'LOT-GRN-6060-PG',
+    locationRack: 'Gudang Finishing Lantai 1',
   },
   {
     id: 'MAT-09',
@@ -804,6 +828,9 @@ export const INITIAL_MATERIALS: MaterialItem[] = [
     dailyBurnRate: 3,
     relatedSectorNos: [4, 10, 12],
     category: 'Finishing',
+    barcode: '899100900909',
+    batchNumber: 'LOT-DLX-WS-BRILLIANT',
+    locationRack: 'Gudang Kimia & Cat C1',
   },
   {
     id: 'MAT-10',
@@ -821,6 +848,9 @@ export const INITIAL_MATERIALS: MaterialItem[] = [
     dailyBurnRate: 15,
     relatedSectorNos: [7],
     category: 'MEP Plumbing',
+    barcode: '899101001010',
+    batchNumber: 'LOT-RCK-AW34-26',
+    locationRack: 'Rak Pipa Gudang MEP',
   },
   {
     id: 'MAT-11',
@@ -838,6 +868,9 @@ export const INITIAL_MATERIALS: MaterialItem[] = [
     dailyBurnRate: 6,
     relatedSectorNos: [6],
     category: 'MEP Listrik',
+    barcode: '899101101111',
+    batchNumber: 'LOT-SPRM-NYM325',
+    locationRack: 'Rak Kabel Gudang MEP',
   },
   {
     id: 'MAT-12',
@@ -854,6 +887,9 @@ export const INITIAL_MATERIALS: MaterialItem[] = [
     dailyBurnRate: 4,
     relatedSectorNos: [8],
     category: 'MEP Fire Fighting',
+    barcode: '899101201212',
+    batchNumber: 'LOT-BKR-SCH40-4',
+    locationRack: 'Halaman Gudang Pipa Baja',
   },
 ];
 

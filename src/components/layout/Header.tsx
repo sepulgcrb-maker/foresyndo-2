@@ -20,11 +20,13 @@ import {
   Radio,
   RefreshCw,
   QrCode,
+  WifiOff,
 } from 'lucide-react';
 import { ProjectInfo, UserRole, NotificationItem } from '../../types';
 import { RoleBadge } from '../common/RoleBadge';
 import { isSupabaseConnected } from '../../lib/supabase';
 import { SyncStatusResult } from '../../utils/syncManager';
+import { useOfflineCache } from '../../utils/serviceWorkerRegistration';
 
 interface HeaderProps {
   project: ProjectInfo;
@@ -84,6 +86,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const isOwner = currentRole === 'Owner' || currentRole === 'Direktur';
   const isKontraktor = currentRole === 'Kontraktor' || currentRole === 'Site Manager';
+  const { isOffline, cacheReport } = useOfflineCache();
 
   // For Owner, allow switching between primary roles
   const primaryRoles: UserRole[] = ['Owner', 'Konsultan', 'Kontraktor'];
@@ -199,6 +202,18 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <QrCode className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span className="hidden sm:inline">QR Proyek</span>
+            </button>
+          )}
+
+          {/* Offline Read-Only Indicator Pill */}
+          {isOffline && (
+            <button
+              onClick={onOpenSyncModal}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-amber-500/60 bg-amber-500/20 text-amber-500 dark:text-amber-400 text-xs font-bold transition-all cursor-pointer animate-pulse hover:bg-amber-500/30"
+              title="Perangkat Offline: Seluruh data proyek, RAB, kurva-S, dan dokumen dapat dibaca dari cache Service Worker."
+            >
+              <WifiOff className="w-3.5 h-3.5 text-amber-500" />
+              <span>Offline (Read-Only)</span>
             </button>
           )}
 

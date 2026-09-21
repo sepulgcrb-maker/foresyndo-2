@@ -65,6 +65,7 @@ import { ProjectSettingsModal } from './components/common/ProjectSettingsModal';
 import { ContractorSettingsModal } from './components/common/ContractorSettingsModal';
 import { RoleManagementModal } from './components/common/RoleManagementModal';
 import { SyncAlertBanner } from './components/common/SyncAlertBanner';
+import { OfflineStatusBanner } from './components/common/OfflineStatusBanner';
 import { SyncStatusModal } from './components/common/SyncStatusModal';
 import { ProjectQRCodeModal } from './components/common/ProjectQRCodeModal';
 import { LoginPage } from './components/auth/LoginPage';
@@ -637,16 +638,16 @@ export default function App() {
     setDailyLogs((prev) => [newLog, ...prev]);
 
     if (logData.photos && logData.photos.length > 0) {
-      const newPhoto: PhotoItem = {
-        id: `PHT-${Date.now()}`,
+      const newPhotoItems: PhotoItem[] = logData.photos.map((url, idx) => ({
+        id: `PHT-${Date.now()}-${idx}`,
         date: logData.date,
         category: 'Progress Hari Ini',
-        title: `Dokumentasi Laporan Harian ${logData.date}`,
-        url: logData.photos[0],
+        title: `Dokumentasi Laporan Harian ${logData.date}${logData.photos.length > 1 ? ` (Foto #${idx + 1})` : ''}`,
+        url,
         uploadedBy: currentRole,
         notes: logData.activitySummary,
-      };
-      setPhotos((prev) => [newPhoto, ...prev]);
+      }));
+      setPhotos((prev) => [...newPhotoItems, ...prev]);
     }
 
     addAuditLog('Input Laporan Harian', `Pencatatan kegiatan harian tanggal ${logData.date} (${logData.workerCount} pekerja)`);
@@ -1041,6 +1042,9 @@ export default function App() {
           : 'bg-gradient-to-br from-white via-sky-50/70 to-blue-100/60 text-slate-800'
       } font-sans flex flex-col transition-colors duration-200`}
     >
+      {/* Offline PWA Read-Only Persistent Banner */}
+      <OfflineStatusBanner onOpenDiagnostics={() => setIsSyncModalOpen(true)} />
+
       {/* Top Fixed Header Bar */}
       <Header
         project={project}

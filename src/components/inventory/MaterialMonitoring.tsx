@@ -32,6 +32,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { BarcodeSVG } from '../common/BarcodeSVG';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { formatIDR } from '../../utils/calculations';
+import { MaterialBarcodeScannerModal } from './MaterialBarcodeScannerModal';
+import { MaterialBatchBarcodePrintModal } from './MaterialBatchBarcodePrintModal';
 
 interface MaterialMonitoringProps {
   materials: MaterialItem[];
@@ -55,14 +57,13 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'inventory' | 'projection'>('projection');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isBatchPrintOpen, setIsBatchPrintOpen] = useState(false);
   
-  // QR Code Modals & State
+  // Barcode & QR Code Modals & State
   const [selectedQrMaterial, setSelectedQrMaterial] = useState<MaterialItem | null>(null);
   const [activeCodeTab, setActiveCodeTab] = useState<'qr' | 'barcode' | 'both'>('both');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [scannedInput, setScannedInput] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
-  const [simulatedCameraFacing, setSimulatedCameraFacing] = useState<'environment' | 'user'>('environment');
+  const [scannerTargetContext, setScannerTargetContext] = useState<'inventory' | 'fill_form'>('inventory');
 
   // Stock Adjustment State inside QR Modal
   const [adjustType, setAdjustType] = useState<'use' | 'add' | 'set'>('use');
@@ -74,13 +75,95 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
     name: '',
     volumeTotal: 100,
     volumeUsed: 0,
-    unit: 'm³',
-    pricePerUnit: 150000,
+    unit: 'Sak',
+    pricePerUnit: 78000,
     supplier: '',
     arrivalDate: new Date().toISOString().split('T')[0],
     stockRemaining: 100,
-    minAlertStock: 20,
+    minAlertStock: 25,
+    barcode: '',
+    category: 'Struktur & Sipil',
+    batchNumber: '',
+    locationRack: '',
+    leadTimeDays: 3,
+    dailyBurnRate: 10,
   });
+
+  const generateRandomBarcode = () => {
+    const randomDigits = Math.floor(100000000 + Math.random() * 900000000).toString();
+    const barcodeVal = `899${randomDigits}`;
+    setNewMat((prev) => ({ ...prev, barcode: barcodeVal }));
+  };
+
+  const handleOpenScannerForForm = () => {
+    setScannerTargetContext('fill_form');
+    setIsScannerOpen(true);
+  };
+
+  const handleOpenScannerForInventory = () => {
+    setScannerTargetContext('inventory');
+    setIsScannerOpen(true);
+  };
+
+  const handleFillBarcodeToForm = (scannedBarcode: string) => {
+    setNewMat((prev) => ({ ...prev, barcode: scannedBarcode }));
+  };
+
+  const handleOpenAddModalWithBarcode = (scannedBarcode: string) => {
+    setNewMat({
+      name: '',
+      volumeTotal: 100,
+      volumeUsed: 0,
+      unit: 'Sak',
+      pricePerUnit: 78000,
+      supplier: '',
+      arrivalDate: new Date().toISOString().split('T')[0],
+      stockRemaining: 100,
+      minAlertStock: 25,
+      barcode: scannedBarcode,
+      category: 'Struktur & Sipil',
+      batchNumber: `LOT-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`,
+      locationRack: 'Gudang Utama - Rak A1',
+      leadTimeDays: 3,
+      dailyBurnRate: 10,
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleQuickStockAdjust = (
+    mat: MaterialItem,
+    type: 'add' | 'use',
+    amount: number,
+    notes: string
+  ) => {
+    let newUsed = mat.volumeUsed;
+    let newTotal = mat.volumeTotal;
+    let newStock = mat.stockRemaining;
+
+    if (type === 'use') {
+      newUsed = mat.volumeUsed + amount;
+      newStock = Math.max(0, mat.volumeTotal - newUsed);
+    } else {
+      newTotal = mat.volumeTotal + amount;
+      newStock = newTotal - mat.volumeUsed;
+    }
+
+    const updatedMaterial: MaterialItem = {
+      ...mat,
+      volumeTotal: newTotal,
+      volumeUsed: newUsed,
+      stockRemaining: newStock,
+      usageDate: new Date().toISOString().split('T')[0],
+    };
+
+    onUpdateMaterial(updatedMaterial);
+    if (onAddAuditLog) {
+      onAddAuditLog(
+        type === 'add' ? 'Terima Pasokan (Inbound Barcode)' : 'Catat Pemakaian (Outbound Barcode)',
+        `${mat.name}: ${type === 'add' ? '+' : '-'}${amount} ${mat.unit} (${notes})`
+      );
+    }
+  };
 
   const canEdit =
     permissions?.canManageMaterial ??
@@ -95,7 +178,11 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
     (m) =>
       m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       m.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.id.toLowerCase().includes(searchTerm.toLowerCase())
+      m.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (m.barcode && m.barcode.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (m.batchNumber && m.batchNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (m.locationRack && m.locationRack.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (m.category && m.category.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // Summary Metrics
@@ -105,10 +192,23 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMat.name) return;
+    
+    // Auto-generate barcode if blank
+    const finalBarcode = newMat.barcode?.trim() || `899${Math.floor(100000000 + Math.random() * 900000000)}`;
+
     onAddMaterial({
       ...newMat,
+      barcode: finalBarcode,
       stockRemaining: newMat.volumeTotal - newMat.volumeUsed,
     });
+    
+    if (onAddAuditLog) {
+      onAddAuditLog(
+        'Tambah Material Baru',
+        `Menambahkan ${newMat.name} (Barcode: ${finalBarcode}, Stok Awal: ${newMat.volumeTotal} ${newMat.unit})`
+      );
+    }
+
     setIsAddModalOpen(false);
   };
 
@@ -142,20 +242,6 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
     setSelectedQrMaterial(updatedMaterial);
     setUpdateSuccessMsg(`Stok berhasil diperbarui: Sisa ${newStock} ${mat.unit}`);
     setTimeout(() => setUpdateSuccessMsg(''), 3000);
-  };
-
-  const handleSimulateScan = (matId: string) => {
-    setIsScanning(true);
-    setTimeout(() => {
-      setIsScanning(false);
-      const found = materials.find((m) => m.id === matId || `FORESYNDO-MAT:${m.id}` === matId);
-      if (found) {
-        setSelectedQrMaterial(found);
-        setIsScannerOpen(false);
-      } else {
-        alert(`Material dengan ID "${matId}" tidak ditemukan.`);
-      }
-    }, 800);
   };
 
   const handlePrintQRBadge = () => {
@@ -217,10 +303,13 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
 
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={() => setIsScannerOpen(true)}
-            className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
+            onClick={() => {
+              setScannerTargetContext('inventory');
+              setIsScannerOpen(true);
+            }}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-black flex items-center gap-2 shadow-md shadow-orange-500/20 transition-all cursor-pointer"
           >
-            <Scan className="w-3.5 h-3.5 text-orange-500" /> Scan QR Material
+            <QrCode className="w-4 h-4" /> Pindai QR Label (Auto-Update)
           </button>
         </div>
       </div>
@@ -269,15 +358,15 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 text-white shadow-lg flex items-center justify-between">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-500 via-amber-600 to-amber-700 text-white shadow-lg flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-bold text-orange-100 uppercase tracking-wider block">Scan QR Material</span>
-                <span className="text-xs font-semibold text-white/90 mt-0.5 block">Cek / Update Stok di Lapangan</span>
+                <span className="text-[10px] font-bold text-orange-100 uppercase tracking-wider block">QR Code &amp; SC Barcode</span>
+                <span className="text-xs font-semibold text-white/90 mt-0.5 block">Scan Label &amp; Update Stok Instan</span>
                 <button
-                  onClick={() => setIsScannerOpen(true)}
-                  className="mt-2.5 px-3 py-1.5 rounded-xl bg-white text-orange-600 hover:bg-orange-50 font-black text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+                  onClick={handleOpenScannerForInventory}
+                  className="mt-2.5 px-3.5 py-1.5 rounded-xl bg-white text-orange-600 hover:bg-orange-50 font-black text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
                 >
-                  <Camera className="w-4 h-4" /> Buka Scanner QR
+                  <QrCode className="w-4 h-4 text-orange-600" /> Pindai QR Code (Auto-Update)
                 </button>
               </div>
               <div className="p-3 bg-white/20 rounded-2xl text-white">
@@ -293,19 +382,19 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                 <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500">
                   <Boxes className="w-5 h-5" />
                 </div>
-                <h2 className="text-lg font-black text-slate-900 dark:text-white">Monitoring Pasokan &amp; Stok Material (QR Tagged)</h2>
+                <h2 className="text-lg font-black text-slate-900 dark:text-white">Monitoring Pasokan &amp; Stok Material (QR Code &amp; SC Barcode)</h2>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Sistem labeling QR-Code otomatis untuk pemindaian instan &amp; pembaruan persediaan fisik site lapangan
+                Sistem scanning QR-Code label 2D &amp; barcode 1D via kamera ponsel/webcam untuk update stok otomatis instan di gudang &amp; site
               </p>
             </div>
 
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <div className="relative flex-1 md:w-64">
+            <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+              <div className="relative flex-1 md:w-60 min-w-[200px]">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Cari nama, ID (MAT-01), supplier..."
+                  placeholder="Cari QR label, barcode, nama, ID, rak..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -313,10 +402,19 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
               </div>
 
               <button
-                onClick={() => setIsScannerOpen(true)}
-                className="px-3.5 py-2 rounded-xl bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-700 shrink-0 transition-all cursor-pointer"
+                onClick={handleOpenScannerForInventory}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-orange-500/20 shrink-0 transition-all cursor-pointer"
+                title="Pindai QR Code Label Material untuk update stok instan secara otomatis"
               >
-                <Scan className="w-4 h-4 text-orange-400" /> Scanner QR
+                <QrCode className="w-4 h-4" /> Pindai QR Code
+              </button>
+
+              <button
+                onClick={() => setIsBatchPrintOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 shrink-0 transition-all cursor-pointer"
+                title="Cetak Stiker Label QR & Barcode untuk Semua Material"
+              >
+                <Printer className="w-4 h-4 text-slate-500 dark:text-slate-400" /> Cetak Label QR
               </button>
 
               {canEdit && (
@@ -364,15 +462,15 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="bg-slate-900 text-white border-b border-slate-800 font-bold uppercase text-[10px]">
-                    <th className="py-3.5 px-3 text-center w-16">QR Tag</th>
-                    <th className="py-3.5 px-3">Kode / Nama Material</th>
+                    <th className="py-3.5 px-3 text-center w-16">Tag</th>
+                    <th className="py-3.5 px-3">Kode, Barcode &amp; Nama Material</th>
                     <th className="py-3.5 px-3 text-right">Total Terima</th>
                     <th className="py-3.5 px-3 text-right">Terpakai</th>
                     <th className="py-3.5 px-3 text-right">Sisa Stok</th>
                     <th className="py-3.5 px-3 text-right">Harga Satuan</th>
-                    <th className="py-3.5 px-3">Supplier</th>
+                    <th className="py-3.5 px-3">Supplier &amp; Lokasi</th>
                     <th className="py-3.5 px-3 text-center">Status Stok</th>
-                    <th className="py-3.5 px-3 text-center w-28">Kelola QR</th>
+                    <th className="py-3.5 px-3 text-center w-28">Label Barcode</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -387,16 +485,29 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                           <button
                             onClick={() => setSelectedQrMaterial(m)}
                             className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-orange-500 hover:bg-orange-500/10 text-slate-700 dark:text-slate-300 transition-all inline-flex items-center justify-center group cursor-pointer"
-                            title="Buka QR Label Badge"
+                            title="Buka QR & Barcode Tag"
                           >
                             <QRCodeSVG value={qrValue} size={28} level="M" />
                           </button>
                         </td>
 
-                        {/* Name & ID */}
+                        {/* Name, ID & Barcode */}
                         <td className="py-3 px-3">
-                          <span className="font-mono text-[10px] text-orange-500 font-bold block">{m.id}</span>
-                          <span className="font-bold text-slate-900 dark:text-white text-xs">{m.name}</span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-[10px] text-orange-500 font-bold">{m.id}</span>
+                            {m.barcode && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-950/40 text-[9px] font-mono font-bold text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800/60" title={`Barcode: ${m.barcode}`}>
+                                <BarcodeIcon className="w-2.5 h-2.5" />
+                                {m.barcode}
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-bold text-slate-900 dark:text-white text-xs block mt-0.5">{m.name}</span>
+                          <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 flex-wrap">
+                            {m.category && <span className="text-slate-500">{m.category}</span>}
+                            {m.locationRack && <span className="text-amber-600 dark:text-amber-400 font-medium">📍 {m.locationRack}</span>}
+                            {m.batchNumber && <span className="font-mono text-slate-400">Lot: {m.batchNumber}</span>}
+                          </div>
                         </td>
 
                         {/* Total Received */}
@@ -417,8 +528,13 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                         {/* Price per unit */}
                         <td className="py-3 px-3 text-right font-semibold">{formatIDR(m.pricePerUnit)}</td>
 
-                        {/* Supplier */}
-                        <td className="py-3 px-3 text-slate-500 dark:text-slate-400 text-[11px]">{m.supplier}</td>
+                        {/* Supplier & Location */}
+                        <td className="py-3 px-3">
+                          <span className="text-slate-700 dark:text-slate-300 font-medium text-[11px] block">{m.supplier}</span>
+                          {m.leadTimeDays && (
+                            <span className="text-[10px] text-slate-400">Lead time: {m.leadTimeDays} hr</span>
+                          )}
+                        </td>
 
                         {/* Status */}
                         <td className="py-3 px-3 text-center">
@@ -433,7 +549,7 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                           )}
                         </td>
 
-                        {/* QR Action Button */}
+                        {/* QR & Barcode Action Button */}
                         <td className="py-3 px-3 text-center">
                           <button
                             onClick={() => setSelectedQrMaterial(m)}
@@ -547,7 +663,7 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                 {(activeCodeTab === 'both' || activeCodeTab === 'barcode') && (
                   <div id={`barcode-svg-${selectedQrMaterial.id}`} className="w-full flex justify-center overflow-hidden py-1">
                     <BarcodeSVG
-                      value={`FORESYNDO-MAT:${selectedQrMaterial.id}`}
+                      value={selectedQrMaterial.barcode || selectedQrMaterial.id}
                       height={45}
                       showText={true}
                       barColor="#0f172a"
@@ -555,9 +671,9 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                   </div>
                 )}
 
-                <div className="text-center">
+                <div className="text-center space-y-0.5">
                   <span className="font-mono text-xs font-black text-slate-900 block">
-                    ID MATERIAL: {selectedQrMaterial.id}
+                    ID: {selectedQrMaterial.id} {selectedQrMaterial.barcode ? `| BRC: ${selectedQrMaterial.barcode}` : ''}
                   </span>
                   <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">
                     OFFICIAL CONSTRUCTION MATERIAL TAG
@@ -689,204 +805,257 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
         </div>
       )}
 
-      {/* ENHANCED QR & BARCODE SCANNER SIMULATOR MODAL */}
-      {isScannerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl relative space-y-5">
+      {/* REAL CAMERA & FILE HTML5 QR & BARCODE SCANNER MODAL */}
+      <MaterialBarcodeScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        materials={materials}
+        onSelectMaterial={(mat) => {
+          setSelectedQrMaterial(mat);
+        }}
+        onQuickStockAdjust={handleQuickStockAdjust}
+        onAddMaterialWithBarcode={handleOpenAddModalWithBarcode}
+        targetContext={scannerTargetContext}
+        onFillBarcode={handleFillBarcodeToForm}
+      />
+
+      {/* BATCH BARCODE PRINT MODAL */}
+      <MaterialBatchBarcodePrintModal
+        isOpen={isBatchPrintOpen}
+        onClose={() => setIsBatchPrintOpen(false)}
+        materials={materials}
+      />
+
+      {/* Add Material Modal with SC Barcode & Auto-Generation */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-xl p-6 shadow-2xl relative my-auto max-h-[92vh] flex flex-col space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500">
-                  <Camera className="w-5 h-5" />
+                  <Boxes className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-base font-black text-slate-900 dark:text-white">
-                    Scanner QR &amp; Barcode Material
+                    Tambah Material Konstruksi Baru
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Mode Kamera Aktif | Auto-Detect CODE128 &amp; QR Tag
+                    Input spesifikasi material, registrasi barcode &amp; penetapan lokasi rak site
                   </p>
                 </div>
               </div>
               <button
-                onClick={() => setIsScannerOpen(false)}
-                className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Simulated Viewfinder with Controls */}
-            <div className="relative h-64 bg-slate-950 rounded-2xl overflow-hidden border-2 border-orange-500/50 flex flex-col items-center justify-center text-center p-4">
-              {/* Corner Frame Accents */}
-              <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-orange-500"></div>
-              <div className="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2 border-orange-500"></div>
-              <div className="absolute bottom-3 left-3 w-6 h-6 border-b-2 border-l-2 border-orange-500"></div>
-              <div className="absolute bottom-3 right-3 w-6 h-6 border-b-2 border-r-2 border-orange-500"></div>
-
-              {/* Top Camera Controls Overlay */}
-              <div className="absolute top-3 inset-x-4 flex justify-between items-center z-20">
-                <span className="px-2.5 py-0.5 rounded-full bg-red-500/80 text-white font-mono text-[9px] font-black uppercase flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-white animate-ping"></span> LIVE CAMERA
-                </span>
-                <button
-                  onClick={() =>
-                    setSimulatedCameraFacing(simulatedCameraFacing === 'environment' ? 'user' : 'environment')
-                  }
-                  className="px-2 py-1 rounded-lg bg-slate-900/80 border border-slate-700 text-slate-200 text-[10px] font-bold flex items-center gap-1 hover:bg-slate-800"
-                >
-                  <RefreshCw className="w-3 h-3 text-orange-400" />
-                  {simulatedCameraFacing === 'environment' ? 'Kamera Belakang' : 'Kamera Depan'}
-                </button>
-              </div>
-
-              {/* Animated Laser Scanning Beam */}
-              <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-orange-500 to-transparent shadow-[0_0_15px_#f97316] animate-pulse top-1/2 -translate-y-1/2"></div>
-
-              {isScanning ? (
-                <div className="space-y-2 z-10">
-                  <RefreshCw className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
-                  <span className="text-xs font-bold text-white block">Memindai Kode Material...</span>
+            <form onSubmit={handleAddSubmit} className="space-y-4 text-xs overflow-y-auto pr-1">
+              {/* Barcode Section with Real Scanner Button */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <BarcodeIcon className="w-4 h-4 text-sky-500" />
+                    Kode Barcode / EAN-13 / Code128
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-medium">Opsional (Bisa auto-generate)</span>
                 </div>
-              ) : (
-                <div className="space-y-2 z-10">
-                  <div className="flex items-center justify-center gap-3">
-                    <QrCode className="w-10 h-10 text-orange-400" />
-                    <BarcodeIcon className="w-10 h-10 text-sky-400" />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-300 block max-w-xs mx-auto">
-                    Arahkan kamera ke QR Code atau Barcode 1D material, atau ketik ID di bawah
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Manual Code Input & Fast Select */}
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Ketik Kode/ID (Contoh: MAT-01 atau FORESYNDO-MAT:MAT-01)..."
-                  value={scannedInput}
-                  onChange={(e) => setScannedInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && scannedInput.trim()) {
-                      handleSimulateScan(scannedInput.trim());
-                    }
-                  }}
-                  className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-900 dark:text-white"
-                />
-                <button
-                  onClick={() => scannedInput.trim() && handleSimulateScan(scannedInput.trim())}
-                  className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs flex items-center gap-1 shadow-md"
-                >
-                  <Scan className="w-4 h-4" /> Cari
-                </button>
-              </div>
-
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                Atau Pilih dari Daftar Material Aktif:
-              </label>
-
-              <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                {materials.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => handleSimulateScan(m.id)}
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-orange-500/10 hover:border-orange-500/30 border border-slate-200 dark:border-slate-700/70 text-left flex items-center justify-between transition-all group"
-                  >
-                    <div>
-                      <span className="font-mono text-[10px] text-orange-500 font-bold block">{m.id}</span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-orange-500">
-                        {m.name}
-                      </span>
-                    </div>
-                    <span className="text-xs font-black text-emerald-500">
-                      {m.stockRemaining} {m.unit}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Material Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl relative">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Tambah Material Konstruksi Baru</h3>
-
-            <form onSubmit={handleAddSubmit} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold mb-1">Nama Material</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: Besi Ulur D16 (12m)"
-                  value={newMat.name}
-                  onChange={(e) => setNewMat({ ...newMat, name: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border text-xs text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold mb-1">Volume Terima Total</label>
-                  <input
-                    type="number"
-                    value={newMat.volumeTotal}
-                    onChange={(e) => setNewMat({ ...newMat, volumeTotal: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border text-xs text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold mb-1">Satuan</label>
+                <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Sak, m³, Batang, m²"
-                    value={newMat.unit}
-                    onChange={(e) => setNewMat({ ...newMat, unit: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border text-xs text-slate-900 dark:text-white"
+                    placeholder="Contoh: 899123456789 atau scan label kemasan..."
+                    value={newMat.barcode || ''}
+                    onChange={(e) => setNewMat({ ...newMat, barcode: e.target.value })}
+                    className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                   />
+                  <button
+                    type="button"
+                    onClick={handleOpenScannerForForm}
+                    className="px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0"
+                    title="Scan barcode dari kamera HP/laptop dan otomatis masukkan ke form"
+                  >
+                    <Camera className="w-3.5 h-3.5" /> SC Barcode
+                  </button>
+                  <button
+                    type="button"
+                    onClick={generateRandomBarcode}
+                    className="px-3 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center gap-1 transition-all cursor-pointer shrink-0"
+                    title="Buat nomor barcode standar EAN otomatis"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Auto
+                  </button>
+                </div>
+                {newMat.barcode && (
+                  <div className="pt-1 flex items-center gap-2">
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                      <Check className="w-3 h-3" /> Barcode terdeteksi:
+                    </span>
+                    <span className="font-mono text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                      {newMat.barcode}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Material Name & Category */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Nama Material <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Semen Gresik PPC 50kg"
+                    value={newMat.name}
+                    onChange={(e) => setNewMat({ ...newMat, name: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Kategori Material
+                  </label>
+                  <select
+                    value={newMat.category || 'Struktur & Sipil'}
+                    onChange={(e) => setNewMat({ ...newMat, category: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="Struktur & Sipil">Struktur &amp; Sipil (Besi, Semen, Pasir)</option>
+                    <option value="Arsitektur">Arsitektur (Bata, Granit, Cat)</option>
+                    <option value="MEP Plumbing">MEP - Plumbing &amp; Sanitasi</option>
+                    <option value="MEP Listrik">MEP - Elektrikal &amp; Kabel</option>
+                    <option value="MEP Fire Fighting">MEP - Proteksi Kebakaran</option>
+                    <option value="Finishing">Finishing &amp; Interior</option>
+                    <option value="Lainnya">Lain-lain / General</option>
+                  </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Volume, Unit & Price */}
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1">Harga Satuan (Rp)</label>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Volume Total Terima
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newMat.volumeTotal}
+                    onChange={(e) => setNewMat({ ...newMat, volumeTotal: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Satuan
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Sak, m³, Batang, m², Kg"
+                    value={newMat.unit}
+                    onChange={(e) => setNewMat({ ...newMat, unit: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Harga Satuan (Rp)
+                  </label>
                   <input
                     type="number"
                     value={newMat.pricePerUnit}
                     onChange={(e) => setNewMat({ ...newMat, pricePerUnit: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border text-xs text-slate-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold mb-1">Nama Supplier</label>
-                  <input
-                    type="text"
-                    placeholder="PT. Krakatau Steel Jaya"
-                    value={newMat.supplier}
-                    onChange={(e) => setNewMat({ ...newMat, supplier: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border text-xs text-slate-900 dark:text-white"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3">
+              {/* Supplier & Location Rack */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Nama Supplier / Vendor
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="PT Semen Indonesia / Distributor Majalengka"
+                    value={newMat.supplier}
+                    onChange={(e) => setNewMat({ ...newMat, supplier: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Lokasi Rak / Gudang Site
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Gudang A - Rak B2 / Lapangan Terbuka"
+                    value={newMat.locationRack || ''}
+                    onChange={(e) => setNewMat({ ...newMat, locationRack: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Batch Number & Reorder Alerts */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    No. Batch / Lot
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="LOT-202609-01"
+                    value={newMat.batchNumber || ''}
+                    onChange={(e) => setNewMat({ ...newMat, batchNumber: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Batas Min. Stok (Alert)
+                  </label>
+                  <input
+                    type="number"
+                    value={newMat.minAlertStock}
+                    onChange={(e) => setNewMat({ ...newMat, minAlertStock: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                    Lead Time (Hari)
+                  </label>
+                  <input
+                    type="number"
+                    value={newMat.leadTimeDays || 3}
+                    onChange={(e) => setNewMat({ ...newMat, leadTimeDays: parseInt(e.target.value) || 1 })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 font-semibold text-slate-700 dark:text-slate-300"
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold text-slate-700 dark:text-slate-300 transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold"
+                  className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-black flex items-center gap-1.5 shadow-md shadow-orange-500/20 transition-all cursor-pointer"
                 >
-                  Simpan Material
+                  <Check className="w-4 h-4" /> Simpan &amp; Daftarkan Material
                 </button>
               </div>
             </form>

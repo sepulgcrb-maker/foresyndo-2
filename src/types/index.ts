@@ -218,6 +218,9 @@ export interface MaterialItem {
   dailyBurnRate?: number;
   relatedSectorNos?: number[];
   category?: string;
+  barcode?: string;
+  batchNumber?: string;
+  locationRack?: string;
 }
 
 export interface MaterialProjection {
