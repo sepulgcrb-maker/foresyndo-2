@@ -20,6 +20,8 @@ import {
   Zap,
   History,
   Check,
+  Lock,
+  ShieldCheck,
 } from 'lucide-react';
 import { formatIDR } from '../../utils/calculations';
 
@@ -252,6 +254,27 @@ export const MaterialBarcodeScannerModal: React.FC<MaterialBarcodeScannerModalPr
     setMatchedMaterial(match);
 
     if (match) {
+      const isApproved = (match.approvalStatus || 'Disetujui') === 'Disetujui';
+
+      // Check consultant approval requirement: Must be approved before entering warehouse stock!
+      if (!isApproved) {
+        playBeep();
+        if (navigator.vibrate) navigator.vibrate([120, 80, 120]);
+
+        setAutoFlashBadge({
+          title: match.name,
+          detail: `⚠️ DITAHAN: Belum Disetujui Konsultan MK (Izin Masuk Gudang & Barcode Belum Sah)`,
+          newStock: match.stockRemaining,
+          unit: match.unit,
+          type: 'use',
+        });
+
+        setTimeout(() => {
+          setAutoFlashBadge(null);
+        }, 3800);
+        return;
+      }
+
       // Auto-Update Mode: Immediately adjust stock without requiring extra confirmation clicks!
       if (autoUpdateMode && onQuickStockAdjust) {
         playSuccessChime();
@@ -857,10 +880,22 @@ export const MaterialBarcodeScannerModal: React.FC<MaterialBarcodeScannerModalPr
               <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <span className="font-mono text-[10px] text-orange-500 font-black block">
-                      {matchedMaterial.id} • {matchedMaterial.category || 'Konstruksi'}
-                    </span>
-                    <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-mono text-[10px] text-orange-500 font-black block">
+                        {matchedMaterial.id} • {matchedMaterial.category || 'Konstruksi'}
+                      </span>
+                      {matchedMaterial.approvalStatus === 'Menunggu Approval' && (
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[9px] font-black inline-flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5" /> Butuh Approval MK
+                        </span>
+                      )}
+                      {matchedMaterial.approvalStatus === 'Ditolak' && (
+                        <span className="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[9px] font-black">
+                          Ditolak MK
+                        </span>
+                      )}
+                    </div>
+                    <h4 className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
                       {matchedMaterial.name}
                     </h4>
                     <span className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -876,77 +911,103 @@ export const MaterialBarcodeScannerModal: React.FC<MaterialBarcodeScannerModalPr
                   </div>
                 </div>
 
-                {adjustSuccessMsg && (
-                  <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-bold text-center">
-                    {adjustSuccessMsg}
+                {(matchedMaterial.approvalStatus || 'Disetujui') !== 'Disetujui' ? (
+                  /* Blocked: Needs Consultant Approval */
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-2">
+                    <div className="flex items-center gap-1.5 font-black text-xs text-amber-700 dark:text-amber-300">
+                      <Lock className="w-4 h-4 text-amber-600" />
+                      <span>Izin Masuk Gudang Tertahan (Menunggu Approval Konsultan MK)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Sesuai SOP pengawasan mutu, material belum boleh ditempatkan di rak gudang dan barcode belum sah sebelum disetujui oleh Konsultan MK.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectMaterial(matchedMaterial);
+                        stopCamera();
+                        onClose();
+                      }}
+                      className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all"
+                    >
+                      <ShieldCheck className="w-4 h-4" /> Buka Tinjauan &amp; Form Approval Konsultan MK
+                    </button>
                   </div>
-                )}
-
-                {/* Direct Manual Adjustment Controls */}
-                {onQuickStockAdjust && !autoUpdateMode && (
-                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                      Konfirmasi Update Stok:
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <div className="flex rounded-lg overflow-hidden border border-slate-300 dark:border-slate-700">
-                        <button
-                          type="button"
-                          onClick={() => setAdjustType('use')}
-                          className={`px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
-                            adjustType === 'use'
-                              ? 'bg-orange-500 text-white'
-                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                          }`}
-                        >
-                          - Pemakaian
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAdjustType('add')}
-                          className={`px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
-                            adjustType === 'add'
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                          }`}
-                        >
-                          + Pasokan Baru
-                        </button>
+                ) : (
+                  <>
+                    {adjustSuccessMsg && (
+                      <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-bold text-center">
+                        {adjustSuccessMsg}
                       </div>
+                    )}
 
-                      <input
-                        type="number"
-                        min={1}
-                        value={adjustAmount}
-                        onChange={(e) => setAdjustAmount(parseFloat(e.target.value) || 0)}
-                        className="w-20 px-2 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
-                      />
+                    {/* Direct Manual Adjustment Controls */}
+                    {onQuickStockAdjust && !autoUpdateMode && (
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                          Konfirmasi Update Stok:
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <div className="flex rounded-lg overflow-hidden border border-slate-300 dark:border-slate-700">
+                            <button
+                              type="button"
+                              onClick={() => setAdjustType('use')}
+                              className={`px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                                adjustType === 'use'
+                                  ? 'bg-orange-500 text-white'
+                                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                              }`}
+                            >
+                              - Pemakaian
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAdjustType('add')}
+                              className={`px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                                adjustType === 'add'
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                              }`}
+                            >
+                              + Pasokan Baru
+                            </button>
+                          </div>
 
+                          <input
+                            type="number"
+                            min={1}
+                            value={adjustAmount}
+                            onChange={(e) => setAdjustAmount(parseFloat(e.target.value) || 0)}
+                            className="w-20 px-2 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={handleApplyManualAdjust}
+                            className="flex-1 py-1.5 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                          >
+                            <PackageCheck className="w-3.5 h-3.5" />
+                            Simpan Stok
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-1">
                       <button
-                        type="button"
-                        onClick={handleApplyManualAdjust}
-                        className="flex-1 py-1.5 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                        onClick={() => {
+                          onSelectMaterial(matchedMaterial);
+                          stopCamera();
+                          onClose();
+                        }}
+                        className="flex-1 py-2 px-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
                       >
-                        <PackageCheck className="w-3.5 h-3.5" />
-                        Simpan Stok
+                        <span>Buka Detail &amp; Cetak QR Label</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                  </div>
+                  </>
                 )}
-
-                <div className="flex gap-2 pt-1">
-                  <button
-                    onClick={() => {
-                      onSelectMaterial(matchedMaterial);
-                      stopCamera();
-                      onClose();
-                    }}
-                    className="flex-1 py-2 px-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
-                  >
-                    <span>Buka Detail &amp; Cetak QR Label</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
               </div>
             ) : (
               /* If No Match Found */

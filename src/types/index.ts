@@ -202,6 +202,8 @@ export interface PaymentTerm {
   approvedBy?: string;
 }
 
+export type MaterialApprovalStatus = 'Menunggu Approval' | 'Disetujui' | 'Ditolak';
+
 export interface MaterialItem {
   id: string;
   name: string;
@@ -221,6 +223,15 @@ export interface MaterialItem {
   barcode?: string;
   batchNumber?: string;
   locationRack?: string;
+  // Alur Approval Konsultan MK sebelum masuk gudang & terbit barcode
+  approvalStatus?: MaterialApprovalStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  approvalNotes?: string;
+  rejectionReason?: string;
+  inspectionDocRef?: string;
+  submissionDate?: string;
+  submittedBy?: string;
 }
 
 export interface MaterialProjection {

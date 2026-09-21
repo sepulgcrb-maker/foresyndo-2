@@ -27,6 +27,12 @@ import {
   Sparkles,
   TrendingDown,
   Flame,
+  ShieldCheck,
+  ShieldAlert,
+  Lock,
+  FileCheck2,
+  Clock,
+  Ban,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { BarcodeSVG } from '../common/BarcodeSVG';
@@ -34,6 +40,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cart
 import { formatIDR } from '../../utils/calculations';
 import { MaterialBarcodeScannerModal } from './MaterialBarcodeScannerModal';
 import { MaterialBatchBarcodePrintModal } from './MaterialBatchBarcodePrintModal';
+import { MaterialApprovalModal } from './MaterialApprovalModal';
 
 interface MaterialMonitoringProps {
   materials: MaterialItem[];
@@ -59,6 +66,14 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isBatchPrintOpen, setIsBatchPrintOpen] = useState(false);
   
+  // Consultant Approval State & Modal
+  const [selectedApprovalMaterial, setSelectedApprovalMaterial] = useState<MaterialItem | null>(null);
+  const [approvalFilter, setApprovalFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all');
+  const [newMatDirectApproval, setNewMatDirectApproval] = useState<boolean>(
+    userRole === 'Konsultan' || userRole === 'Admin' || userRole === 'Owner' || userRole === 'Direktur'
+  );
+  const [newMatBapmRef, setNewMatBapmRef] = useState<string>('');
+
   // Barcode & QR Code Modals & State
   const [selectedQrMaterial, setSelectedQrMaterial] = useState<MaterialItem | null>(null);
   const [activeCodeTab, setActiveCodeTab] = useState<'qr' | 'barcode' | 'both'>('both');
@@ -70,6 +85,9 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
   const [adjustAmount, setAdjustAmount] = useState<number>(10);
   const [adjustNotes, setAdjustNotes] = useState<string>('');
   const [updateSuccessMsg, setUpdateSuccessMsg] = useState<string>('');
+
+  const canApprove =
+    userRole === 'Konsultan' || userRole === 'Admin' || userRole === 'Owner' || userRole === 'Direktur';
 
   const [newMat, setNewMat] = useState<Omit<MaterialItem, 'id'>>({
     name: '',
@@ -174,16 +192,123 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
       userRole === 'Direktur' ||
       userRole === 'Admin');
 
-  const filtered = materials.filter(
-    (m) =>
+  // Approval Counts
+  const approvedCount = materials.filter(
+    (m) => (m.approvalStatus || 'Disetujui') === 'Disetujui'
+  ).length;
+  const pendingApprovalCount = materials.filter(
+    (m) => m.approvalStatus === 'Menunggu Approval'
+  ).length;
+  const rejectedCount = materials.filter(
+    (m) => m.approvalStatus === 'Ditolak'
+  ).length;
+
+  const handleApproveMaterial = (
+    materialId: string,
+    data: {
+      approvedBy: string;
+      notes: string;
+      inspectionDocRef: string;
+      locationRack: string;
+    }
+  ) => {
+    const target = materials.find((m) => m.id === materialId);
+    if (!target) return;
+
+    // Issue valid barcode upon consultant approval!
+    const generatedBarcode =
+      target.barcode && target.barcode.length > 5
+        ? target.barcode
+        : `899${Math.floor(100000000 + Math.random() * 900000000)}`;
+
+    const updatedMaterial: MaterialItem = {
+      ...target,
+      approvalStatus: 'Disetujui',
+      approvedBy: data.approvedBy,
+      approvedAt: new Date().toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      approvalNotes: data.notes,
+      inspectionDocRef: data.inspectionDocRef,
+      locationRack: data.locationRack || 'Gudang Utama - Rak A1',
+      barcode: generatedBarcode,
+    };
+
+    onUpdateMaterial(updatedMaterial);
+
+    if (selectedQrMaterial?.id === materialId) {
+      setSelectedQrMaterial(updatedMaterial);
+    }
+
+    if (onAddAuditLog) {
+      onAddAuditLog(
+        'Approval Material Konsultan MK',
+        `Persetujuan masuk gudang & terbit izin barcode: ${target.name} (BAPM: ${data.inspectionDocRef}, Oleh: ${data.approvedBy}, Lokasi: ${updatedMaterial.locationRack})`
+      );
+    }
+  };
+
+  const handleRejectMaterial = (
+    materialId: string,
+    data: {
+      rejectedBy: string;
+      reason: string;
+      inspectionDocRef: string;
+    }
+  ) => {
+    const target = materials.find((m) => m.id === materialId);
+    if (!target) return;
+
+    const updatedMaterial: MaterialItem = {
+      ...target,
+      approvalStatus: 'Ditolak',
+      rejectionReason: data.reason,
+      inspectionDocRef: data.inspectionDocRef,
+      locationRack: 'Area Transit - Retur Supplier (Tidak Masuk Gudang)',
+      barcode: '', // Clear barcode as unauthorized
+    };
+
+    onUpdateMaterial(updatedMaterial);
+
+    if (selectedQrMaterial?.id === materialId) {
+      setSelectedQrMaterial(updatedMaterial);
+    }
+
+    if (onAddAuditLog) {
+      onAddAuditLog(
+        'Penolakan Material Konsultan MK',
+        `Material ${target.name} DITOLAK masuk gudang. Alasan: ${data.reason} (Oleh: ${data.rejectedBy})`
+      );
+    }
+  };
+
+  const filtered = materials.filter((m) => {
+    const matchesSearch =
       m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       m.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
       m.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (m.barcode && m.barcode.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (m.batchNumber && m.batchNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (m.locationRack && m.locationRack.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (m.category && m.category.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+      (m.category && m.category.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    if (!matchesSearch) return false;
+
+    if (approvalFilter === 'approved') {
+      return (m.approvalStatus || 'Disetujui') === 'Disetujui';
+    }
+    if (approvalFilter === 'pending') {
+      return m.approvalStatus === 'Menunggu Approval';
+    }
+    if (approvalFilter === 'rejected') {
+      return m.approvalStatus === 'Ditolak';
+    }
+    return true;
+  });
 
   // Summary Metrics
   const totalValue = materials.reduce((acc, m) => acc + m.stockRemaining * m.pricePerUnit, 0);
@@ -192,20 +317,43 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMat.name) return;
-    
-    // Auto-generate barcode if blank
-    const finalBarcode = newMat.barcode?.trim() || `899${Math.floor(100000000 + Math.random() * 900000000)}`;
 
-    onAddMaterial({
+    const isDirectApproved = newMatDirectApproval && canApprove;
+    const finalBarcode = isDirectApproved
+      ? newMat.barcode?.trim() || `899${Math.floor(100000000 + Math.random() * 900000000)}`
+      : ''; // Barcode will be unlocked upon consultant approval
+
+    const nowStr = new Date().toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const matToAdd: Omit<MaterialItem, 'id'> = {
       ...newMat,
       barcode: finalBarcode,
       stockRemaining: newMat.volumeTotal - newMat.volumeUsed,
-    });
-    
+      approvalStatus: isDirectApproved ? 'Disetujui' : 'Menunggu Approval',
+      approvedBy: isDirectApproved ? 'Konsultan MK (Verifikasi Langsung)' : undefined,
+      approvedAt: isDirectApproved ? nowStr : undefined,
+      inspectionDocRef: isDirectApproved
+        ? newMatBapmRef || `BAPM-MK-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.floor(100 + Math.random() * 900)}`
+        : undefined,
+      submissionDate: new Date().toISOString().split('T')[0],
+      submittedBy: isDirectApproved ? 'Konsultan MK' : 'Tim Logistik Proyek',
+      locationRack: isDirectApproved
+        ? newMat.locationRack || 'Gudang Utama - Rak A1'
+        : 'Area Transit Masuk (Menunggu Approval MK)',
+    };
+
+    onAddMaterial(matToAdd);
+
     if (onAddAuditLog) {
       onAddAuditLog(
-        'Tambah Material Baru',
-        `Menambahkan ${newMat.name} (Barcode: ${finalBarcode}, Stok Awal: ${newMat.volumeTotal} ${newMat.unit})`
+        isDirectApproved ? 'Tambah & Sahkan Material' : 'Pendaftaran Pasokan Material Masuk',
+        `Menambahkan ${newMat.name} (Status: ${isDirectApproved ? 'Disetujui Masuk Gudang' : 'Menunggu Approval Konsultan MK'})`
       );
     }
 
@@ -456,6 +604,86 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
             </div>
           </div>
 
+          {/* Pending Approval SOP Alert Banner */}
+          {pendingApprovalCount > 0 && (
+            <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-amber-900 dark:text-amber-200 shadow-md">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-amber-500 text-white shrink-0 mt-0.5">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                      Prosedur Mutu: {pendingApprovalCount} Pasokan Material Menunggu Approval Konsultan MK
+                    </h4>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white font-black text-[10px] animate-pulse">
+                      WAJIB VERIFIKASI
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
+                    Sesuai instruksi proyek, material sebelum masuk gudang harus mendapatkan verifikasi &amp; approval resmi dari Konsultan Manajemen Konstruksi (MK) sebelum diterbitkan izin barcode dan penempatan rak gudang.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setApprovalFilter('pending')}
+                className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                Lihat Antrean Approval ({pendingApprovalCount})
+              </button>
+            </div>
+          )}
+
+          {/* Approval Filter Bar */}
+          <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-[11px] font-bold text-slate-400 mr-1 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Filter Masuk Gudang:
+              </span>
+              <button
+                onClick={() => setApprovalFilter('all')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                  approvalFilter === 'all'
+                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                Semua ({materials.length})
+              </button>
+              <button
+                onClick={() => setApprovalFilter('approved')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                  approvalFilter === 'approved'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" /> Disetujui Masuk Gudang ({approvedCount})
+              </button>
+              <button
+                onClick={() => setApprovalFilter('pending')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                  approvalFilter === 'pending'
+                    ? 'bg-amber-500 text-white shadow-sm'
+                    : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" /> Menunggu Approval MK ({pendingApprovalCount})
+              </button>
+              <button
+                onClick={() => setApprovalFilter('rejected')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
+                  approvalFilter === 'rejected'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 hover:bg-rose-500/20'
+                }`}
+              >
+                <Ban className="w-3.5 h-3.5" /> Ditolak ({rejectedCount})
+              </button>
+            </div>
+          </div>
+
           {/* Material Table */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
@@ -470,24 +698,37 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                     <th className="py-3.5 px-3 text-right">Harga Satuan</th>
                     <th className="py-3.5 px-3">Supplier &amp; Lokasi</th>
                     <th className="py-3.5 px-3 text-center">Status Stok</th>
-                    <th className="py-3.5 px-3 text-center w-28">Label Barcode</th>
+                    <th className="py-3.5 px-3 text-center">Approval Konsultan MK</th>
+                    <th className="py-3.5 px-3 text-center w-28">Izin Barcode</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {filtered.map((m) => {
                     const isLow = m.stockRemaining <= m.minAlertStock;
                     const qrValue = `FORESYNDO-MAT:${m.id}`;
+                    const isApproved = (m.approvalStatus || 'Disetujui') === 'Disetujui';
 
                     return (
                       <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                         {/* QR Code Icon Thumbnail */}
                         <td className="py-3 px-3 text-center">
                           <button
-                            onClick={() => setSelectedQrMaterial(m)}
-                            className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-orange-500 hover:bg-orange-500/10 text-slate-700 dark:text-slate-300 transition-all inline-flex items-center justify-center group cursor-pointer"
-                            title="Buka QR & Barcode Tag"
+                            onClick={() => {
+                              if (isApproved) {
+                                setSelectedQrMaterial(m);
+                              } else {
+                                setSelectedApprovalMaterial(m);
+                              }
+                            }}
+                            className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-orange-500 hover:bg-orange-500/10 text-slate-700 dark:text-slate-300 transition-all inline-flex items-center justify-center group cursor-pointer relative"
+                            title={isApproved ? 'Buka QR & Barcode Tag' : 'Barcode Terkunci - Butuh Approval Konsultan MK'}
                           >
                             <QRCodeSVG value={qrValue} size={28} level="M" />
+                            {!isApproved && (
+                              <div className="absolute inset-0 bg-slate-900/60 rounded-xl flex items-center justify-center text-amber-400">
+                                <Lock className="w-3.5 h-3.5" />
+                              </div>
+                            )}
                           </button>
                         </td>
 
@@ -495,17 +736,25 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-mono text-[10px] text-orange-500 font-bold">{m.id}</span>
-                            {m.barcode && (
+                            {m.barcode && isApproved ? (
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-950/40 text-[9px] font-mono font-bold text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800/60" title={`Barcode: ${m.barcode}`}>
                                 <BarcodeIcon className="w-2.5 h-2.5" />
                                 {m.barcode}
                               </span>
-                            )}
+                            ) : !isApproved ? (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-[9px] font-mono font-bold text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60">
+                                <Lock className="w-2.5 h-2.5" /> Barcode Terkunci
+                              </span>
+                            ) : null}
                           </div>
                           <span className="font-bold text-slate-900 dark:text-white text-xs block mt-0.5">{m.name}</span>
                           <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 flex-wrap">
                             {m.category && <span className="text-slate-500">{m.category}</span>}
-                            {m.locationRack && <span className="text-amber-600 dark:text-amber-400 font-medium">📍 {m.locationRack}</span>}
+                            {m.locationRack && (
+                              <span className={isApproved ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-slate-400 italic'}>
+                                📍 {m.locationRack}
+                              </span>
+                            )}
                             {m.batchNumber && <span className="font-mono text-slate-400">Lot: {m.batchNumber}</span>}
                           </div>
                         </td>
@@ -549,14 +798,67 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                           )}
                         </td>
 
+                        {/* Consultant MK Approval Status Column */}
+                        <td className="py-3 px-3 text-center">
+                          {m.approvalStatus === 'Menunggu Approval' ? (
+                            <div className="inline-flex flex-col items-center gap-1">
+                              <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-black inline-flex items-center gap-1">
+                                <Clock className="w-3 h-3" /> Menunggu MK
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedApprovalMaterial(m)}
+                                className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-[10px] flex items-center gap-1 shadow-sm cursor-pointer transition-all whitespace-nowrap"
+                              >
+                                <ShieldCheck className="w-3 h-3" />
+                                {canApprove ? 'Review & Approve' : 'Lihat Status MK'}
+                              </button>
+                            </div>
+                          ) : m.approvalStatus === 'Ditolak' ? (
+                            <div className="inline-flex flex-col items-center gap-0.5">
+                              <span className="px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[10px] font-black inline-flex items-center gap-1">
+                                <Ban className="w-3 h-3" /> Ditolak MK
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedApprovalMaterial(m)}
+                                className="text-[9px] text-rose-600 hover:underline cursor-pointer font-bold mt-0.5"
+                              >
+                                Detail Alasan
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="inline-flex flex-col items-center gap-0.5">
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold inline-flex items-center gap-1">
+                                <ShieldCheck className="w-3 h-3" /> Izin Gudang Sah
+                              </span>
+                              <span className="text-[9px] text-slate-400 font-mono">
+                                {m.inspectionDocRef || 'BAPM-MK'}
+                              </span>
+                            </div>
+                          )}
+                        </td>
+
                         {/* QR & Barcode Action Button */}
                         <td className="py-3 px-3 text-center">
-                          <button
-                            onClick={() => setSelectedQrMaterial(m)}
-                            className="px-2.5 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500 text-orange-600 hover:text-white font-bold text-[11px] flex items-center justify-center gap-1 border border-orange-500/20 transition-all w-full cursor-pointer"
-                          >
-                            <QrCode className="w-3.5 h-3.5" /> Label &amp; Stok
-                          </button>
+                          {m.approvalStatus === 'Menunggu Approval' ? (
+                            <button
+                              onClick={() => setSelectedApprovalMaterial(m)}
+                              className="px-2 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500 text-amber-700 hover:text-white font-bold text-[10px] flex items-center justify-center gap-1 border border-amber-500/30 transition-all w-full cursor-pointer"
+                              title="Barcode belum aktif sebelum disetujui Konsultan MK"
+                            >
+                              <Lock className="w-3 h-3 text-amber-600" /> Barcode Terkunci
+                            </button>
+                          ) : m.approvalStatus === 'Ditolak' ? (
+                            <span className="text-[10px] text-slate-400 italic">Izin Dibatalkan</span>
+                          ) : (
+                            <button
+                              onClick={() => setSelectedQrMaterial(m)}
+                              className="px-2.5 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500 text-orange-600 hover:text-white font-bold text-[11px] flex items-center justify-center gap-1 border border-orange-500/20 transition-all w-full cursor-pointer"
+                            >
+                              <QrCode className="w-3.5 h-3.5" /> Label &amp; Stok
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -640,6 +942,67 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                 <BarcodeIcon className="w-3.5 h-3.5" /> Barcode 1D (CODE128)
               </button>
             </div>
+
+            {/* Approval Status Header Indicator */}
+            {selectedQrMaterial.approvalStatus === 'Menunggu Approval' ? (
+              <div className="p-4 rounded-2xl bg-amber-500/15 border-2 border-amber-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 dark:text-amber-200 print:hidden">
+                <div className="flex items-start gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-500 text-white shrink-0 mt-0.5">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+                      Material Menunggu Approval Konsultan MK
+                    </h4>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
+                      Material ini belum disahkan masuk gudang. Stiker barcode resmi terkunci sampai diverifikasi dan disetujui oleh Konsultan MK.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = selectedQrMaterial;
+                    setSelectedQrMaterial(null);
+                    setSelectedApprovalMaterial(target);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs flex items-center gap-1.5 shadow-md shrink-0 cursor-pointer"
+                >
+                  <ShieldCheck className="w-4 h-4" /> Buka Form Approval MK
+                </button>
+              </div>
+            ) : selectedQrMaterial.approvalStatus === 'Ditolak' ? (
+              <div className="p-4 rounded-2xl bg-rose-500/15 border-2 border-rose-500/40 flex items-center justify-between gap-3 text-rose-900 dark:text-rose-200 print:hidden">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-rose-600 text-white shrink-0">
+                    <Ban className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-rose-700 dark:text-rose-300 uppercase tracking-wider">
+                      Material Ditolak Konsultan MK (Izin Masuk Dibatalkan)
+                    </h4>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
+                      Alasan: {selectedQrMaterial.rejectionReason || 'Spesifikasi tidak sesuai standar proyek'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 flex flex-wrap items-center justify-between gap-2 text-xs print:hidden">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-semibold">
+                    Disetujui Masuk Gudang oleh: <strong>{selectedQrMaterial.approvedBy || 'Konsultan MK'}</strong>
+                    {selectedQrMaterial.approvedAt ? ` (${selectedQrMaterial.approvedAt})` : ''}
+                  </span>
+                </div>
+                {selectedQrMaterial.inspectionDocRef && (
+                  <span className="font-mono text-[10px] bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-emerald-500/30">
+                    Ref BAPM: {selectedQrMaterial.inspectionDocRef}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Printable Badge Asset Tag Layout */}
             <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 text-white border border-slate-800 shadow-xl grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
@@ -727,79 +1090,107 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
 
             {/* Quick Stock Update Form (Site Manager & Admin) */}
             {canEdit && (
-              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-4 print:hidden">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <Edit3 className="w-4 h-4 text-orange-500" /> Pembaruan Stok Lapangan Langsung
-                  </h4>
-                  {updateSuccessMsg && (
-                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                      <Check className="w-3.5 h-3.5" /> {updateSuccessMsg}
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
+              selectedQrMaterial.approvalStatus === 'Menunggu Approval' ? (
+                <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-2 print:hidden">
+                  <div className="flex items-center gap-2 font-bold text-xs">
+                    <Lock className="w-4 h-4 text-amber-600" />
+                    <span>Pencatatan Stok Gudang Ditangguhkan</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Sesuai instruksi proyek, material ini berstatus <strong>Menunggu Approval Konsultan MK</strong>. Pembaruan stok dan pencatatan pemakaian lapangan baru dapat dilakukan setelah material diverifikasi &amp; disahkan masuk gudang.
+                  </p>
                   <button
                     type="button"
-                    onClick={() => setAdjustType('use')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
-                      adjustType === 'use'
-                        ? 'bg-orange-500 text-white border-orange-600 shadow-md'
-                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                    }`}
+                    onClick={() => {
+                      const target = selectedQrMaterial;
+                      setSelectedQrMaterial(null);
+                      setSelectedApprovalMaterial(target);
+                    }}
+                    className="mt-1 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
                   >
-                    - Catat Pemakaian
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAdjustType('add')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
-                      adjustType === 'add'
-                        ? 'bg-emerald-600 text-white border-emerald-700 shadow-md'
-                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                    }`}
-                  >
-                    + Terima Stok Baru
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAdjustType('set')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
-                      adjustType === 'set'
-                        ? 'bg-blue-600 text-white border-blue-700 shadow-md'
-                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                    }`}
-                  >
-                    Set Stok Sisa
+                    <ShieldCheck className="w-3.5 h-3.5" /> Buka Menu Verifikasi MK
                   </button>
                 </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                      Jumlah {adjustType === 'use' ? 'Pemakaian' : adjustType === 'add' ? 'Tambahan Pasokan' : 'Stok Baru'} ({selectedQrMaterial.unit})
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={adjustAmount}
-                      onChange={(e) => setAdjustAmount(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white"
-                    />
+              ) : selectedQrMaterial.approvalStatus === 'Ditolak' ? (
+                <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs print:hidden flex items-center gap-2">
+                  <Ban className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>Material ini ditolak oleh Konsultan MK dan tidak diizinkan masuk gudang proyek.</span>
+                </div>
+              ) : (
+                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-4 print:hidden">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <Edit3 className="w-4 h-4 text-orange-500" /> Pembaruan Stok Lapangan Langsung
+                    </h4>
+                    {updateSuccessMsg && (
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                        <Check className="w-3.5 h-3.5" /> {updateSuccessMsg}
+                      </span>
+                    )}
                   </div>
 
-                  <div className="self-end">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
-                      onClick={() => handleApplyStockAdjustment(selectedQrMaterial)}
-                      className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-orange-500/20 transition-all"
+                      onClick={() => setAdjustType('use')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+                        adjustType === 'use'
+                          ? 'bg-orange-500 text-white border-orange-600 shadow-md'
+                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      }`}
                     >
-                      <PackageCheck className="w-4 h-4" /> Simpan Stok
+                      - Catat Pemakaian
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdjustType('add')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+                        adjustType === 'add'
+                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-md'
+                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      + Terima Stok Baru
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdjustType('set')}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+                        adjustType === 'set'
+                          ? 'bg-blue-600 text-white border-blue-700 shadow-md'
+                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      Set Stok Sisa
                     </button>
                   </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                        Jumlah {adjustType === 'use' ? 'Pemakaian' : adjustType === 'add' ? 'Tambahan Pasokan' : 'Stok Baru'} ({selectedQrMaterial.unit})
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={adjustAmount}
+                        onChange={(e) => setAdjustAmount(parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div className="self-end">
+                      <button
+                        type="button"
+                        onClick={() => handleApplyStockAdjustment(selectedQrMaterial)}
+                        className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
+                      >
+                        <PackageCheck className="w-4 h-4" /> Simpan Stok
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )
             )}
           </div>
         </div>
@@ -1043,6 +1434,55 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                 </div>
               </div>
 
+              {/* Quality & Consultant MK Approval Workflow Notice */}
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span className="font-bold text-slate-900 dark:text-white text-xs">
+                    Prosedur Masuk Gudang (Approval Konsultan MK)
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Sesuai ketentuan, material sebelum masuk rak gudang harus mendapatkan verifikasi &amp; approval resmi dari Konsultan MK sebelum stiker barcode dapat diterbitkan dan stok diaktifkan.
+                </p>
+
+                {canApprove ? (
+                  <div className="pt-2 border-t border-amber-500/20 space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newMatDirectApproval}
+                        onChange={(e) => setNewMatDirectApproval(e.target.checked)}
+                        className="w-4 h-4 rounded text-orange-500 focus:ring-orange-500"
+                      />
+                      <span className="font-bold text-amber-800 dark:text-amber-300 text-xs">
+                        Langsung Sahkan Masuk Gudang &amp; Terbitkan Barcode (Otoritas MK / Admin)
+                      </span>
+                    </label>
+
+                    {newMatDirectApproval && (
+                      <div className="pl-6 pt-1">
+                        <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                          Nomor Referensi Berita Acara Penerimaan Material (BAPM):
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Contoh: BAPM-MK-2026-098"
+                          value={newMatBapmRef}
+                          onChange={(e) => setNewMatBapmRef(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-xs text-slate-900 dark:text-white"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-[10px] font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1.5 pt-1">
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    <span>Material ini akan otomatis berstatus <strong>Menunggu Approval</strong> dan barcode ditangguhkan sampai diperiksa oleh Konsultan MK.</span>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
@@ -1061,6 +1501,22 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Material Approval Modal for Konsultan MK */}
+      {selectedApprovalMaterial && (
+        <MaterialApprovalModal
+          material={selectedApprovalMaterial}
+          userRole={userRole}
+          canApprove={canApprove}
+          onClose={() => setSelectedApprovalMaterial(null)}
+          onApprove={handleApproveMaterial}
+          onReject={handleRejectMaterial}
+          onOpenBarcodeTag={(mat) => {
+            setSelectedApprovalMaterial(null);
+            setSelectedQrMaterial(mat);
+          }}
+        />
       )}
     </div>
   );
