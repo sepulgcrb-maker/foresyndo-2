@@ -25,11 +25,13 @@ try {
   if (fs.existsSync(SUPABASE_CONFIG_PATH)) {
     const raw = fs.readFileSync(SUPABASE_CONFIG_PATH, 'utf-8');
     const parsed = JSON.parse(raw);
-    if (parsed.url && !process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL) {
-      process.env.SUPABASE_URL = parsed.url;
+    if (parsed.url) {
+      if (!process.env.SUPABASE_URL) process.env.SUPABASE_URL = parsed.url;
+      if (!process.env.VITE_SUPABASE_URL) process.env.VITE_SUPABASE_URL = parsed.url;
     }
-    if (parsed.anonKey && !process.env.SUPABASE_ANON_KEY && !process.env.VITE_SUPABASE_ANON_KEY) {
-      process.env.SUPABASE_ANON_KEY = parsed.anonKey;
+    if (parsed.anonKey) {
+      if (!process.env.SUPABASE_ANON_KEY) process.env.SUPABASE_ANON_KEY = parsed.anonKey;
+      if (!process.env.VITE_SUPABASE_ANON_KEY) process.env.VITE_SUPABASE_ANON_KEY = parsed.anonKey;
     }
     if (parsed.serviceRoleKey && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       process.env.SUPABASE_SERVICE_ROLE_KEY = parsed.serviceRoleKey;
@@ -37,6 +39,13 @@ try {
   }
 } catch (err) {
   console.warn('Error reading stored Supabase config:', err);
+}
+
+if (process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL) {
+  process.env.VITE_SUPABASE_URL = process.env.SUPABASE_URL;
+}
+if (process.env.SUPABASE_ANON_KEY && !process.env.VITE_SUPABASE_ANON_KEY) {
+  process.env.VITE_SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 }
 
 async function startServer() {

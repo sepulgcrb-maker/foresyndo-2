@@ -1,18 +1,25 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// In-memory cache for dynamically loaded server config
+// In-memory cache for dynamic overrides (if user updates via UI)
 let inMemoryUrl = '';
 let inMemoryKey = '';
-let isRemoteInitialized = false;
+
+export interface EnvValidationResult {
+  isValid: boolean;
+  url: string;
+  anonKey: string;
+  isFromEnv: boolean;
+  errors: string[];
+  warnings: string[];
+}
 
 /**
  * Sanitizes Supabase project URL:
- * Strips trailing slashes and accidental subpaths (/rest/v1, /auth/v1)
+ * Strips trailing slashes, spaces, and accidental subpaths (/rest/v1, /auth/v1)
  * to ensure the root project domain (https://<project-ref>.supabase.co) is always used.
- * Appending /rest/v1 causes cloud gateway redirects and unexpected HTML responses.
  */
 export function sanitizeSupabaseUrl(rawUrl: string): string {
-  if (!rawUrl) return '';
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
   let url = rawUrl.trim();
   url = url.replace(/\/+$/, '');
   url = url.replace(/\/rest\/v1\/?$/, '');
@@ -22,10 +29,96 @@ export function sanitizeSupabaseUrl(rawUrl: string): string {
 }
 
 /**
+ * Robust validation of Supabase environment variables:
+ * Checks presence, protocol, domain structure, and key validity of
+ * import.meta.env.VITE_SUPABASE_URL and import.meta.env.VITE_SUPABASE_ANON_KEY.
+ */
+export function validateSupabaseEnv(): EnvValidationResult {
+  const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  let cleanUrl = sanitizeSupabaseUrl(envUrl || '');
+  let cleanKey = (envKey || '').trim();
+  let isFromEnv = Boolean(cleanUrl && cleanKey);
+
+  // If environment variables are not set or incomplete, check in-memory or localStorage
+  if (!cleanUrl || !cleanKey) {
+    const fallbackUrl = sanitizeSupabaseUrl(
+      inMemoryUrl || (typeof window !== 'undefined' ? localStorage.getItem('FORESYNDO_SUPABASE_URL') || '' : '')
+    );
+    const fallbackKey = (
+      inMemoryKey || (typeof window !== 'undefined' ? localStorage.getItem('FORESYNDO_SUPABASE_ANON_KEY') || '' : '')
+    ).trim();
+
+    if (fallbackUrl && fallbackKey) {
+      cleanUrl = fallbackUrl;
+      cleanKey = fallbackKey;
+      isFromEnv = false;
+      warnings.push('Menggunakan kredensial Supabase dari cache/penyimpanan lokal.');
+    }
+  }
+
+  // 1. URL Validation
+  if (!cleanUrl) {
+    errors.push('VITE_SUPABASE_URL tidak ditemukan pada environment variables.');
+  } else {
+    // Protocol validation
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      errors.push(`VITE_SUPABASE_URL harus dimulai dengan http:// atau https:// (diterima: "${cleanUrl}")`);
+    } else {
+      if (cleanUrl.startsWith('http://') && !cleanUrl.includes('localhost') && !cleanUrl.includes('127.0.0.1')) {
+        warnings.push('VITE_SUPABASE_URL menggunakan protokol HTTP non-enkripsi; disarankan menggunakan HTTPS.');
+      }
+      try {
+        const parsedUrl = new URL(cleanUrl);
+        if (!parsedUrl.hostname) {
+          errors.push('Hostname VITE_SUPABASE_URL tidak valid.');
+        } else if (parsedUrl.hostname.includes('placeholder') || parsedUrl.hostname.includes('your-project')) {
+          errors.push(`VITE_SUPABASE_URL masih berupa placeholder: "${parsedUrl.hostname}"`);
+        }
+      } catch {
+        errors.push(`Format VITE_SUPABASE_URL tidak valid: "${cleanUrl}"`);
+      }
+    }
+  }
+
+  // 2. Anon Key Validation
+  if (!cleanKey) {
+    errors.push('VITE_SUPABASE_ANON_KEY tidak ditemukan pada environment variables.');
+  } else {
+    if (cleanKey.length < 20) {
+      warnings.push('Panjang VITE_SUPABASE_ANON_KEY terlalu pendek untuk API key Supabase standar.');
+    }
+    if (cleanKey.includes('placeholder') || cleanKey.includes('YOUR_ANON_KEY') || cleanKey.includes('your-anon-key')) {
+      errors.push(`VITE_SUPABASE_ANON_KEY masih berupa placeholder.`);
+    }
+    // Verify standard JWT token characteristics (3 parts separated by dots)
+    const keyParts = cleanKey.split('.');
+    if (keyParts.length !== 3) {
+      warnings.push('VITE_SUPABASE_ANON_KEY bukan format JWT 3-bagian standar, namun tetap diproses.');
+    }
+  }
+
+  const isValid = errors.length === 0 && Boolean(cleanUrl && cleanKey);
+
+  return {
+    isValid,
+    url: cleanUrl,
+    anonKey: cleanKey,
+    isFromEnv,
+    errors,
+    warnings,
+  };
+}
+
+/**
  * Custom fetch wrapper passed into Supabase createClient.
  * Strictly verifies that every response returned to the Supabase client is valid and non-HTML.
- * Logs the full endpoint URL, HTTP status, and Content-Type to the browser console
- * BEFORE proceeding to JSON parsing to identify exactly where HTML redirects occur.
+ * Intercepts HTML redirects or gateway fallback pages, logging diagnostics and returning
+ * a structured JSON error response so the Supabase SDK handles it gracefully.
  */
 function createValidatedSupabaseFetch(): typeof fetch {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -59,77 +152,92 @@ function createValidatedSupabaseFetch(): typeof fetch {
           bodySnippet = `[Unable to clone/read response body: ${cloneErr}]`;
         }
 
-        console.error(
-          `[Supabase Client HTTP Inspection - HTML/Redirect Detected]\n` +
+        console.warn(
+          `[Supabase Client HTTP Notice - Non-JSON/Redirect Intercepted]\n` +
           `  Full Endpoint URL: ${fullEndpointUrl}\n` +
           `  Resolved URL: ${response.url || fullEndpointUrl}\n` +
           `  HTTP Status: ${response.status} (${response.statusText})\n` +
           `  Content-Type: "${contentType}"\n` +
           `  Redirected: ${isRedirected}\n` +
-          `  Response Body Snippet (HTML received instead of JSON):\n${bodySnippet.slice(0, 1000)}`
+          `  Response Body Snippet:\n${bodySnippet.slice(0, 1000)}`
         );
 
-        // If the endpoint returned HTML, return a structured JSON error response
-        // so the Supabase SDK handles it gracefully instead of throwing SyntaxError: Unexpected token '<'
-        if (isHtml) {
-          return new Response(
-            JSON.stringify({
-              error: 'HTML_RESPONSE_RECEIVED',
-              message: `Endpoint returned HTML (${response.status} ${response.statusText}) instead of JSON: ${fullEndpointUrl}`,
-              statusCode: response.status,
-              hint: 'Verify the Supabase Project URL and ensure no subpaths (/rest/v1) or authentication redirects are configured.',
-            }),
-            {
-              status: response.status >= 400 ? response.status : 502,
-              statusText: response.statusText || 'Bad Gateway (HTML Intercepted)',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Foresyndo-HTML-Intercepted': 'true',
-              },
-            }
-          );
-        }
+        // Return a structured JSON error response so Supabase SDK handles it cleanly
+        // without throwing SyntaxError: Unexpected token '<'
+        return new Response(
+          JSON.stringify({
+            error: 'HTML_RESPONSE_RECEIVED',
+            message: `Endpoint returned HTML (${response.status} ${response.statusText}) instead of JSON: ${fullEndpointUrl}`,
+            statusCode: response.status,
+            hint: 'Verify the Supabase Project URL and ensure no subpaths (/rest/v1) or authentication redirects are configured.',
+          }),
+          {
+            status: response.status >= 400 ? response.status : 502,
+            statusText: response.statusText || 'Bad Gateway (HTML Intercepted)',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Foresyndo-HTML-Intercepted': 'true',
+            },
+          }
+        );
       }
 
       return response;
     } catch (err: any) {
-      console.error(
-        `[Supabase Client Network Error]\n` +
+      console.warn(
+        `[Supabase Client Network Notice]\n` +
         `  Full Endpoint URL: ${fullEndpointUrl}\n` +
-        `  Error: ${err?.message || err}`
+        `  Notice: ${err?.message || err}. Mengembalikan respons status 503 ramah jaringan.`
       );
-      throw err;
+      // Return a safe 503 Response so Supabase SDK receives a clean error instead of an unhandled rejection
+      return new Response(
+        JSON.stringify({
+          error: 'NETWORK_ERROR',
+          message: `Network request to Supabase endpoint failed: ${err?.message || err}`,
+          statusCode: 503,
+        }),
+        {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
     }
   };
 }
 
-// Read from in-memory cache, env, or localStorage dynamically
+/**
+ * Returns current Supabase config details and environment validation status.
+ */
 export const getSupabaseConfig = () => {
-  const env = (import.meta as unknown as { env?: Record<string, string> }).env;
-  const rawUrl =
-    inMemoryUrl ||
-    env?.VITE_SUPABASE_URL ||
-    localStorage.getItem('FORESYNDO_SUPABASE_URL') ||
-    '';
-  const url = sanitizeSupabaseUrl(rawUrl);
-  const key =
-    inMemoryKey ||
-    env?.VITE_SUPABASE_ANON_KEY ||
-    localStorage.getItem('FORESYNDO_SUPABASE_ANON_KEY') ||
-    '';
-  const isFromEnv = Boolean(env?.VITE_SUPABASE_URL && env?.VITE_SUPABASE_ANON_KEY);
-  return { url, key, isFromEnv };
+  const validation = validateSupabaseEnv();
+  return {
+    url: validation.url,
+    key: validation.anonKey,
+    isFromEnv: validation.isFromEnv,
+    isValid: validation.isValid,
+    errors: validation.errors,
+    warnings: validation.warnings,
+  };
 };
 
 let supabaseClient: SupabaseClient | null = null;
 
 /**
- * Creates and returns the Supabase client with strict response validation.
- * Uses createValidatedSupabaseFetch to ensure non-HTML responses and detailed logging.
+ * Creates and returns the Supabase client directly using validated environment variables
+ * (import.meta.env.VITE_SUPABASE_URL & import.meta.env.VITE_SUPABASE_ANON_KEY).
  */
 export function getSupabase(): SupabaseClient | null {
-  const { url, key } = getSupabaseConfig();
-  if (!url || !key) return null;
+  const { url, key, isValid, errors } = getSupabaseConfig();
+  if (!url || !key || !isValid) {
+    if (errors.length > 0 && typeof window !== 'undefined' && !(window as any).__SUPABASE_ENV_WARNED__) {
+      console.warn('[Supabase Env Validation Notice]:', errors.join('; '));
+      (window as any).__SUPABASE_ENV_WARNED__ = true;
+    }
+    return null;
+  }
 
   if (!supabaseClient) {
     try {
@@ -151,117 +259,25 @@ export function getSupabase(): SupabaseClient | null {
 }
 
 export function isSupabaseConnected(): boolean {
-  const { url, key } = getSupabaseConfig();
-  return Boolean(url && key);
+  const { url, key, isValid } = getSupabaseConfig();
+  return Boolean(url && key && isValid);
 }
 
 export function getSupabaseConfigDetails() {
-  const { url, isFromEnv } = getSupabaseConfig();
+  const config = getSupabaseConfig();
   return {
-    url,
-    isFromEnv,
+    url: config.url,
+    isFromEnv: config.isFromEnv,
     connected: isSupabaseConnected(),
+    isValid: config.isValid,
+    errors: config.errors,
+    warnings: config.warnings,
   };
 }
 
 /**
- * Initializes Supabase configuration from central server.
- * This guarantees that when ANY user opens the app in another browser or incognito tab,
- * they automatically connect to the same Supabase project and database.
- *
- * Strictly verifies response.ok and Content-Type before parsing JSON,
- * logging the full endpoint URL, HTTP status, and Content-Type to the browser console
- * before proceeding to JSON parsing to identify exactly where HTML redirects occur.
- */
-export async function initSupabaseFromRemote(): Promise<boolean> {
-  const endpoint = '/api/supabase/config';
-  const fullEndpointUrl =
-    typeof window !== 'undefined'
-      ? new URL(endpoint, window.location.origin).href
-      : endpoint;
-
-  try {
-    const res = await fetch(endpoint, {
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-
-    const contentType = res.headers.get('content-type') || '';
-    const isJson = contentType.toLowerCase().includes('application/json');
-    const isHtml = contentType.toLowerCase().includes('text/html');
-    const isRedirected = res.redirected;
-
-    // 1. Check for non-OK, HTML, or redirect before attempting JSON parsing
-    if (!res.ok || isHtml || !isJson || isRedirected) {
-      let bodySnippet = '';
-      try {
-        bodySnippet = await res.text();
-      } catch (readErr) {
-        bodySnippet = `[Unable to read response body: ${readErr}]`;
-      }
-
-      console.error(
-        `[Supabase Config Initialization Inspection - HTML/Invalid Response]\n` +
-        `  Full Endpoint URL: ${fullEndpointUrl}\n` +
-        `  Resolved URL: ${res.url || fullEndpointUrl}\n` +
-        `  HTTP Status: ${res.status} (${res.statusText})\n` +
-        `  Content-Type: "${contentType}"\n` +
-        `  Redirected: ${isRedirected}\n` +
-        `  Response Body Snippet (indicates HTML redirect/fallback):\n${bodySnippet.slice(0, 1000)}`
-      );
-      isRemoteInitialized = true;
-      return isSupabaseConnected();
-    }
-
-    // 2. Read body as text and safely parse JSON
-    const rawText = await res.text();
-    let data: any = null;
-    try {
-      data = JSON.parse(rawText);
-    } catch (parseErr: any) {
-      console.error(
-        `[Supabase Config Fetch Error - JSON Parse Failure]\n` +
-        `  Full Endpoint URL: ${fullEndpointUrl}\n` +
-        `  Resolved URL: ${res.url || fullEndpointUrl}\n` +
-        `  HTTP Status: ${res.status} (${res.statusText})\n` +
-        `  Content-Type: "${contentType}"\n` +
-        `  Parse Error: ${parseErr?.message}\n` +
-        `  Raw Body Preview:\n${rawText.slice(0, 1000)}`
-      );
-      isRemoteInitialized = true;
-      return isSupabaseConnected();
-    }
-
-    if (data && typeof data === 'object') {
-      if (data.url && data.anonKey) {
-        const cleanUrl = sanitizeSupabaseUrl(data.url);
-        inMemoryUrl = cleanUrl;
-        inMemoryKey = data.anonKey;
-        localStorage.setItem('FORESYNDO_SUPABASE_URL', cleanUrl);
-        localStorage.setItem('FORESYNDO_SUPABASE_ANON_KEY', data.anonKey);
-        supabaseClient = null; // Recreate client with confirmed credentials
-        isRemoteInitialized = true;
-        return true;
-      }
-    }
-  } catch (err: any) {
-    console.error(
-      `[Supabase Config Fetch Network/Fatal Error]\n` +
-      `  Full Endpoint URL: ${fullEndpointUrl}\n` +
-      `  Error: ${err?.message || err}`
-    );
-  }
-
-  isRemoteInitialized = true;
-  return isSupabaseConnected();
-}
-
-/**
- * Saves Supabase credentials locally AND sends them to the server so that
- * all other users/browsers access the exact same database.
- * Strictly verifies response.ok and Content-Type headers with explicit error logging
- * before proceeding to JSON parsing.
+ * Saves Supabase credentials locally for manual configuration in the UI.
+ * Does not make external network calls.
  */
 export async function saveSupabaseConfig(url: string, key: string): Promise<boolean> {
   const cleanUrl = sanitizeSupabaseUrl(url);
@@ -270,63 +286,14 @@ export async function saveSupabaseConfig(url: string, key: string): Promise<bool
   inMemoryUrl = cleanUrl;
   inMemoryKey = cleanKey;
 
-  if (cleanUrl) localStorage.setItem('FORESYNDO_SUPABASE_URL', cleanUrl);
-  else localStorage.removeItem('FORESYNDO_SUPABASE_URL');
+  if (typeof window !== 'undefined') {
+    if (cleanUrl) localStorage.setItem('FORESYNDO_SUPABASE_URL', cleanUrl);
+    else localStorage.removeItem('FORESYNDO_SUPABASE_URL');
 
-  if (cleanKey) localStorage.setItem('FORESYNDO_SUPABASE_ANON_KEY', cleanKey);
-  else localStorage.removeItem('FORESYNDO_SUPABASE_ANON_KEY');
-
-  supabaseClient = null; // reset client
-
-  const endpoint = '/api/supabase/config';
-  const fullEndpointUrl =
-    typeof window !== 'undefined'
-      ? new URL(endpoint, window.location.origin).href
-      : endpoint;
-
-  // Send to server to persist for all browsers
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({ url: cleanUrl, anonKey: cleanKey }),
-    });
-
-    const contentType = res.headers.get('content-type') || '';
-    const isJson = contentType.toLowerCase().includes('application/json');
-    const isHtml = contentType.toLowerCase().includes('text/html');
-    const isRedirected = res.redirected;
-
-    if (!res.ok || isHtml || !isJson || isRedirected) {
-      let bodySnippet = '';
-      try {
-        bodySnippet = await res.text();
-      } catch (readErr) {
-        bodySnippet = `[Unable to read response body: ${readErr}]`;
-      }
-      console.error(
-        `[Supabase Config Save Inspection - HTML/Invalid Response]\n` +
-        `  Full Endpoint URL: ${fullEndpointUrl}\n` +
-        `  Resolved URL: ${res.url || fullEndpointUrl}\n` +
-        `  HTTP Status: ${res.status} (${res.statusText})\n` +
-        `  Content-Type: "${contentType}"\n` +
-        `  Redirected: ${isRedirected}\n` +
-        `  Response Body Snippet:\n${bodySnippet.slice(0, 1000)}`
-      );
-      return false;
-    }
-
-    return true;
-  } catch (err: any) {
-    console.error(
-      `[Supabase Config Save Network Error]\n` +
-      `  Full Endpoint URL: ${fullEndpointUrl}\n` +
-      `  Error: ${err?.message || err}`
-    );
-    return false;
+    if (cleanKey) localStorage.setItem('FORESYNDO_SUPABASE_ANON_KEY', cleanKey);
+    else localStorage.removeItem('FORESYNDO_SUPABASE_ANON_KEY');
   }
-}
 
+  supabaseClient = null; // reset client to re-evaluate with updated credentials
+  return isSupabaseConnected();
+}

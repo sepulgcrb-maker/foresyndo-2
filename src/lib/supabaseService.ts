@@ -725,10 +725,18 @@ export function subscribeToSupabaseRealtime(
           onUpdate(payload);
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn(`[Supabase Realtime Notice: ${status}]`, err?.message || err);
+        }
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      try {
+        supabase.removeChannel(channel);
+      } catch {
+        // ignore cleanup error
+      }
     };
   } catch (err) {
     console.warn('Realtime subscription skipped:', err);

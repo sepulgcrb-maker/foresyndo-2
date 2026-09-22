@@ -60,7 +60,7 @@ import { FinalInspection } from './components/inspection/FinalInspection';
 import { ReportCenter } from './components/reports/ReportCenter';
 import { SupabaseModal } from './components/common/SupabaseModal';
 import { pushAllDataToSupabase, pullAllDataFromSupabase, subscribeToSupabaseRealtime } from './lib/supabaseService';
-import { initSupabaseFromRemote, isSupabaseConnected } from './lib/supabase';
+import { isSupabaseConnected } from './lib/supabase';
 import { NotificationDrawer } from './components/common/NotificationDrawer';
 import { ProjectSettingsModal } from './components/common/ProjectSettingsModal';
 import { ContractorSettingsModal } from './components/common/ContractorSettingsModal';
@@ -997,14 +997,11 @@ export default function App() {
     }
   };
 
-  // Auto initialize Supabase from server and perform initial cloud pull
+  // Auto perform initial cloud pull on startup
   useEffect(() => {
     let isMounted = true;
     const syncInit = async () => {
-      // 1. Fetch Supabase URL & Key from server config so all browsers share it
-      await initSupabaseFromRemote();
-
-      // 2. Pull remote project snapshot
+      // Pull remote project snapshot
       try {
         const remoteData = await pullAllDataFromSupabase(project.id || 'FORESYNDO-PROJECT-2');
         if (remoteData && isMounted) {
