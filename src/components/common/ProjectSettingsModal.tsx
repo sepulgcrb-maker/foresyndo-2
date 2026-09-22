@@ -45,9 +45,9 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   onUpdateProject,
   currentRole,
   userNameMap = {
-    Direktur: 'H. Bambang S., M.T.',
-    'Site Manager': 'Ir. Agus Pratama',
-    Admin: 'Siti Rahmawati, S.T.',
+    Direktur: 'Rohman Priyambodo',
+    'Site Manager': 'EKO YULIANTO',
+    Admin: 'COKRO',
     Viewer: 'Tamu Pengawas',
   },
   onUpdateUserNameMap,
@@ -73,43 +73,43 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
   // Contractor Profile fields
   const initContractor = project.contractorProfile || INITIAL_CONTRACTOR_PROFILE;
-  const [contractorAddress, setContractorAddress] = useState(initContractor.address || 'Jl. Raya Jatitujuh No. 88');
-  const [contractorCity, setContractorCity] = useState(initContractor.city || 'Majalengka');
+  const [contractorAddress, setContractorAddress] = useState(initContractor.address || 'Bukit Cimanggu City, Jl. Raya Baru Ruko No. 5, Desa Cibadak Kec. Tanah Sereal');
+  const [contractorCity, setContractorCity] = useState(initContractor.city || 'Bogor');
   const [contractorProvince, setContractorProvince] = useState(initContractor.province || 'Jawa Barat');
-  const [contractorPostalCode, setContractorPostalCode] = useState(initContractor.postalCode || '45458');
-  const [contractorPhone, setContractorPhone] = useState(initContractor.phone || '(0233) 881900');
-  const [contractorWhatsapp, setContractorWhatsapp] = useState(initContractor.whatsapp || '+62 811-3344-5566');
-  const [contractorEmail, setContractorEmail] = useState(initContractor.email || 'konstruksi@foresyndo.co.id');
-  const [contractorNpwp, setContractorNpwp] = useState(initContractor.npwp || '01.889.345.2-438.000');
-  const [contractorNib, setContractorNib] = useState(initContractor.nib || '9120003481902');
-  const [contractorIujk, setContractorIujk] = useState(initContractor.iujkNumber || '1-0233-2-0045-1-3210-998822');
-  const [contractorSbu, setContractorSbu] = useState(initContractor.sbuNumber || '0-3210-07-002-1-10-918234 (BG004)');
+  const [contractorPostalCode, setContractorPostalCode] = useState(initContractor.postalCode || '16168');
+  const [contractorPhone, setContractorPhone] = useState(initContractor.phone || '0');
+  const [contractorWhatsapp, setContractorWhatsapp] = useState(initContractor.whatsapp || '+62 812 - 8807 - 7097');
+  const [contractorEmail, setContractorEmail] = useState(initContractor.email || 'pt.gmp12@gmail.com');
+  const [contractorNpwp, setContractorNpwp] = useState(initContractor.npwp || '61.289.845.2-404.000');
+  const [contractorNib, setContractorNib] = useState(initContractor.nib || '1410220080338');
+  const [contractorIujk, setContractorIujk] = useState(initContractor.iujkNumber || '141022008033803380001');
+  const [contractorSbu, setContractorSbu] = useState(initContractor.sbuNumber || '141022008033800050001 (BG003)');
   const [contractorClassification, setContractorClassification] = useState(
-    initContractor.classification || 'Kualifikasi Menengah (M1) - Subklasifikasi BG004 Gedung Komersial'
+    initContractor.classification || 'Kualifikasi Menengah (M1) - Subklasifikasi BG003 Gedung Hunian'
   );
   const [contractorLogoUrl, setContractorLogoUrl] = useState(initContractor.logoUrl || '/assets/logo.png');
   const [contractorHseOfficer, setContractorHseOfficer] = useState(
     initContractor.management?.hseOfficer || 'Ahmad Fauzi, S.Si (Ahli K3 Konstruksi)'
   );
   const [contractorSiteEngineer, setContractorSiteEngineer] = useState(
-    initContractor.management?.siteEngineer || 'Deni Kurniawan, ST'
+    initContractor.management?.siteEngineer || 'EKO YULIANTO '
   );
   const [contractorBankName, setContractorBankName] = useState(initContractor.bankName || 'Bank Mandiri (Persero) Tbk');
   const [contractorBankAccountNumber, setContractorBankAccountNumber] = useState(
     initContractor.bankAccountNumber || '131-00-998822-1'
   );
   const [contractorBankAccountHolder, setContractorBankAccountHolder] = useState(
-    initContractor.bankAccountHolder || 'PT FORESYNDO GLOBAL INDONESIA'
+    initContractor.bankAccountHolder || 'PT GONG MBE LINK PAMUNGKAS'
   );
 
   // Official names state
-  const [director, setDirector] = useState(project.director || userNameMap.Direktur || 'H. Bambang S., M.T.');
-  const [siteManager, setSiteManager] = useState(project.siteManager || userNameMap['Site Manager'] || 'Ir. Agus Pratama');
-  const [qcEngineer, setQcEngineer] = useState(project.qcEngineer || 'Hendra Gunawan, ST');
-  const [financeAdmin, setFinanceAdmin] = useState(project.financeAdmin || userNameMap.Admin || 'Siti Rahmawati, S.T.');
+  const [director, setDirector] = useState(project.director || userNameMap.Direktur || 'Rohman Priyambodo');
+  const [siteManager, setSiteManager] = useState(project.siteManager || userNameMap['Site Manager'] || 'EKO YULIANTO ');
+  const [qcEngineer, setQcEngineer] = useState(project.qcEngineer || 'KIKI ');
+  const [financeAdmin, setFinanceAdmin] = useState(project.financeAdmin || userNameMap.Admin || 'COKRO ');
   const [inspector, setInspector] = useState(project.inspector || userNameMap.Viewer || 'Tamu Pengawas');
-  const [estimator, setEstimator] = useState(project.estimator || 'Ir. Agus Pratama');
-  const [projectManager, setProjectManager] = useState(project.projectManager || 'Hendra Wijaya, ST');
+  const [estimator, setEstimator] = useState(project.estimator || 'IHSAN ');
+  const [projectManager, setProjectManager] = useState(project.projectManager || 'JAKA SEPTIANDANA ');
 
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -119,35 +119,35 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     e.preventDefault();
 
     const currentContractorProfile: ContractorProfile = {
-      companyName: contractor.trim() || 'PT Foresyndo Global Indonesia (Divisi Konstruksi)',
-      brandName: contractor.trim() || 'PT FORESYNDO GLOBAL INDONESIA',
-      address: contractorAddress.trim() || 'Jl. Raya Jatitujuh No. 88, Jatitujuh',
-      city: contractorCity.trim() || 'Majalengka',
+      companyName: contractor.trim() || 'PT. GONG MBE LINK PAMUNGKAS',
+      brandName: contractor.trim() || 'PT. GONG MBE LINK PAMUNGKAS',
+      address: contractorAddress.trim() || 'Bukit Cimanggu City, Jl. Raya Baru Ruko No. 5, Desa Cibadak Kec. Tanah Sereal',
+      city: contractorCity.trim() || 'Bogor',
       province: contractorProvince.trim() || 'Jawa Barat',
-      postalCode: contractorPostalCode.trim() || '45458',
-      phone: contractorPhone.trim() || '(0233) 881900',
-      whatsapp: contractorWhatsapp.trim() || '+62 811-3344-5566',
-      email: contractorEmail.trim() || 'konstruksi@foresyndo.co.id',
-      website: initContractor.website || 'https://foresyndo.co.id',
-      npwp: contractorNpwp.trim() || '01.889.345.2-438.000',
-      nib: contractorNib.trim() || '9120003481902',
-      iujkNumber: contractorIujk.trim() || '1-0233-2-0045-1-3210-998822',
-      sbuNumber: contractorSbu.trim() || '0-3210-07-002-1-10-918234 (BG004)',
+      postalCode: contractorPostalCode.trim() || '16168',
+      phone: contractorPhone.trim() || '0',
+      whatsapp: contractorWhatsapp.trim() || '+62 812 - 8807 - 7097',
+      email: contractorEmail.trim() || 'pt.gmp12@gmail.com',
+      website: initContractor.website || '-',
+      npwp: contractorNpwp.trim() || '61.289.845.2-404.000',
+      nib: contractorNib.trim() || '1410220080338',
+      iujkNumber: contractorIujk.trim() || '141022008033803380001',
+      sbuNumber: contractorSbu.trim() || '141022008033800050001 (BG003)',
       classification: contractorClassification.trim() || 'Kualifikasi Menengah (M1) - BG004 & BG009',
       logoUrl: contractorLogoUrl.trim() || logoUrl.trim() || '/assets/logo.png',
       bankName: contractorBankName.trim() || 'Bank Mandiri (Persero) Tbk',
       bankAccountNumber: contractorBankAccountNumber.trim() || '131-00-998822-1',
-      bankAccountHolder: contractorBankAccountHolder.trim() || 'PT FORESYNDO GLOBAL INDONESIA',
+      bankAccountHolder: contractorBankAccountHolder.trim() || 'PT GONG MBE LINK PAMUNGKAS',
       notes: initContractor.notes || '',
       management: {
-        director: director.trim() || 'H. Bambang S., M.T.',
-        projectManager: projectManager.trim() || 'Hendra Wijaya, ST',
-        siteManager: siteManager.trim() || 'Ir. Agus Pratama',
-        qcEngineer: qcEngineer.trim() || 'Hendra Gunawan, ST',
+        director: director.trim() || 'Rohman Priyambodo',
+        projectManager: projectManager.trim() || 'JAKA SEPTIANDANA ',
+        siteManager: siteManager.trim() || 'EKO YULIANTO ',
+        qcEngineer: qcEngineer.trim() || 'KIKI ',
         hseOfficer: contractorHseOfficer.trim() || 'Ahmad Fauzi, S.Si (Ahli K3 Konstruksi)',
-        estimatorQS: estimator.trim() || 'Ir. Agus Pratama',
-        financeAdmin: financeAdmin.trim() || 'Siti Rahmawati, S.T.',
-        siteEngineer: contractorSiteEngineer.trim() || 'Deni Kurniawan, ST',
+        estimatorQS: estimator.trim() || 'IHSAN',
+        financeAdmin: financeAdmin.trim() || 'COKRO',
+        siteEngineer: contractorSiteEngineer.trim() || 'HARUN ARRASID ',
       },
     };
 
@@ -169,13 +169,13 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       targetEndDate: targetEndDate || project.targetEndDate,
       status,
       logoUrl: finalOwnerLogo,
-      director: director.trim() || 'H. Bambang S., M.T.',
-      siteManager: siteManager.trim() || 'Ir. Agus Pratama',
-      qcEngineer: qcEngineer.trim() || 'Hendra Gunawan, ST',
-      financeAdmin: financeAdmin.trim() || 'Siti Rahmawati, S.T.',
+      director: director.trim() || 'Rohman Priyambodo',
+      siteManager: siteManager.trim() || 'EKO YULIANTO',
+      qcEngineer: qcEngineer.trim() || 'KIKI ',
+      financeAdmin: financeAdmin.trim() || 'COKRO ',
       inspector: inspector.trim() || 'Tamu Pengawas',
-      estimator: estimator.trim() || 'Ir. Agus Pratama',
-      projectManager: projectManager.trim() || 'Hendra Wijaya, ST',
+      estimator: estimator.trim() || 'IHSAN ',
+      projectManager: projectManager.trim() || 'HARUN ARRASID ',
     };
 
     onUpdateProject(updatedProject);
@@ -206,17 +206,17 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const handleResetDefaults = () => {
     setName('Pembangunan Gedung 7 Lantai (Foresyndo 2)');
     setOwner('PT Foresyndo Global Indonesia');
-    setContractor('PT Foresyndo Global Indonesia (Internal Construction Division)');
+    setContractor('PT Gong Mbe Link Pamungkas');
     setLocation('Jatitujuh, Majalengka, Jawa Barat');
-    setContractNumber('PR-2026-FGI-004');
+    setContractNumber('001/SPK-Kons/FGI-GMP/IX/2026');
     setContractValue(14461760981);
-    setDirector('H. Bambang S., M.T.');
-    setSiteManager('Ir. Agus Pratama');
-    setQcEngineer('Hendra Gunawan, ST');
-    setFinanceAdmin('Siti Rahmawati, S.T.');
+    setDirector('HASANUDIN');
+    setSiteManager('EKO YULIANTO');
+    setQcEngineer('KIKI');
+    setFinanceAdmin('COKRO.');
     setInspector('Tamu Pengawas');
-    setEstimator('Ir. Agus Pratama');
-    setProjectManager('Hendra Wijaya, ST');
+    setEstimator('IHSAN');
+    setProjectManager('HARUN ARRASID');
   };
 
   return (
@@ -355,7 +355,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     type="text"
                     value={contractor}
                     onChange={(e) => setContractor(e.target.value)}
-                    placeholder="Contoh: PT Karya Konstruksi Utama"
+                    placeholder="PT. GONG MBE LINK PAMUNGKAS"
                     required
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none transition-all"
                   />
@@ -460,7 +460,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     type="text"
                     value={contractor}
                     onChange={(e) => setContractor(e.target.value)}
-                    placeholder="Contoh: PT FORESYNDO GLOBAL INDONESIA"
+                    placeholder="PT. GONG MBE LINK PAMUNGKAS"
                     required
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                   />
@@ -490,7 +490,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     type="text"
                     value={contractorNpwp}
                     onChange={(e) => setContractorNpwp(e.target.value)}
-                    placeholder="01.889.345.2-438.000"
+                    placeholder="61.289.845.2-404.000"
                     required
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                   />
@@ -504,7 +504,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     type="text"
                     value={contractorNib}
                     onChange={(e) => setContractorNib(e.target.value)}
-                    placeholder="9120003481902"
+                    placeholder="1410220080338"
                     required
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-mono font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                   />
@@ -520,7 +520,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     type="text"
                     value={contractorIujk}
                     onChange={(e) => setContractorIujk(e.target.value)}
-                    placeholder="1-0233-2-0045-1-3210-998822"
+                    placeholder="141022008033803380001"
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                   />
                 </div>
@@ -533,7 +533,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     type="text"
                     value={contractorSbu}
                     onChange={(e) => setContractorSbu(e.target.value)}
-                    placeholder="0-3210-07-002-1-10-918234"
+                    placeholder="141022008033800050001 (BG003)"
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                   />
                 </div>
@@ -548,7 +548,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                   type="text"
                   value={contractorAddress}
                   onChange={(e) => setContractorAddress(e.target.value)}
-                  placeholder="Jl. Raya Jatitujuh No. 88, Jatitujuh"
+                  placeholder="Bukit Cimanggu City, Jl. Raya Baru Ruko No. 5, Desa Cibadak Kec. Tanah Sereal"
                   required
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                 />
@@ -563,7 +563,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     type="text"
                     value={contractorCity}
                     onChange={(e) => setContractorCity(e.target.value)}
-                    placeholder="Majalengka"
+                    placeholder="Bogor"
                     className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                   />
                 </div>
@@ -587,7 +587,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     type="text"
                     value={contractorPostalCode}
                     onChange={(e) => setContractorPostalCode(e.target.value)}
-                    placeholder="45458"
+                    placeholder="16168"
                     className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-mono font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                   />
                 </div>
@@ -603,7 +603,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     type="text"
                     value={contractorPhone}
                     onChange={(e) => setContractorPhone(e.target.value)}
-                    placeholder="(0233) 881900"
+                    placeholder="0"
                     className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                   />
                 </div>
@@ -615,7 +615,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     type="text"
                     value={contractorWhatsapp}
                     onChange={(e) => setContractorWhatsapp(e.target.value)}
-                    placeholder="+62 811-3344-5566"
+                    placeholder="+62 812 - 8807 - 7097"
                     className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                   />
                 </div>
@@ -627,7 +627,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     type="email"
                     value={contractorEmail}
                     onChange={(e) => setContractorEmail(e.target.value)}
-                    placeholder="konstruksi@foresyndo.co.id"
+                    placeholder="pt.gmp12@gmail.com"
                     className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                   />
                 </div>
@@ -665,7 +665,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                       type="text"
                       value={contractorBankAccountHolder}
                       onChange={(e) => setContractorBankAccountHolder(e.target.value)}
-                      placeholder="PT FORESYNDO GLOBAL INDONESIA"
+                      placeholder="PT. GONG MBE LINK PAMUNGKAS"
                       className="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                     />
                   </div>
@@ -774,7 +774,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     value={siteManager}
                     onChange={(e) => setSiteManager(e.target.value)}
                     required
-                    placeholder="Contoh: Ir. Agus Pratama"
+                    placeholder="EKO YULIANTO"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
                   />
                   <span className="text-[10px] text-slate-400 mt-1 block">
@@ -792,7 +792,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     value={qcEngineer}
                     onChange={(e) => setQcEngineer(e.target.value)}
                     required
-                    placeholder="Contoh: Hendra Gunawan, ST"
+                    placeholder="KIKI"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
                   />
                   <span className="text-[10px] text-slate-400 mt-1 block">
@@ -810,7 +810,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     value={financeAdmin}
                     onChange={(e) => setFinanceAdmin(e.target.value)}
                     required
-                    placeholder="Contoh: Siti Rahmawati, S.T."
+                    placeholder="Contoh: COKRO"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
                   />
                   <span className="text-[10px] text-slate-400 mt-1 block">
@@ -828,7 +828,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     value={estimator}
                     onChange={(e) => setEstimator(e.target.value)}
                     required
-                    placeholder="Contoh: Ir. Agus Pratama"
+                    placeholder="Contoh:IHSAN"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
                   />
                   <span className="text-[10px] text-slate-400 mt-1 block">
@@ -846,7 +846,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     value={projectManager}
                     onChange={(e) => setProjectManager(e.target.value)}
                     required
-                    placeholder="Contoh: Hendra Wijaya, ST"
+                    placeholder="Contoh: JAKA SEPTIANDANA"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
                   />
                   <span className="text-[10px] text-slate-400 mt-1 block">
