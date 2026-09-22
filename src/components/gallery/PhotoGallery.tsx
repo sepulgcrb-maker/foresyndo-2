@@ -20,6 +20,7 @@ import {
   FileImage,
 } from 'lucide-react';
 import { ProgressCameraModal } from '../monitoring/ProgressCameraModal';
+import { SafeImage } from '../common/SafeImage';
 
 interface PhotoGalleryProps {
   photos: PhotoItem[];
@@ -230,7 +231,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
           >
             {/* Image Container with Hover Overlay */}
             <div className="relative aspect-video overflow-hidden bg-slate-950">
-              <img
+              <SafeImage
                 src={photo.url}
                 alt={photo.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -283,7 +284,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
             </button>
 
             <div className="flex-1 bg-black flex items-center justify-center p-4 min-h-[350px]">
-              <img
+              <SafeImage
                 src={lightboxPhoto.url}
                 alt={lightboxPhoto.title}
                 className="max-h-[60vh] w-auto object-contain rounded-xl"
@@ -355,7 +356,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
                 {newPhoto.url ? (
                   /* Photo Preview Box */
                   <div className="relative rounded-2xl overflow-hidden border-2 border-orange-500/40 bg-slate-950 shadow-md group">
-                    <img
+                    <SafeImage
                       src={newPhoto.url}
                       alt="Preview Foto Terpilih"
                       className="w-full h-52 object-contain bg-slate-950"

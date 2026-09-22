@@ -18,6 +18,7 @@ import {
 import { formatIDR, calculateFinancialSummary, calculatePhysicalProgress } from '../../utils/calculations';
 import { generateTerminPDF, generateTerminVoucherPDF } from '../../utils/exportEngine';
 import { OfficialRABViewer } from './OfficialRABViewer';
+import { SafeImage, FALLBACK_DOCUMENT_SVG } from '../common/SafeImage';
 
 interface TerminPaymentsProps {
   project: ProjectInfo;
@@ -433,9 +434,10 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
             {selectedVoucherTerm.proofUrl && (
               <div>
                 <span className="text-[11px] font-bold block mb-1">Lampiran Bukti Transfer:</span>
-                <img
+                <SafeImage
                   src={selectedVoucherTerm.proofUrl}
                   alt="Bukti Transfer"
+                  fallbackSrc={FALLBACK_DOCUMENT_SVG}
                   className="w-full h-32 object-cover rounded-xl border border-slate-200 dark:border-slate-700"
                 />
               </div>

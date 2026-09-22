@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Calendar, User, Download, MapPin, Tag } from 'lucide-react';
+import { SafeImage } from '../common/SafeImage';
 
 interface PhotoPreviewModalProps {
   isOpen: boolean;
@@ -79,7 +80,7 @@ export const PhotoPreviewModal: React.FC<PhotoPreviewModalProps> = ({
 
         {/* Image Content */}
         <div className="flex-1 overflow-hidden flex items-center justify-center bg-black/50 rounded-2xl border border-slate-800/80 p-2 min-h-[300px] max-h-[65vh]">
-          <img
+          <SafeImage
             src={photoUrl}
             alt={title || 'Dokumentasi Progres'}
             className="max-w-full max-h-[62vh] object-contain rounded-xl shadow-2xl"

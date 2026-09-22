@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { ProgressCameraModal } from './ProgressCameraModal';
 import { PhotoPreviewModal } from './PhotoPreviewModal';
+import { SafeImage } from '../common/SafeImage';
 
 interface DailyMonitoringProps {
   dailyLogs: DailyLog[];
@@ -342,7 +343,7 @@ export const DailyMonitoring: React.FC<DailyMonitoringProps> = ({
                           }
                           className="group relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 aspect-video bg-slate-950 cursor-pointer shadow-sm hover:shadow-md transition-all"
                         >
-                          <img
+                          <SafeImage
                             src={photoUrl}
                             alt={`Dokumentasi ${log.date} #${pIdx + 1}`}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -547,7 +548,7 @@ export const DailyMonitoring: React.FC<DailyMonitoringProps> = ({
                         key={idx}
                         className="group relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 aspect-video bg-slate-950 shadow-sm"
                       >
-                        <img
+                        <SafeImage
                           src={photoUrl}
                           alt={`Lampiran Foto #${idx + 1}`}
                           className="w-full h-full object-cover"

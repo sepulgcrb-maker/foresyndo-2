@@ -1,18 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// In-memory cache for dynamic overrides (if user updates via UI)
-let inMemoryUrl = '';
-let inMemoryKey = '';
-
-export interface EnvValidationResult {
-  isValid: boolean;
-  url: string;
-  anonKey: string;
-  isFromEnv: boolean;
-  errors: string[];
-  warnings: string[];
-}
-
 /**
  * Sanitizes Supabase project URL:
  * Strips trailing slashes, spaces, and accidental subpaths (/rest/v1, /auth/v1)
@@ -26,92 +13,6 @@ export function sanitizeSupabaseUrl(rawUrl: string): string {
   url = url.replace(/\/auth\/v1\/?$/, '');
   url = url.replace(/\/+$/, '');
   return url;
-}
-
-/**
- * Robust validation of Supabase environment variables:
- * Checks presence, protocol, domain structure, and key validity of
- * import.meta.env.VITE_SUPABASE_URL and import.meta.env.VITE_SUPABASE_ANON_KEY.
- */
-export function validateSupabaseEnv(): EnvValidationResult {
-  const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  let cleanUrl = sanitizeSupabaseUrl(envUrl || '');
-  let cleanKey = (envKey || '').trim();
-  let isFromEnv = Boolean(cleanUrl && cleanKey);
-
-  // If environment variables are not set or incomplete, check in-memory or localStorage
-  if (!cleanUrl || !cleanKey) {
-    const fallbackUrl = sanitizeSupabaseUrl(
-      inMemoryUrl || (typeof window !== 'undefined' ? localStorage.getItem('FORESYNDO_SUPABASE_URL') || '' : '')
-    );
-    const fallbackKey = (
-      inMemoryKey || (typeof window !== 'undefined' ? localStorage.getItem('FORESYNDO_SUPABASE_ANON_KEY') || '' : '')
-    ).trim();
-
-    if (fallbackUrl && fallbackKey) {
-      cleanUrl = fallbackUrl;
-      cleanKey = fallbackKey;
-      isFromEnv = false;
-      warnings.push('Menggunakan kredensial Supabase dari cache/penyimpanan lokal.');
-    }
-  }
-
-  // 1. URL Validation
-  if (!cleanUrl) {
-    errors.push('VITE_SUPABASE_URL tidak ditemukan pada environment variables.');
-  } else {
-    // Protocol validation
-    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
-      errors.push(`VITE_SUPABASE_URL harus dimulai dengan http:// atau https:// (diterima: "${cleanUrl}")`);
-    } else {
-      if (cleanUrl.startsWith('http://') && !cleanUrl.includes('localhost') && !cleanUrl.includes('127.0.0.1')) {
-        warnings.push('VITE_SUPABASE_URL menggunakan protokol HTTP non-enkripsi; disarankan menggunakan HTTPS.');
-      }
-      try {
-        const parsedUrl = new URL(cleanUrl);
-        if (!parsedUrl.hostname) {
-          errors.push('Hostname VITE_SUPABASE_URL tidak valid.');
-        } else if (parsedUrl.hostname.includes('placeholder') || parsedUrl.hostname.includes('your-project')) {
-          errors.push(`VITE_SUPABASE_URL masih berupa placeholder: "${parsedUrl.hostname}"`);
-        }
-      } catch {
-        errors.push(`Format VITE_SUPABASE_URL tidak valid: "${cleanUrl}"`);
-      }
-    }
-  }
-
-  // 2. Anon Key Validation
-  if (!cleanKey) {
-    errors.push('VITE_SUPABASE_ANON_KEY tidak ditemukan pada environment variables.');
-  } else {
-    if (cleanKey.length < 20) {
-      warnings.push('Panjang VITE_SUPABASE_ANON_KEY terlalu pendek untuk API key Supabase standar.');
-    }
-    if (cleanKey.includes('placeholder') || cleanKey.includes('YOUR_ANON_KEY') || cleanKey.includes('your-anon-key')) {
-      errors.push(`VITE_SUPABASE_ANON_KEY masih berupa placeholder.`);
-    }
-    // Verify standard JWT token characteristics (3 parts separated by dots)
-    const keyParts = cleanKey.split('.');
-    if (keyParts.length !== 3) {
-      warnings.push('VITE_SUPABASE_ANON_KEY bukan format JWT 3-bagian standar, namun tetap diproses.');
-    }
-  }
-
-  const isValid = errors.length === 0 && Boolean(cleanUrl && cleanKey);
-
-  return {
-    isValid,
-    url: cleanUrl,
-    anonKey: cleanKey,
-    isFromEnv,
-    errors,
-    warnings,
-  };
 }
 
 /**
@@ -208,92 +109,86 @@ function createValidatedSupabaseFetch(): typeof fetch {
   };
 }
 
-/**
- * Returns current Supabase config details and environment validation status.
- */
-export const getSupabaseConfig = () => {
-  const validation = validateSupabaseEnv();
-  return {
-    url: validation.url,
-    key: validation.anonKey,
-    isFromEnv: validation.isFromEnv,
-    isValid: validation.isValid,
-    errors: validation.errors,
-    warnings: validation.warnings,
-  };
-};
+// ---------------------------------------------------------------------------
+// Direct Initialization & Startup Environment Variable Validation
+// ---------------------------------------------------------------------------
 
-let supabaseClient: SupabaseClient | null = null;
+const rawSupabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const rawSupabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-/**
- * Creates and returns the Supabase client directly using validated environment variables
- * (import.meta.env.VITE_SUPABASE_URL & import.meta.env.VITE_SUPABASE_ANON_KEY).
- */
-export function getSupabase(): SupabaseClient | null {
-  const { url, key, isValid, errors } = getSupabaseConfig();
-  if (!url || !key || !isValid) {
-    if (errors.length > 0 && typeof window !== 'undefined' && !(window as any).__SUPABASE_ENV_WARNED__) {
-      console.warn('[Supabase Env Validation Notice]:', errors.join('; '));
-      (window as any).__SUPABASE_ENV_WARNED__ = true;
-    }
-    return null;
-  }
-
-  if (!supabaseClient) {
-    try {
-      supabaseClient = createClient(url, key, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-        },
-        global: {
-          fetch: createValidatedSupabaseFetch(),
-        },
-      });
-    } catch (e) {
-      console.warn('Supabase initialization warning:', e);
-      return null;
-    }
-  }
-  return supabaseClient;
+// Validation check to throw a clear error if these environment variables are missing during startup
+if (!rawSupabaseUrl || !rawSupabaseUrl.trim()) {
+  throw new Error(
+    'Missing required Supabase environment variable: "VITE_SUPABASE_URL" must be defined in your environment (e.g., .env or hosting environment variables).'
+  );
 }
 
+if (!rawSupabaseAnonKey || !rawSupabaseAnonKey.trim()) {
+  throw new Error(
+    'Missing required Supabase environment variable: "VITE_SUPABASE_ANON_KEY" must be defined in your environment (e.g., .env or hosting environment variables).'
+  );
+}
+
+const sanitizedSupabaseUrl = sanitizeSupabaseUrl(rawSupabaseUrl);
+
+if (!sanitizedSupabaseUrl.startsWith('http://') && !sanitizedSupabaseUrl.startsWith('https://')) {
+  throw new Error(
+    `Invalid "VITE_SUPABASE_URL": must start with "http://" or "https://". Received: "${rawSupabaseUrl}"`
+  );
+}
+
+/**
+ * Directly initialized Supabase client using validated environment variables.
+ */
+export const supabase: SupabaseClient = createClient(
+  sanitizedSupabaseUrl,
+  rawSupabaseAnonKey.trim(),
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+    global: {
+      fetch: createValidatedSupabaseFetch(),
+    },
+  }
+);
+
+/**
+ * Accessor function returning the initialized Supabase client.
+ */
+export function getSupabase(): SupabaseClient {
+  return supabase;
+}
+
+/**
+ * Returns true if Supabase client is successfully initialized and ready.
+ */
 export function isSupabaseConnected(): boolean {
-  const { url, key, isValid } = getSupabaseConfig();
-  return Boolean(url && key && isValid);
+  return Boolean(supabase);
 }
 
+/**
+ * Returns configuration details for status displays.
+ */
 export function getSupabaseConfigDetails() {
-  const config = getSupabaseConfig();
   return {
-    url: config.url,
-    isFromEnv: config.isFromEnv,
+    url: sanitizedSupabaseUrl,
+    isFromEnv: true,
     connected: isSupabaseConnected(),
-    isValid: config.isValid,
-    errors: config.errors,
-    warnings: config.warnings,
+    isValid: true,
+    errors: [] as string[],
+    warnings: [] as string[],
   };
 }
 
 /**
- * Saves Supabase credentials locally for manual configuration in the UI.
- * Does not make external network calls.
+ * Local helper for modal interaction.
  */
 export async function saveSupabaseConfig(url: string, key: string): Promise<boolean> {
-  const cleanUrl = sanitizeSupabaseUrl(url);
-  const cleanKey = key.trim();
-
-  inMemoryUrl = cleanUrl;
-  inMemoryKey = cleanKey;
-
   if (typeof window !== 'undefined') {
-    if (cleanUrl) localStorage.setItem('FORESYNDO_SUPABASE_URL', cleanUrl);
-    else localStorage.removeItem('FORESYNDO_SUPABASE_URL');
-
-    if (cleanKey) localStorage.setItem('FORESYNDO_SUPABASE_ANON_KEY', cleanKey);
-    else localStorage.removeItem('FORESYNDO_SUPABASE_ANON_KEY');
+    if (url) localStorage.setItem('FORESYNDO_SUPABASE_URL', sanitizeSupabaseUrl(url));
+    if (key) localStorage.setItem('FORESYNDO_SUPABASE_ANON_KEY', key.trim());
   }
-
-  supabaseClient = null; // reset client to re-evaluate with updated credentials
   return isSupabaseConnected();
 }

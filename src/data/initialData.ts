@@ -631,7 +631,7 @@ export const INITIAL_PHOTOS: PhotoItem[] = [
     date: '2026-08-31',
     category: 'Progress Hari Ini',
     title: 'Dokumentasi Kondisi Lahan Awal (Nol Progress)',
-    url: 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?w=800&auto=format&fit=crop&q=80',
+    url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop&q=80',
     uploadedBy: 'Ir. Agus Pratama (Site Manager)',
     notes: 'Survei lahan nol & penentuan titik koordinat utama sebelum mobilisasi alat.',
   },
@@ -647,7 +647,7 @@ export const INITIAL_DAILY_LOGS: DailyLog[] = [
     activitySummary:
       '1. Kick-off meeting persiapan pelaksanaan konstruksi.\n2. Pemetaan patok batas lahan & koordinat site.\n3. Persiapan jalur masuk mobilisasi alat berat & material.',
     volumeDone: '0 m³ (Tahap Perencanaan & Pre-Construction)',
-    photos: ['https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?w=800&auto=format&fit=crop&q=80'],
+    photos: ['https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop&q=80'],
     notes: 'Dokumen K3, perizinan, dan jadwal rencana master schedule telah disetujui.',
     createdBy: 'Ir. Agus Pratama',
   },

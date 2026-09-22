@@ -74,6 +74,7 @@ import { generatePDFReport } from './utils/exportEngine';
 import { calculatePhysicalProgress, calculateTargetProgress, calculateDeviation } from './utils/calculations';
 import { useSyncMonitor } from './hooks/useSyncMonitor';
 import { recordPrimaryStateUpdate, loadAllPrimaryProjectData } from './utils/syncManager';
+import { sanitizeImageUrl, BROKEN_UNSPLASH_ID, DEFAULT_CONSTRUCTION_IMAGE } from './components/common/SafeImage';
 
 export default function App() {
   // Navigation & Role State
@@ -297,12 +298,20 @@ export default function App() {
 
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>(() => {
     const saved = localStorage.getItem('FORESYNDO_V3_DAILY_LOGS');
-    return saved ? JSON.parse(saved) : INITIAL_DAILY_LOGS;
+    const logs: DailyLog[] = saved ? JSON.parse(saved) : INITIAL_DAILY_LOGS;
+    return logs.map((log) => ({
+      ...log,
+      photos: (log.photos || []).map((p) => sanitizeImageUrl(p)),
+    }));
   });
 
   const [photos, setPhotos] = useState<PhotoItem[]>(() => {
     const saved = localStorage.getItem('FORESYNDO_V3_PHOTOS');
-    return saved ? JSON.parse(saved) : INITIAL_PHOTOS;
+    const photoList: PhotoItem[] = saved ? JSON.parse(saved) : INITIAL_PHOTOS;
+    return photoList.map((photo) => ({
+      ...photo,
+      url: sanitizeImageUrl(photo.url),
+    }));
   });
 
   const [materials, setMaterials] = useState<MaterialItem[]>(() => {
@@ -1006,14 +1015,28 @@ export default function App() {
         const remoteData = await pullAllDataFromSupabase(project.id || 'FORESYNDO-PROJECT-2');
         if (remoteData && isMounted) {
           if (remoteData.documents && Array.isArray(remoteData.documents)) setDocuments(remoteData.documents);
-          if (remoteData.dailyLogs && Array.isArray(remoteData.dailyLogs)) setDailyLogs(remoteData.dailyLogs);
+          if (remoteData.dailyLogs && Array.isArray(remoteData.dailyLogs)) {
+            setDailyLogs(
+              remoteData.dailyLogs.map((log) => ({
+                ...log,
+                photos: (log.photos || []).map((p) => sanitizeImageUrl(p)),
+              }))
+            );
+          }
           if (remoteData.materials && Array.isArray(remoteData.materials)) setMaterials(remoteData.materials);
           if (remoteData.workItems && Array.isArray(remoteData.workItems)) setWorkItems(remoteData.workItems);
           if (remoteData.workers && Array.isArray(remoteData.workers)) setWorkers(remoteData.workers);
           if (remoteData.allocations && Array.isArray(remoteData.allocations)) setAllocations(remoteData.allocations);
           if (remoteData.equipments && Array.isArray(remoteData.equipments)) setEquipments(remoteData.equipments);
           if (remoteData.paymentTerms && Array.isArray(remoteData.paymentTerms)) setPaymentTerms(remoteData.paymentTerms);
-          if (remoteData.photos && Array.isArray(remoteData.photos)) setPhotos(remoteData.photos);
+          if (remoteData.photos && Array.isArray(remoteData.photos)) {
+            setPhotos(
+              remoteData.photos.map((photo) => ({
+                ...photo,
+                url: sanitizeImageUrl(photo.url),
+              }))
+            );
+          }
           if (remoteData.auditLogs && Array.isArray(remoteData.auditLogs)) setAuditLogs(remoteData.auditLogs);
           if (remoteData.calendarEvents && Array.isArray(remoteData.calendarEvents)) setCalendarEvents(remoteData.calendarEvents);
           if (remoteData.projectInfo) setProject(remoteData.projectInfo);
@@ -1046,14 +1069,28 @@ export default function App() {
         pullAllDataFromSupabase(project.id || 'FORESYNDO-PROJECT-2').then((remote) => {
           if (remote && isMounted) {
             if (remote.documents && Array.isArray(remote.documents)) setDocuments(remote.documents);
-            if (remote.dailyLogs && Array.isArray(remote.dailyLogs)) setDailyLogs(remote.dailyLogs);
+            if (remote.dailyLogs && Array.isArray(remote.dailyLogs)) {
+              setDailyLogs(
+                remote.dailyLogs.map((log) => ({
+                  ...log,
+                  photos: (log.photos || []).map((p) => sanitizeImageUrl(p)),
+                }))
+              );
+            }
             if (remote.materials && Array.isArray(remote.materials)) setMaterials(remote.materials);
             if (remote.workItems && Array.isArray(remote.workItems)) setWorkItems(remote.workItems);
             if (remote.workers && Array.isArray(remote.workers)) setWorkers(remote.workers);
             if (remote.allocations && Array.isArray(remote.allocations)) setAllocations(remote.allocations);
             if (remote.equipments && Array.isArray(remote.equipments)) setEquipments(remote.equipments);
             if (remote.paymentTerms && Array.isArray(remote.paymentTerms)) setPaymentTerms(remote.paymentTerms);
-            if (remote.photos && Array.isArray(remote.photos)) setPhotos(remote.photos);
+            if (remote.photos && Array.isArray(remote.photos)) {
+              setPhotos(
+                remote.photos.map((photo) => ({
+                  ...photo,
+                  url: sanitizeImageUrl(photo.url),
+                }))
+              );
+            }
             if (remote.projectInfo) setProject(remote.projectInfo);
             if (remote.customCategories && Array.isArray(remote.customCategories)) {
               localStorage.setItem('FORESYNDO_CUSTOM_MATERIAL_CATEGORIES', JSON.stringify(remote.customCategories));

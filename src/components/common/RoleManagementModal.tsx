@@ -51,6 +51,7 @@ import {
   Files,
 } from 'lucide-react';
 import { RoleBadge } from './RoleBadge';
+import { SafeImage } from './SafeImage';
 
 interface RoleManagementModalProps {
   isOpen: boolean;
@@ -825,7 +826,7 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
                             <div className="relative">
-                              <img
+                              <SafeImage
                                 src={p.avatarUrl}
                                 alt={p.personName}
                                 className="w-12 h-12 rounded-2xl object-cover border-2 border-slate-700"
