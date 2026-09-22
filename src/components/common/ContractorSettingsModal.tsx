@@ -965,7 +965,7 @@ export const ContractorSettingsModal: React.FC<ContractorSettingsModalProps> = (
                           setLogoUrl(e.target.value);
                           setUploadedFileInfo(null);
                         }}
-                        placeholder="/assets/logo.png atau https://domain.com/logo.png"
+                        placeholder="/assets/logo.png"
                         className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] font-mono text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-amber-500"
                       />
                     </div>
@@ -1017,7 +1017,7 @@ export const ContractorSettingsModal: React.FC<ContractorSettingsModalProps> = (
                       type="text"
                       value={bankAccountHolder}
                       onChange={(e) => setBankAccountHolder(e.target.value)}
-                      placeholder="PT FORESYNDO GLOBAL INDONESIA"
+                      placeholder="PT GONG MBE LINK PAMUNGKAS"
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                     />
                   </div>
@@ -1053,23 +1053,23 @@ export const ContractorSettingsModal: React.FC<ContractorSettingsModalProps> = (
                     />
                     <div>
                       <h4 className="text-sm sm:text-base font-black tracking-tight text-slate-900 uppercase">
-                        {companyName || 'PT FORESYNDO GLOBAL INDONESIA'}
+                        {companyName || 'PT GONG MBE LINK PAMUNGKAS'}
                       </h4>
                       <p className="text-[11px] font-bold text-amber-700">
                         {classification || 'GENERAL CONTRACTOR & REKAYASA STRUKTUR BANGUNAN GEDUNG'}
                       </p>
                       <p className="text-[10px] text-slate-600 mt-0.5">
-                        {address || 'Jl. Raya Jatitujuh No. 88'}, {city || 'Majalengka'}, {province || 'Jawa Barat'} {postalCode ? ` - ${postalCode}` : ''}
+                        {address || 'Bukit Cimanggu City, Jl. Raya Baru Ruko No. 5, Desa Cibadak Kec. Tanah sereal'}, {city || 'Bogor'}, {province || 'Jawa Barat'} {postalCode ? ` - ${postalCode}` : ''}
                       </p>
                       <p className="text-[10px] text-slate-500">
-                        Telp: {phone || '(0233) 881900'} | WA: {whatsapp || '+62 811-3344-5566'} | Email: {email || 'konstruksi@foresyndo.co.id'}
+                        Telp: {phone || '0'} | WA: {whatsapp || '+62 8126-6077-097'} | Email: {email || 'pt.gmp12@gmail.com'}
                       </p>
                     </div>
                   </div>
                   <div className="text-right text-[10px] font-mono shrink-0 border-l pl-3 border-slate-300">
-                    <div><strong>NPWP:</strong> {npwp || '01.889.345.2-438.000'}</div>
-                    <div><strong>NIB:</strong> {nib || '9120003481902'}</div>
-                    <div><strong>IUJK:</strong> {iujkNumber || '1-0233-2-0045'}</div>
+                    <div><strong>NPWP:</strong> {npwp || '61.289.845.2-404.000'}</div>
+                    <div><strong>NIB:</strong> {nib || '1410220080338'}</div>
+                    <div><strong>IUJK:</strong> {iujkNumber || '14102200803380001'}</div>
                   </div>
                 </div>
 
