@@ -473,12 +473,56 @@ export async function pushAllDataToSupabase(payload: ProjectSyncPayload): Promis
   // 2. Server-side unified snapshot push (Persists to server disk & server-side Supabase client)
   let serverSuccess = false;
   try {
-    const serverRes = await fetch('/api/project/snapshot', {
+    const endpoint = '/api/project/snapshot';
+    const fullUrl =
+      typeof window !== 'undefined'
+        ? new URL(endpoint, window.location.origin).href
+        : endpoint;
+
+    const serverRes = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
       body: JSON.stringify({ payload }),
     });
-    if (serverRes.ok) {
+
+    const contentType = serverRes.headers.get('content-type') || '';
+    const isJson = contentType.toLowerCase().includes('application/json');
+
+    if (!serverRes.ok) {
+      let errorBody = '';
+      try {
+        errorBody = await serverRes.text();
+      } catch (e) {
+        errorBody = `[Unable to read body: ${e}]`;
+      }
+      console.warn(
+        `[Server Snapshot Push Notice]\n` +
+        `  Target URL: ${fullUrl}\n` +
+        `  Resolved URL: ${serverRes.url || fullUrl}\n` +
+        `  HTTP Status: ${serverRes.status} (${serverRes.statusText})\n` +
+        `  Content-Type: "${contentType}"\n` +
+        `  Response Body Snippet:\n${errorBody.slice(0, 1000)}`
+      );
+    } else if (!isJson) {
+      let unexpectedBody = '';
+      try {
+        unexpectedBody = await serverRes.text();
+      } catch (e) {
+        unexpectedBody = `[Unable to read body: ${e}]`;
+      }
+      console.warn(
+        `[Server Snapshot Push Notice - Non-JSON / HTML Returned]\n` +
+        `  Expected: "application/json"\n` +
+        `  Received Content-Type: "${contentType}"\n` +
+        `  Target URL: ${fullUrl}\n` +
+        `  Resolved URL: ${serverRes.url || fullUrl}\n` +
+        `  HTTP Status: ${serverRes.status} (${serverRes.statusText})\n` +
+        `  Response Body Snippet (HTML returned instead of JSON):\n${unexpectedBody.slice(0, 1000)}`
+      );
+    } else {
       serverSuccess = true;
     }
   } catch (serverErr) {
@@ -509,6 +553,7 @@ export async function pushAllDataToSupabase(payload: ProjectSyncPayload): Promis
 /**
  * Pulls all project state from Supabase Cloud (with server fallback)
  * Ensures any browser immediately retrieves the shared project state.
+ * Strictly verifies response.ok and Content-Type before parsing JSON.
  */
 export async function pullAllDataFromSupabase(projectId = 'FORESYNDO-PROJECT-2'): Promise<ProjectSyncPayload | null> {
   const supabase = getSupabase();
@@ -534,19 +579,111 @@ export async function pullAllDataFromSupabase(projectId = 'FORESYNDO-PROJECT-2')
   }
 
   // 2. Server-side retrieval fallback (Server fetches from Supabase or persistent snapshot)
-  try {
-    const res = await fetch('/api/project/snapshot');
-    if (res.ok) {
-      const result = await res.json();
-      if (result.success && result.data) {
-        const payload = result.data as ProjectSyncPayload;
-        payload.syncedAt = result.updatedAt;
-        payload.syncedBy = result.syncedBy;
-        return payload;
+  const endpoint = '/api/project/snapshot';
+  const fullUrl =
+    typeof window !== 'undefined'
+      ? new URL(endpoint, window.location.origin).href
+      : endpoint;
+
+  const fetchWithRetry = async (retries = 1, delay = 800): Promise<Response | null> => {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const res = await fetch(endpoint, {
+          headers: {
+            Accept: 'application/json',
+          },
+        });
+        return res;
+      } catch (networkErr: any) {
+        if (attempt < retries) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          console.warn(
+            `[Project Snapshot Pull Notice - Server snapshot currently unavailable]\n` +
+            `  Target URL: ${fullUrl}\n` +
+            `  Details: ${networkErr?.message || networkErr}. Menggunakan data lokal (localStorage).`
+          );
+        }
       }
     }
-  } catch (err) {
-    console.error('Failed to pull project snapshot from server:', err);
+    return null;
+  };
+
+  try {
+    const res = await fetchWithRetry(1, 800);
+    if (!res) {
+      return null;
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    const isJson = contentType.toLowerCase().includes('application/json');
+
+    if (!res.ok) {
+      let errorBody = '';
+      try {
+        errorBody = await res.text();
+      } catch (readErr) {
+        errorBody = `[Unable to read response body: ${readErr}]`;
+      }
+      console.warn(
+        `[Project Snapshot Pull Notice]\n` +
+        `  Target URL: ${fullUrl}\n` +
+        `  Resolved URL: ${res.url || fullUrl}\n` +
+        `  HTTP Status: ${res.status} (${res.statusText})\n` +
+        `  Content-Type: "${contentType}"\n` +
+        `  Response Body Snippet:\n${errorBody.slice(0, 1000)}`
+      );
+      return null;
+    }
+
+    if (!isJson) {
+      let unexpectedBody = '';
+      try {
+        unexpectedBody = await res.text();
+      } catch (readErr) {
+        unexpectedBody = `[Unable to read response body: ${readErr}]`;
+      }
+      console.warn(
+        `[Project Snapshot Pull Notice - Non-JSON Returned]\n` +
+        `  Expected: "application/json"\n` +
+        `  Received Content-Type: "${contentType}"\n` +
+        `  Target URL: ${fullUrl}\n` +
+        `  Resolved URL: ${res.url || fullUrl}\n` +
+        `  HTTP Status: ${res.status} (${res.statusText})\n` +
+        `  Response Body Snippet:\n${unexpectedBody.slice(0, 1000)}`
+      );
+      return null;
+    }
+
+    const rawText = await res.text();
+    let result: any = null;
+    try {
+      result = JSON.parse(rawText);
+    } catch (parseErr: any) {
+      console.warn(
+        `[Project Snapshot Pull Notice - JSON Parse Failure]\n` +
+        `  Target URL: ${fullUrl}\n` +
+        `  Resolved URL: ${res.url || fullUrl}\n` +
+        `  HTTP Status: ${res.status} (${res.statusText})\n` +
+        `  Content-Type: "${contentType}"\n` +
+        `  Parse Error: ${parseErr?.message}\n` +
+        `  Raw Body Preview:\n${rawText.slice(0, 1000)}`
+      );
+      return null;
+    }
+
+    if (result && result.success && result.data) {
+      const payload = result.data as ProjectSyncPayload;
+      payload.syncedAt = result.updatedAt;
+      payload.syncedBy = result.syncedBy;
+      return payload;
+    }
+  } catch (err: any) {
+    console.warn(
+      `[Project Snapshot Pull Fallback Notice]\n` +
+      `  Target URL: ${fullUrl}\n` +
+      `  Notice: ${err?.message || err}. Data fallback ke penyimpanan lokal.`
+    );
   }
 
   return null;

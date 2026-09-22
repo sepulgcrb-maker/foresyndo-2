@@ -136,8 +136,8 @@ self.addEventListener('fetch', (event) => {
   // Ignore non-http protocols (e.g. chrome-extension, blob, etc.)
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
-  const isNavigation = event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html');
   const isApiRequest = url.pathname.startsWith('/api/') || url.hostname.includes('open-meteo.com');
+  const isNavigation = !isApiRequest && (event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html'));
   const isStaticAsset =
     /\.(?:js|css|png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot)$/i.test(url.pathname) ||
     url.pathname.startsWith('/assets/') ||
