@@ -85,15 +85,15 @@ export const ContractorSettingsModal: React.FC<ContractorSettingsModalProps> = (
   const [notes, setNotes] = useState(initial.notes || '');
 
   // Management Team
-  const [director, setDirector] = useState(initial.management?.director || project.director || 'H. Bambang S., M.T.');
+  const [director, setDirector] = useState(initial.management?.director || project.director || 'ROHMAN PRIYAMBODO');
   const [projectManager, setProjectManager] = useState(
-    initial.management?.projectManager || project.projectManager || 'Hendra Wijaya, ST'
+    initial.management?.projectManager || project.projectManager || 'JAKA SEPTIANDANA'
   );
   const [siteManager, setSiteManager] = useState(
-    initial.management?.siteManager || project.siteManager || 'Ir. Agus Pratama'
+    initial.management?.siteManager || project.siteManager || 'EKO YULIANTO '
   );
   const [qcEngineer, setQcEngineer] = useState(
-    initial.management?.qcEngineer || project.qcEngineer || 'Hendra Gunawan, ST'
+    initial.management?.qcEngineer || project.qcEngineer || 'KIKI'
   );
   const [hseOfficer, setHseOfficer] = useState(
     initial.management?.hseOfficer || 'Ahmad Fauzi, S.Si (Ahli K3 Konstruksi)'
@@ -102,10 +102,10 @@ export const ContractorSettingsModal: React.FC<ContractorSettingsModalProps> = (
     initial.management?.estimatorQS || project.estimator || 'Ir. Agus Pratama'
   );
   const [financeAdmin, setFinanceAdmin] = useState(
-    initial.management?.financeAdmin || project.financeAdmin || 'Siti Rahmawati, S.T.'
+    initial.management?.financeAdmin || project.financeAdmin || 'COKRO '
   );
   const [siteEngineer, setSiteEngineer] = useState(
-    initial.management?.siteEngineer || 'Deni Kurniawan, ST'
+    initial.management?.siteEngineer || 'HARUN ARRASID'
   );
 
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -228,35 +228,35 @@ export const ContractorSettingsModal: React.FC<ContractorSettingsModalProps> = (
     e.preventDefault();
 
     const updatedProfile: ContractorProfile = {
-      companyName: companyName.trim() || 'PT Foresyndo Global Indonesia (Divisi Konstruksi)',
-      brandName: brandName.trim() || 'PT FORESYNDO GLOBAL INDONESIA',
-      address: address.trim() || 'Jl. Raya Jatitujuh No. 88, Jatitujuh',
-      city: city.trim() || 'Majalengka',
+      companyName: companyName.trim() || 'PT GONG MBE LINK PAMUNGKAS',
+      brandName: brandName.trim() || 'PT GONG MBE LINK PAMUNGKAS',
+      address: address.trim() || 'Bukit Cimanggu City, Jl. Raya Baru Ruko No. 05, Desa Cibadak Kec. Tanah Sereal',
+      city: city.trim() || 'Bogor',
       province: province.trim() || 'Jawa Barat',
-      postalCode: postalCode.trim() || '45458',
+      postalCode: postalCode.trim() || '16168',
       phone: phone.trim() || '(0233) 881900',
-      whatsapp: whatsapp.trim() || '+62 811-3344-5566',
-      email: email.trim() || 'konstruksi@foresyndo.co.id',
-      website: website.trim() || 'https://foresyndo.co.id',
-      npwp: npwp.trim() || '01.889.345.2-438.000',
-      nib: nib.trim() || '9120003481902',
-      iujkNumber: iujkNumber.trim() || '1-0233-2-0045-1-3210-998822',
-      sbuNumber: sbuNumber.trim() || '0-3210-07-002-1-10-918234 (BG004)',
+      whatsapp: whatsapp.trim() || '+62 8126607-7097',
+      email: email.trim() || 'pt.gmp12@gmail.com',
+      website: website.trim() || 'o',
+      npwp: npwp.trim() || '61.289.845.2-404.000',
+      nib: nib.trim() || '1410220080338',
+      iujkNumber: iujkNumber.trim() || '14102200803380001',
+      sbuNumber: sbuNumber.trim() || '141022008033800050001(BG003)',
       classification: classification.trim() || 'Kualifikasi Menengah (M1) - BG004 & BG009',
       logoUrl: logoUrl.trim() || '/assets/logo.png',
       bankName: bankName.trim() || 'Bank Mandiri (Persero) Tbk',
-      bankAccountNumber: bankAccountNumber.trim() || '131-00-998822-1',
-      bankAccountHolder: bankAccountHolder.trim() || 'PT FORESYNDO GLOBAL INDONESIA',
+      bankAccountNumber: bankAccountNumber.trim() || '0',
+      bankAccountHolder: bankAccountHolder.trim() || 'PT GONG MBE LINK PAMUNGKAS',
       notes: notes.trim(),
       management: {
-        director: director.trim() || 'H. Bambang S., M.T.',
-        projectManager: projectManager.trim() || 'Hendra Wijaya, ST',
-        siteManager: siteManager.trim() || 'Ir. Agus Pratama',
-        qcEngineer: qcEngineer.trim() || 'Hendra Gunawan, ST',
+        director: director.trim() || 'ROHMAN PRIYAMBODO',
+        projectManager: projectManager.trim() || 'JAKA SEPTIANDANA ',
+        siteManager: siteManager.trim() || 'EKO YULIANTO ',
+        qcEngineer: qcEngineer.trim() || 'KIKI ',
         hseOfficer: hseOfficer.trim() || 'Ahmad Fauzi, S.Si (Ahli K3 Konstruksi)',
-        estimatorQS: estimatorQS.trim() || 'Ir. Agus Pratama',
-        financeAdmin: financeAdmin.trim() || 'Siti Rahmawati, S.T.',
-        siteEngineer: siteEngineer.trim() || 'Deni Kurniawan, ST',
+        estimatorQS: estimatorQS.trim() || 'IHSAN ',
+        financeAdmin: financeAdmin.trim() || 'COKRO ',
+        siteEngineer: siteEngineer.trim() || 'HARUN ARRASID ',
       },
     };
 
@@ -440,7 +440,7 @@ export const ContractorSettingsModal: React.FC<ContractorSettingsModalProps> = (
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Contoh: PT FORESYNDO GLOBAL INDONESIA (Divisi Konstruksi)"
+                  placeholder="Contoh: PT GONG MBE LINK PAMUNGKAS"
                   required
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                 />
@@ -454,7 +454,7 @@ export const ContractorSettingsModal: React.FC<ContractorSettingsModalProps> = (
                   type="text"
                   value={brandName}
                   onChange={(e) => setBrandName(e.target.value)}
-                  placeholder="Contoh: PT FORESYNDO GLOBAL INDONESIA"
+                  placeholder="Contoh: PT GONG MBE LINK PAMUNGKAS"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                 />
               </div>

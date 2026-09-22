@@ -1,10 +1,15 @@
-```tsx
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from 'react';
+
 import {
   ProjectInfo,
   WorkItem,
@@ -45,7 +50,10 @@ import {
 } from './data/initialData';
 
 import { Header } from './components/layout/Header';
-import { Sidebar, ActiveTab } from './components/layout/Sidebar';
+import {
+  Sidebar,
+  ActiveTab,
+} from './components/layout/Sidebar';
 import { AccessRestrictedNotice } from './components/common/AccessRestrictedNotice';
 import { ExecutiveDashboard } from './components/dashboard/ExecutiveDashboard';
 import { TimeScheduleTable } from './components/schedule/TimeScheduleTable';
@@ -62,12 +70,6 @@ import { DocumentManagement } from './components/documents/DocumentManagement';
 import { FinalInspection } from './components/inspection/FinalInspection';
 import { ReportCenter } from './components/reports/ReportCenter';
 import { SupabaseModal } from './components/common/SupabaseModal';
-import {
-  pushAllDataToSupabase,
-  pullAllDataFromSupabase,
-  subscribeToSupabaseRealtime,
-} from './lib/supabaseService';
-import { isSupabaseConnected } from './lib/supabase';
 import { NotificationDrawer } from './components/common/NotificationDrawer';
 import { ProjectSettingsModal } from './components/common/ProjectSettingsModal';
 import { ContractorSettingsModal } from './components/common/ContractorSettingsModal';
@@ -77,40 +79,57 @@ import { OfflineStatusBanner } from './components/common/OfflineStatusBanner';
 import { SyncStatusModal } from './components/common/SyncStatusModal';
 import { ProjectQRCodeModal } from './components/common/ProjectQRCodeModal';
 import { LoginPage } from './components/auth/LoginPage';
+
 import { generatePDFReport } from './utils/exportEngine';
+
 import {
   calculatePhysicalProgress,
   calculateTargetProgress,
   calculateDeviation,
 } from './utils/calculations';
+
 import { useSyncMonitor } from './hooks/useSyncMonitor';
+
 import {
-  recordPrimaryStateUpdate,
-  loadAllPrimaryProjectData,
-} from './utils/syncManager';
+  pushAllDataToSupabase,
+  pullAllDataFromSupabase,
+  subscribeToSupabaseRealtime,
+} from './lib/supabaseService';
+
 import {
   sanitizeImageUrl,
 } from './components/common/SafeImage';
 
 const PROJECT_ID = 'FORESYNDO-PROJECT-2';
 
-type CloudStatus = 'loading' | 'ready' | 'error';
+type CloudStatus =
+  | 'loading'
+  | 'ready'
+  | 'error';
 
 export default function App() {
   // ============================================================
   // UI STATE
   // ============================================================
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [activeTab, setActiveTab] =
+    useState<ActiveTab>('dashboard');
 
-  const [darkMode, setDarkMode] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('FORESYNDO_DARK_MODE');
-      return saved ? JSON.parse(saved) : false;
-    } catch {
-      return false;
-    }
-  });
+  const [darkMode, setDarkMode] =
+    useState<boolean>(() => {
+      try {
+        const saved =
+          localStorage.getItem(
+            'FORESYNDO_DARK_MODE'
+          );
+
+        return saved
+          ? JSON.parse(saved)
+          : false;
+      } catch {
+        return false;
+      }
+    });
 
   useEffect(() => {
     try {
@@ -119,74 +138,136 @@ export default function App() {
         JSON.stringify(darkMode)
       );
     } catch {
-      // UI preference only; never allow storage errors to crash the app.
+      // UI preference only.
     }
 
     if (darkMode) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add(
+        'dark'
+      );
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove(
+        'dark'
+      );
     }
   }, [darkMode]);
 
   // ============================================================
-  // AUTH SESSION
+  // REMOVE LEGACY PROJECT LOCALSTORAGE
+  //
+  // These keys may still exist from the old application version.
+  // They are removed only to free browser quota.
+  //
+  // Authentication/session/UI settings are NOT removed.
   // ============================================================
 
-  const [authSession, setAuthSession] = useState<AuthSession>(() => {
+  useEffect(() => {
+    const legacyProjectStorageKeys = [
+      'FORESYNDO_V3_PROJECT_INFO',
+      'FORESYNDO_V3_WORK_ITEMS',
+      'FORESYNDO_V3_PAYMENT_TERMS',
+      'FORESYNDO_V3_DAILY_LOGS',
+      'FORESYNDO_V3_PHOTOS',
+      'FORESYNDO_V3_MATERIALS',
+      'FORESYNDO_V3_WORKERS',
+      'FORESYNDO_V3_ALLOCATIONS',
+      'FORESYNDO_V3_EQUIPMENT',
+      'FORESYNDO_V3_AUDIT_LOGS',
+      'FORESYNDO_V3_NOTIFICATIONS',
+      'FORESYNDO_V3_CALENDAR_EVENTS',
+      'FORESYNDO_V3_PROJECT_DOCUMENTS',
+      'FORESYNDO_CUSTOM_MATERIAL_CATEGORIES',
+    ];
+
     try {
-      const isSessionActive =
-        sessionStorage.getItem('FORESYNDO_SESSION_ACTIVE') === 'true';
+      legacyProjectStorageKeys.forEach(
+        (key) => {
+          localStorage.removeItem(key);
+        }
+      );
+    } catch {
+      // Never crash application because of storage cleanup.
+    }
+  }, []);
 
-      if (isSessionActive) {
-        const saved = localStorage.getItem('FORESYNDO_AUTH_SESSION');
+  // ============================================================
+  // AUTH SESSION
+  //
+  // Session data is small and is NOT project business data.
+  // ============================================================
 
-        if (saved) {
-          const parsed = JSON.parse(saved);
+  const [authSession, setAuthSession] =
+    useState<AuthSession>(() => {
+      try {
+        const isSessionActive =
+          sessionStorage.getItem(
+            'FORESYNDO_SESSION_ACTIVE'
+          ) === 'true';
 
-          if (
-            parsed &&
-            typeof parsed.isAuthenticated === 'boolean' &&
-            parsed.isAuthenticated
-          ) {
-            return parsed;
+        if (isSessionActive) {
+          const saved =
+            localStorage.getItem(
+              'FORESYNDO_AUTH_SESSION'
+            );
+
+          if (saved) {
+            const parsed =
+              JSON.parse(saved);
+
+            if (
+              parsed &&
+              typeof parsed.isAuthenticated ===
+                'boolean' &&
+              parsed.isAuthenticated
+            ) {
+              return parsed;
+            }
           }
         }
+      } catch {
+        // Fall through.
       }
-    } catch {
-      // Fall through to logged-out state.
-    }
 
-    return {
-      isAuthenticated: false,
-      role: 'Kontraktor',
-      userName: '',
-      loginTime: '',
-    };
-  });
+      return {
+        isAuthenticated: false,
+        role: 'Kontraktor',
+        userName: '',
+        loginTime: '',
+      };
+    });
 
-  const [currentRole, setCurrentRole] = useState<UserRole>(() => {
-    try {
-      const isSessionActive =
-        sessionStorage.getItem('FORESYNDO_SESSION_ACTIVE') === 'true';
+  const [currentRole, setCurrentRole] =
+    useState<UserRole>(() => {
+      try {
+        const isSessionActive =
+          sessionStorage.getItem(
+            'FORESYNDO_SESSION_ACTIVE'
+          ) === 'true';
 
-      if (isSessionActive) {
-        const saved = localStorage.getItem('FORESYNDO_AUTH_SESSION');
+        if (isSessionActive) {
+          const saved =
+            localStorage.getItem(
+              'FORESYNDO_AUTH_SESSION'
+            );
 
-        if (saved) {
-          const parsed = JSON.parse(saved);
+          if (saved) {
+            const parsed =
+              JSON.parse(saved);
 
-          if (parsed?.role && parsed?.isAuthenticated) {
-            return parsed.role as UserRole;
+            if (
+              parsed?.role &&
+              parsed?.isAuthenticated
+            ) {
+              return parsed.role as UserRole;
+            }
           }
         }
+      } catch {
+        // Fall through.
       }
-    } catch {
-      // Fall through.
-    }
 
-    return 'Kontraktor';
-  });
+      return 'Kontraktor';
+    });
 
   // ============================================================
   // CLOUD STATE
@@ -195,7 +276,8 @@ export default function App() {
   const [cloudStatus, setCloudStatus] =
     useState<CloudStatus>('loading');
 
-  const [cloudError, setCloudError] = useState<string | null>(null);
+  const [cloudError, setCloudError] =
+    useState<string | null>(null);
 
   const [isSavingToCloud, setIsSavingToCloud] =
     useState(false);
@@ -203,48 +285,81 @@ export default function App() {
   const [lastSupabaseSync, setLastSupabaseSync] =
     useState<string | null>(null);
 
-  const cloudHydratedRef = useRef(false);
-  const skipNextAutoSyncRef = useRef(false);
-  const autoSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
+  const cloudHydratedRef =
+    useRef(false);
+
+  const skipNextAutoSyncRef =
+    useRef(false);
+
+  const autoSyncTimerRef =
+    useRef<ReturnType<typeof setTimeout> | null>(
+      null
+    );
+
+  const saveSequenceRef =
+    useRef(0);
 
   // ============================================================
   // MODALS
   // ============================================================
 
-  const [isSupabaseModalOpen, setIsSupabaseModalOpen] =
-    useState(false);
+  const [
+    isSupabaseModalOpen,
+    setIsSupabaseModalOpen,
+  ] = useState(false);
 
-  const [isNotificationsOpen, setIsNotificationsOpen] =
-    useState(false);
+  const [
+    isNotificationsOpen,
+    setIsNotificationsOpen,
+  ] = useState(false);
 
-  const [isSettingsModalOpen, setIsSettingsModalOpen] =
-    useState(false);
+  const [
+    isSettingsModalOpen,
+    setIsSettingsModalOpen,
+  ] = useState(false);
 
-  const [isContractorSettingsModalOpen, setIsContractorSettingsModalOpen] =
-    useState(false);
+  const [
+    isContractorSettingsModalOpen,
+    setIsContractorSettingsModalOpen,
+  ] = useState(false);
 
-  const [isRoleModalOpen, setIsRoleModalOpen] =
-    useState(false);
+  const [
+    isRoleModalOpen,
+    setIsRoleModalOpen,
+  ] = useState(false);
 
-  const [isSyncModalOpen, setIsSyncModalOpen] =
-    useState(false);
+  const [
+    isSyncModalOpen,
+    setIsSyncModalOpen,
+  ] = useState(false);
 
-  const [isQrModalOpen, setIsQrModalOpen] =
-    useState(false);
+  const [
+    isQrModalOpen,
+    setIsQrModalOpen,
+  ] = useState(false);
 
-  const [roleModalTab, setRoleModalTab] =
-    useState<
-      'profiles' | 'permissions' | 'matrix' | 'workflow' | 'pins'
-    >('profiles');
+  const [
+    roleModalTab,
+    setRoleModalTab,
+  ] = useState<
+    | 'profiles'
+    | 'permissions'
+    | 'matrix'
+    | 'workflow'
+    | 'pins'
+  >('profiles');
 
   // ============================================================
   // ROLE SECURITY
   // ============================================================
 
   const [rolePins, setRolePins] =
-    useState<Record<StakeholderRoleKey, string>>({
+    useState<
+      Record<
+        StakeholderRoleKey,
+        string
+      >
+    >({
       Owner: '889900',
       Konsultan: '776622',
       Kontraktor: '554433',
@@ -255,95 +370,147 @@ export default function App() {
   // STAKEHOLDER PROFILES
   // ============================================================
 
-  const [stakeholderProfiles, setStakeholderProfiles] =
-    useState<Record<
+  const [
+    stakeholderProfiles,
+    setStakeholderProfiles,
+  ] = useState<
+    Record<
       StakeholderRoleKey,
       StakeholderRoleProfile
-    >>(() => {
-      const merged = {
-        ...INITIAL_STAKEHOLDER_PROFILES,
-      };
+    >
+  >(() => {
+    const merged = {
+      ...INITIAL_STAKEHOLDER_PROFILES,
+    };
 
-      (
-        ['Owner', 'Konsultan', 'Kontraktor', 'Viewer'] as const
-      ).forEach((role) => {
-        if (!merged[role]) return;
+    (
+      [
+        'Owner',
+        'Konsultan',
+        'Kontraktor',
+        'Viewer',
+      ] as const
+    ).forEach((role) => {
+      if (!merged[role]) return;
 
-        const initPerms =
-          INITIAL_STAKEHOLDER_PROFILES[role].permissions;
+      const initPerms =
+        INITIAL_STAKEHOLDER_PROFILES[
+          role
+        ].permissions;
 
-        if (!merged[role].permissions) {
-          merged[role].permissions = {
-            ...initPerms,
-            allowedTabs: [...initPerms.allowedTabs],
-          };
-        } else {
-          if (
-            merged[role].permissions.canUploadDocuments ===
-            undefined
-          ) {
-            merged[role].permissions.canUploadDocuments =
-              initPerms.canUploadDocuments;
-          }
-
-          if (
-            merged[role].permissions.canApproveDocuments ===
-            undefined
-          ) {
-            merged[role].permissions.canApproveDocuments =
-              initPerms.canApproveDocuments;
-          }
-
-          if (
-            merged[role].permissions.canDeleteDocuments ===
-            undefined
-          ) {
-            merged[role].permissions.canDeleteDocuments =
-              initPerms.canDeleteDocuments;
-          }
-
-          if (!merged[role].permissions.allowedTabs) {
-            merged[role].permissions.allowedTabs = [
-              ...initPerms.allowedTabs,
-            ];
-          } else if (
-            !merged[role].permissions.allowedTabs.includes(
-              'documents'
-            )
-          ) {
-            merged[role].permissions.allowedTabs.push(
-              'documents'
-            );
-          }
+      if (!merged[role].permissions) {
+        merged[role].permissions = {
+          ...initPerms,
+          allowedTabs: [
+            ...initPerms.allowedTabs,
+          ],
+        };
+      } else {
+        if (
+          merged[role].permissions
+            .canUploadDocuments ===
+          undefined
+        ) {
+          merged[
+            role
+          ].permissions.canUploadDocuments =
+            initPerms.canUploadDocuments;
         }
-      });
 
-      if (merged.Konsultan?.permissions) {
-        merged.Konsultan.permissions.canInputDailyLog = true;
-        merged.Konsultan.permissions.canManageMaterial = true;
-        merged.Konsultan.permissions.canManageWorkers = true;
-        merged.Konsultan.permissions.canManageEquipment = true;
-        merged.Konsultan.permissions.canEditSchedule = true;
+        if (
+          merged[role].permissions
+            .canApproveDocuments ===
+          undefined
+        ) {
+          merged[
+            role
+          ].permissions.canApproveDocuments =
+            initPerms.canApproveDocuments;
+        }
+
+        if (
+          merged[role].permissions
+            .canDeleteDocuments ===
+          undefined
+        ) {
+          merged[
+            role
+          ].permissions.canDeleteDocuments =
+            initPerms.canDeleteDocuments;
+        }
+
+        if (
+          !merged[role].permissions
+            .allowedTabs
+        ) {
+          merged[
+            role
+          ].permissions.allowedTabs = [
+            ...initPerms.allowedTabs,
+          ];
+        } else if (
+          !merged[
+            role
+          ].permissions.allowedTabs.includes(
+            'documents'
+          )
+        ) {
+          merged[
+            role
+          ].permissions.allowedTabs.push(
+            'documents'
+          );
+        }
       }
-
-      if (merged.Kontraktor?.permissions) {
-        merged.Kontraktor.permissions.canInputDailyLog = true;
-        merged.Kontraktor.permissions.canManageMaterial = true;
-        merged.Kontraktor.permissions.canManageWorkers = true;
-        merged.Kontraktor.permissions.canManageEquipment = true;
-        merged.Kontraktor.permissions.canEditSchedule = true;
-      }
-
-      if (merged.Owner?.permissions) {
-        merged.Owner.permissions.canInputDailyLog = true;
-        merged.Owner.permissions.canManageMaterial = true;
-        merged.Owner.permissions.canManageWorkers = true;
-        merged.Owner.permissions.canManageEquipment = true;
-        merged.Owner.permissions.canEditSchedule = true;
-      }
-
-      return merged;
     });
+
+    if (
+      merged.Konsultan?.permissions
+    ) {
+      merged.Konsultan.permissions.canInputDailyLog =
+        true;
+      merged.Konsultan.permissions.canManageMaterial =
+        true;
+      merged.Konsultan.permissions.canManageWorkers =
+        true;
+      merged.Konsultan.permissions.canManageEquipment =
+        true;
+      merged.Konsultan.permissions.canEditSchedule =
+        true;
+    }
+
+    if (
+      merged.Kontraktor?.permissions
+    ) {
+      merged.Kontraktor.permissions.canInputDailyLog =
+        true;
+      merged.Kontraktor.permissions.canManageMaterial =
+        true;
+      merged.Kontraktor.permissions.canManageWorkers =
+        true;
+      merged.Kontraktor.permissions.canManageEquipment =
+        true;
+      merged.Kontraktor.permissions.canEditSchedule =
+        true;
+    }
+
+    if (
+      merged.Owner?.permissions
+    ) {
+      merged.Owner.permissions.canInputDailyLog =
+        true;
+      merged.Owner.permissions.canManageMaterial =
+        true;
+      merged.Owner.permissions.canManageWorkers =
+        true;
+      merged.Owner.permissions.canManageEquipment =
+        true;
+      merged.Owner.permissions.canEditSchedule =
+        true;
+    }
+
+    return merged;
+  });
 
   // ============================================================
   // USER NAMES
@@ -361,46 +528,75 @@ export default function App() {
     });
 
   // ============================================================
-  // CORE PROJECT DATA
+  // CUSTOM CATEGORIES
   //
   // IMPORTANT:
-  // Initial values are only temporary React values.
-  // They are NEVER read from localStorage.
-  // Main UI is blocked until Supabase hydration succeeds.
+  // This is now React/cloud state.
+  // It is NOT stored in localStorage.
+  // ============================================================
+
+  const [
+    customCategories,
+    setCustomCategories,
+  ] = useState<string[]>([]);
+
+  // ============================================================
+  // CORE PROJECT DATA
+  //
+  // Initial values are temporary only.
+  // Supabase MUST hydrate them before application renders.
   // ============================================================
 
   const [project, setProject] =
-    useState<ProjectInfo>(INITIAL_PROJECT_INFO);
+    useState<ProjectInfo>(
+      INITIAL_PROJECT_INFO
+    );
 
   const [workItems, setWorkItems] =
-    useState<WorkItem[]>(INITIAL_WORK_ITEMS);
+    useState<WorkItem[]>(
+      INITIAL_WORK_ITEMS
+    );
 
   const [paymentTerms, setPaymentTerms] =
-    useState<PaymentTerm[]>(INITIAL_PAYMENT_TERMS);
+    useState<PaymentTerm[]>(
+      INITIAL_PAYMENT_TERMS
+    );
 
   const [dailyLogs, setDailyLogs] =
     useState<DailyLog[]>(
-      INITIAL_DAILY_LOGS.map((log) => ({
-        ...log,
-        photos: (log.photos || []).map((p) =>
-          sanitizeImageUrl(p)
-        ),
-      }))
+      INITIAL_DAILY_LOGS.map(
+        (log) => ({
+          ...log,
+          photos: (
+            log.photos || []
+          ).map((p) =>
+            sanitizeImageUrl(p)
+          ),
+        })
+      )
     );
 
   const [photos, setPhotos] =
     useState<PhotoItem[]>(
-      INITIAL_PHOTOS.map((photo) => ({
-        ...photo,
-        url: sanitizeImageUrl(photo.url),
-      }))
+      INITIAL_PHOTOS.map(
+        (photo) => ({
+          ...photo,
+          url: sanitizeImageUrl(
+            photo.url
+          ),
+        })
+      )
     );
 
   const [materials, setMaterials] =
-    useState<MaterialItem[]>(INITIAL_MATERIALS);
+    useState<MaterialItem[]>(
+      INITIAL_MATERIALS
+    );
 
   const [workers, setWorkers] =
-    useState<WorkerItem[]>(INITIAL_WORKERS);
+    useState<WorkerItem[]>(
+      INITIAL_WORKERS
+    );
 
   const [allocations, setAllocations] =
     useState<WorkerAllocation[]>(
@@ -408,10 +604,14 @@ export default function App() {
     );
 
   const [equipments, setEquipments] =
-    useState<EquipmentItem[]>(INITIAL_EQUIPMENT);
+    useState<EquipmentItem[]>(
+      INITIAL_EQUIPMENT
+    );
 
   const [auditLogs, setAuditLogs] =
-    useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
+    useState<AuditLog[]>(
+      INITIAL_AUDIT_LOGS
+    );
 
   const [notifications, setNotifications] =
     useState<NotificationItem[]>(
@@ -435,7 +635,10 @@ export default function App() {
   const getEffectiveRoleKey = (
     role: UserRole
   ): StakeholderRoleKey => {
-    if (role === 'Owner' || role === 'Direktur') {
+    if (
+      role === 'Owner' ||
+      role === 'Direktur'
+    ) {
       return 'Owner';
     }
 
@@ -455,36 +658,47 @@ export default function App() {
   };
 
   const effectiveRoleKey =
-    getEffectiveRoleKey(currentRole);
+    getEffectiveRoleKey(
+      currentRole
+    );
 
   const currentProfile =
-    stakeholderProfiles[effectiveRoleKey] ||
-    INITIAL_STAKEHOLDER_PROFILES[effectiveRoleKey];
+    stakeholderProfiles[
+      effectiveRoleKey
+    ] ||
+    INITIAL_STAKEHOLDER_PROFILES[
+      effectiveRoleKey
+    ];
 
   const currentPermissions =
     currentProfile?.permissions ||
-    INITIAL_STAKEHOLDER_PROFILES.Owner.permissions;
+    INITIAL_STAKEHOLDER_PROFILES.Owner
+      .permissions;
 
   const allowedTabs =
     currentPermissions?.allowedTabs ||
     ALL_PROJECT_TABS;
 
   const isCurrentTabRestricted =
-    !allowedTabs.includes(activeTab);
+    !allowedTabs.includes(
+      activeTab
+    );
 
   // ============================================================
   // APPLY CLOUD DATA
   // ============================================================
 
-  const applyRemoteData = useCallback(
-    (remoteData: any) => {
+  const applyRemoteData =
+    useCallback((remoteData: any) => {
       if (!remoteData) {
         throw new Error(
           'Tidak ada data proyek yang dikembalikan dari Supabase.'
         );
       }
 
-      if (remoteData.projectInfo) {
+      if (
+        remoteData.projectInfo
+      ) {
         const remoteProject = {
           ...remoteData.projectInfo,
         };
@@ -495,38 +709,57 @@ export default function App() {
             'unsplash.com'
           )
         ) {
-          remoteProject.logoUrl = '/assets/logo.png';
+          remoteProject.logoUrl =
+            '/assets/logo.png';
         }
 
-        if (!remoteProject.contractorProfile) {
+        if (
+          !remoteProject.contractorProfile
+        ) {
           remoteProject.contractorProfile =
             INITIAL_CONTRACTOR_PROFILE;
         }
 
-        setProject(remoteProject);
+        setProject(
+          remoteProject
+        );
       }
 
       if (
-        Array.isArray(remoteData.workItems)
+        Array.isArray(
+          remoteData.workItems
+        )
       ) {
-        setWorkItems(remoteData.workItems);
+        setWorkItems(
+          remoteData.workItems
+        );
       }
 
       if (
-        Array.isArray(remoteData.paymentTerms)
+        Array.isArray(
+          remoteData.paymentTerms
+        )
       ) {
-        setPaymentTerms(remoteData.paymentTerms);
+        setPaymentTerms(
+          remoteData.paymentTerms
+        );
       }
 
       if (
-        Array.isArray(remoteData.dailyLogs)
+        Array.isArray(
+          remoteData.dailyLogs
+        )
       ) {
         setDailyLogs(
           remoteData.dailyLogs.map(
-            (log: DailyLog) => ({
+            (
+              log: DailyLog
+            ) => ({
               ...log,
-              photos: (log.photos || []).map(
-                (p) => sanitizeImageUrl(p)
+              photos: (
+                log.photos || []
+              ).map((p) =>
+                sanitizeImageUrl(p)
               ),
             })
           )
@@ -534,56 +767,88 @@ export default function App() {
       }
 
       if (
-        Array.isArray(remoteData.photos)
+        Array.isArray(
+          remoteData.photos
+        )
       ) {
         setPhotos(
           remoteData.photos.map(
-            (photo: PhotoItem) => ({
+            (
+              photo: PhotoItem
+            ) => ({
               ...photo,
-              url: sanitizeImageUrl(photo.url),
+              url: sanitizeImageUrl(
+                photo.url
+              ),
             })
           )
         );
       }
 
       if (
-        Array.isArray(remoteData.materials)
+        Array.isArray(
+          remoteData.materials
+        )
       ) {
-        setMaterials(remoteData.materials);
+        setMaterials(
+          remoteData.materials
+        );
       }
 
       if (
-        Array.isArray(remoteData.workers)
+        Array.isArray(
+          remoteData.workers
+        )
       ) {
-        setWorkers(remoteData.workers);
+        setWorkers(
+          remoteData.workers
+        );
       }
 
       if (
-        Array.isArray(remoteData.allocations)
+        Array.isArray(
+          remoteData.allocations
+        )
       ) {
-        setAllocations(remoteData.allocations);
+        setAllocations(
+          remoteData.allocations
+        );
       }
 
       if (
-        Array.isArray(remoteData.equipments)
+        Array.isArray(
+          remoteData.equipments
+        )
       ) {
-        setEquipments(remoteData.equipments);
+        setEquipments(
+          remoteData.equipments
+        );
       }
 
       if (
-        Array.isArray(remoteData.auditLogs)
+        Array.isArray(
+          remoteData.auditLogs
+        )
       ) {
-        setAuditLogs(remoteData.auditLogs);
+        setAuditLogs(
+          remoteData.auditLogs
+        );
       }
 
       if (
-        Array.isArray(remoteData.notifications)
+        Array.isArray(
+          remoteData.notifications
+        )
       ) {
-        setNotifications(remoteData.notifications);
+        setNotifications(
+          remoteData.notifications
+        );
       }
 
       if (
-        Array.isArray(remoteData.calendarEvents)
+        Array.isArray(
+          remoteData.calendarEvents
+        )
       ) {
         setCalendarEvents(
           remoteData.calendarEvents
@@ -591,14 +856,19 @@ export default function App() {
       }
 
       if (
-        Array.isArray(remoteData.documents)
+        Array.isArray(
+          remoteData.documents
+        )
       ) {
-        setDocuments(remoteData.documents);
+        setDocuments(
+          remoteData.documents
+        );
       }
 
       if (
         remoteData.userNames &&
-        typeof remoteData.userNames === 'object'
+        typeof remoteData.userNames ===
+          'object'
       ) {
         setUserNameMap(
           (prev) => ({
@@ -610,7 +880,8 @@ export default function App() {
 
       if (
         remoteData.rolePins &&
-        typeof remoteData.rolePins === 'object'
+        typeof remoteData.rolePins ===
+          'object'
       ) {
         setRolePins(
           (prev) => ({
@@ -634,289 +905,74 @@ export default function App() {
       }
 
       if (
-        remoteData.customCategories &&
-        Array.isArray(remoteData.customCategories)
+        Array.isArray(
+          remoteData.customCategories
+        )
       ) {
-        try {
-          localStorage.setItem(
-            'FORESYNDO_CUSTOM_MATERIAL_CATEGORIES',
-            JSON.stringify(
-              remoteData.customCategories
-            )
-          );
-        } catch {
-          // Ignore local UI cache errors.
-        }
-
-        window.dispatchEvent(
-          new Event(
-            'foresyndo_categories_updated'
-          )
+        setCustomCategories(
+          remoteData.customCategories
         );
       }
-    },
-    []
-  );
+    }, []);
 
   // ============================================================
-  // INITIAL SUPABASE HYDRATION
-  //
-  // This is the most important part:
-  // NEVER render the business application before this succeeds.
+  // CLOUD LOAD
   // ============================================================
 
-  const loadCloudData = useCallback(
-    async (
-      showLoading = true
-    ): Promise<boolean> => {
-      if (showLoading) {
-        setCloudStatus('loading');
-      }
+  const loadCloudData =
+    useCallback(
+      async (
+        showLoading = true
+      ): Promise<boolean> => {
+        const isInitialLoad =
+          !cloudHydratedRef.current;
 
-      setCloudError(null);
-
-      try {
-        if (!isSupabaseConnected()) {
-          throw new Error(
-            'Supabase belum terhubung. Pastikan VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY tersedia pada saat build.'
-          );
-        }
-
-        const remoteData =
-          await pullAllDataFromSupabase(
-            PROJECT_ID
-          );
-
-        if (!remoteData) {
-          throw new Error(
-            `Data proyek ${PROJECT_ID} tidak ditemukan di Supabase.`
-          );
-        }
-
-        /*
-         * Prevent automatic save from immediately
-         * writing the freshly-loaded cloud state back.
-         */
-        skipNextAutoSyncRef.current = true;
-
-        applyRemoteData(remoteData);
-
-        const timeStr =
-          new Date().toLocaleTimeString(
-            'id-ID',
-            {
-              hour: '2-digit',
-              minute: '2-digit',
-            }
-          ) + ' WIB';
-
-        setLastSupabaseSync(timeStr);
-
-        /*
-         * This is only a small UI status value.
-         * It is NOT project/business data.
-         */
-        try {
-          localStorage.setItem(
-            'FORESYNDO_LAST_SUPABASE_SYNC',
-            timeStr
-          );
-        } catch {
-          // Ignore cache errors.
-        }
-
-        cloudHydratedRef.current = true;
-        setCloudStatus('ready');
-
-        return true;
-      } catch (error: any) {
-        console.error(
-          'FORESYNDO Supabase hydration failed:',
-          error
-        );
-
-        cloudHydratedRef.current = false;
-        setCloudStatus('error');
-
-        setCloudError(
-          error?.message ||
-            'Data gagal dimuat dari Supabase.'
-        );
-
-        return false;
-      }
-    },
-    [applyRemoteData]
-  );
-
-  useEffect(() => {
-    try {
-      const saved =
-        localStorage.getItem(
-          'FORESYNDO_LAST_SUPABASE_SYNC'
-        );
-
-      if (saved) {
-        setLastSupabaseSync(saved);
-      }
-    } catch {
-      // Ignore.
-    }
-
-    loadCloudData(true);
-  }, [loadCloudData]);
-
-  // ============================================================
-  // VISIBILITY REFRESH
-  // ============================================================
-
-  useEffect(() => {
-    const handleVisibilityChange =
-      () => {
         if (
-          document.visibilityState ===
-          'visible' &&
-          cloudHydratedRef.current
+          showLoading &&
+          isInitialLoad
         ) {
-          loadCloudData(false);
-        }
-      };
-
-    document.addEventListener(
-      'visibilitychange',
-      handleVisibilityChange
-    );
-
-    return () => {
-      document.removeEventListener(
-        'visibilitychange',
-        handleVisibilityChange
-      );
-    };
-  }, [loadCloudData]);
-
-  // ============================================================
-  // AUTO SAVE TO SUPABASE
-  //
-  // React state changes are automatically persisted.
-  // No project data is written to localStorage.
-  // ============================================================
-
-  const buildCloudPayload = useCallback(
-    () => {
-      let customCats: string[] = [];
-
-      try {
-        const savedCats =
-          localStorage.getItem(
-            'FORESYNDO_CUSTOM_MATERIAL_CATEGORIES'
-          );
-
-        if (savedCats) {
-          customCats = JSON.parse(
-            savedCats
+          setCloudStatus(
+            'loading'
           );
         }
-      } catch {
-        // Optional UI cache only.
-      }
 
-      return {
-        projectId: project.id || PROJECT_ID,
-        projectInfo: project,
-        documents,
-        dailyLogs,
-        materials,
-        workItems,
-        workers,
-        allocations,
-        equipments,
-        auditLogs,
-        paymentTerms,
-        photos,
-        calendarEvents,
-        notifications,
-        customCategories: customCats,
-        userNames: userNameMap,
-        rolePins,
-        stakeholderProfiles,
-        syncedBy: `${
-          currentRole
-        } - ${
-          userNameMap[currentRole] ||
-          'User'
-        }`,
-      };
-    },
-    [
-      project,
-      documents,
-      dailyLogs,
-      materials,
-      workItems,
-      workers,
-      allocations,
-      equipments,
-      auditLogs,
-      paymentTerms,
-      photos,
-      calendarEvents,
-      notifications,
-      userNameMap,
-      rolePins,
-      stakeholderProfiles,
-      currentRole,
-    ]
-  );
-
-  /*
-   * Save after cloud hydration.
-   *
-   * Important:
-   * auditLogs and notifications are included in the payload,
-   * but are intentionally not dependencies of this effect.
-   * They are captured by buildCloudPayload whenever another
-   * primary project state changes.
-   */
-  useEffect(() => {
-    if (
-      !cloudHydratedRef.current ||
-      cloudStatus !== 'ready'
-    ) {
-      return;
-    }
-
-    if (skipNextAutoSyncRef.current) {
-      skipNextAutoSyncRef.current = false;
-      return;
-    }
-
-    if (autoSyncTimerRef.current) {
-      clearTimeout(
-        autoSyncTimerRef.current
-      );
-    }
-
-    autoSyncTimerRef.current =
-      setTimeout(async () => {
-        if (!cloudHydratedRef.current) {
-          return;
-        }
+        setCloudError(null);
 
         try {
-          setIsSavingToCloud(true);
+          /*
+           * IMPORTANT:
+           * Do NOT call isSupabaseConnected().
+           *
+           * supabase.ts is responsible for validating:
+           * VITE_SUPABASE_URL
+           * VITE_SUPABASE_ANON_KEY
+           *
+           * pullAllDataFromSupabase() must use the direct
+           * Supabase client and MUST NOT fallback to
+           * /api/project/snapshot or localStorage.
+           */
 
-          const result =
-            await pushAllDataToSupabase(
-              buildCloudPayload()
+          const remoteData =
+            await pullAllDataFromSupabase(
+              PROJECT_ID
             );
 
-          if (!result?.success) {
+          if (!remoteData) {
             throw new Error(
-              result?.message ||
-                'Gagal menyimpan data ke Supabase.'
+              `Data proyek ${PROJECT_ID} tidak ditemukan di Supabase.`
             );
           }
+
+          /*
+           * The downloaded cloud state must never be immediately
+           * uploaded again by the autosave effect.
+           */
+          skipNextAutoSyncRef.current =
+            true;
+
+          applyRemoteData(
+            remoteData
+          );
 
           const timeStr =
             new Date().toLocaleTimeString(
@@ -931,6 +987,10 @@ export default function App() {
             timeStr
           );
 
+          /*
+           * Small UI metadata only.
+           * This is NOT project data.
+           */
           try {
             localStorage.setItem(
               'FORESYNDO_LAST_SUPABASE_SYNC',
@@ -940,27 +1000,344 @@ export default function App() {
             // Ignore.
           }
 
-          setCloudError(null);
+          cloudHydratedRef.current =
+            true;
+
+          setCloudStatus(
+            'ready'
+          );
+
+          return true;
         } catch (error: any) {
           console.error(
-            'Auto Supabase save failed:',
+            'FORESYNDO Supabase load failed:',
             error
           );
 
+          /*
+           * VERY IMPORTANT:
+           *
+           * If the application has already been hydrated,
+           * do not destroy the current UI just because a
+           * background refresh failed.
+           */
+          if (
+            !cloudHydratedRef.current
+          ) {
+            setCloudStatus(
+              'error'
+            );
+          } else {
+            setCloudStatus(
+              'ready'
+            );
+          }
+
           setCloudError(
             error?.message ||
-              'Perubahan belum berhasil disimpan ke Supabase.'
+              'Data gagal dimuat dari Supabase.'
           );
-        } finally {
-          setIsSavingToCloud(false);
+
+          return false;
         }
-      }, 800);
+      },
+      [applyRemoteData]
+    );
+
+  // ============================================================
+  // INITIAL CLOUD HYDRATION
+  // ============================================================
+
+  useEffect(() => {
+    try {
+      const saved =
+        localStorage.getItem(
+          'FORESYNDO_LAST_SUPABASE_SYNC'
+        );
+
+      if (saved) {
+        setLastSupabaseSync(
+          saved
+        );
+      }
+    } catch {
+      // Ignore.
+    }
+
+    void loadCloudData(
+      true
+    );
+  }, [loadCloudData]);
+
+  // ============================================================
+  // VISIBILITY REFRESH
+  // ============================================================
+
+  useEffect(() => {
+    const handleVisibilityChange =
+      () => {
+        if (
+          document.visibilityState !==
+          'visible'
+        ) {
+          return;
+        }
+
+        if (
+          !cloudHydratedRef.current
+        ) {
+          return;
+        }
+
+        /*
+         * Do not overwrite an edit that is waiting to be
+         * uploaded or currently being uploaded.
+         */
+        if (
+          isSavingToCloud ||
+          autoSyncTimerRef.current
+        ) {
+          return;
+        }
+
+        void loadCloudData(
+          false
+        );
+      };
+
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange
+    );
 
     return () => {
-      if (autoSyncTimerRef.current) {
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange
+      );
+    };
+  }, [
+    loadCloudData,
+    isSavingToCloud,
+  ]);
+
+  // ============================================================
+  // BUILD CLOUD PAYLOAD
+  // ============================================================
+
+  const buildCloudPayload =
+    useCallback(() => {
+      return {
+        projectId:
+          project.id ||
+          PROJECT_ID,
+
+        projectInfo:
+          project,
+
+        documents,
+
+        dailyLogs,
+
+        materials,
+
+        workItems,
+
+        workers,
+
+        allocations,
+
+        equipments,
+
+        auditLogs,
+
+        paymentTerms,
+
+        photos,
+
+        calendarEvents,
+
+        notifications,
+
+        /*
+         * Cloud state.
+         * NEVER localStorage.
+         */
+        customCategories,
+
+        userNames:
+          userNameMap,
+
+        rolePins,
+
+        stakeholderProfiles,
+
+        syncedBy: `${
+          currentRole
+        } - ${
+          userNameMap[
+            currentRole
+          ] || 'User'
+        }`,
+      };
+    }, [
+      project,
+      documents,
+      dailyLogs,
+      materials,
+      workItems,
+      workers,
+      allocations,
+      equipments,
+      auditLogs,
+      paymentTerms,
+      photos,
+      calendarEvents,
+      notifications,
+      customCategories,
+      userNameMap,
+      rolePins,
+      stakeholderProfiles,
+      currentRole,
+    ]);
+
+  // ============================================================
+  // AUTO SAVE TO SUPABASE
+  // ============================================================
+
+  useEffect(() => {
+    if (
+      !cloudHydratedRef.current ||
+      cloudStatus !== 'ready'
+    ) {
+      return;
+    }
+
+    /*
+     * Ignore the first render after a cloud pull.
+     */
+    if (
+      skipNextAutoSyncRef.current
+    ) {
+      skipNextAutoSyncRef.current =
+        false;
+
+      return;
+    }
+
+    if (
+      autoSyncTimerRef.current
+    ) {
+      clearTimeout(
+        autoSyncTimerRef.current
+      );
+    }
+
+    const saveSequence =
+      ++saveSequenceRef.current;
+
+    autoSyncTimerRef.current =
+      setTimeout(
+        async () => {
+          if (
+            !cloudHydratedRef.current ||
+            cloudStatus !== 'ready'
+          ) {
+            return;
+          }
+
+          try {
+            setIsSavingToCloud(
+              true
+            );
+
+            const payload =
+              buildCloudPayload();
+
+            const result =
+              await pushAllDataToSupabase(
+                payload
+              );
+
+            /*
+             * Ignore an old save result if a newer save has
+             * already started.
+             */
+            if (
+              saveSequence !==
+              saveSequenceRef.current
+            ) {
+              return;
+            }
+
+            if (
+              !result?.success
+            ) {
+              throw new Error(
+                result?.message ||
+                  'Gagal menyimpan data ke Supabase.'
+              );
+            }
+
+            const timeStr =
+              new Date().toLocaleTimeString(
+                'id-ID',
+                {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }
+              ) + ' WIB';
+
+            setLastSupabaseSync(
+              timeStr
+            );
+
+            try {
+              localStorage.setItem(
+                'FORESYNDO_LAST_SUPABASE_SYNC',
+                timeStr
+              );
+            } catch {
+              // Ignore.
+            }
+
+            setCloudError(
+              null
+            );
+          } catch (error: any) {
+            console.error(
+              'Auto Supabase save failed:',
+              error
+            );
+
+            setCloudError(
+              error?.message ||
+                'Perubahan belum berhasil disimpan ke Supabase.'
+            );
+          } finally {
+            if (
+              saveSequence ===
+              saveSequenceRef.current
+            ) {
+              setIsSavingToCloud(
+                false
+              );
+            }
+          }
+        },
+        800
+      );
+
+    return () => {
+      if (
+        autoSyncTimerRef.current
+      ) {
         clearTimeout(
           autoSyncTimerRef.current
         );
+
+        autoSyncTimerRef.current =
+          null;
       }
     };
   }, [
@@ -973,8 +1350,11 @@ export default function App() {
     workers,
     allocations,
     equipments,
+    auditLogs,
+    notifications,
     calendarEvents,
     documents,
+    customCategories,
     userNameMap,
     rolePins,
     stakeholderProfiles,
@@ -983,95 +1363,25 @@ export default function App() {
   ]);
 
   // ============================================================
-  // SNAPSHOT / SYNC MONITOR
+  // SYNC MONITOR
+  //
+  // The monitor is retained for the existing UI.
+  // Cloud data remains authoritative.
   // ============================================================
 
   const handleReloadFromSnapshot =
     useCallback(
-      (
-        snapshot: ReturnType<
-          typeof loadAllPrimaryProjectData
-        >
-      ) => {
-        if (snapshot.project) {
-          setProject(
-            snapshot.project
-          );
-        }
-
-        if (snapshot.workItems) {
-          setWorkItems(
-            snapshot.workItems
-          );
-        }
-
-        if (snapshot.paymentTerms) {
-          setPaymentTerms(
-            snapshot.paymentTerms
-          );
-        }
-
-        if (snapshot.dailyLogs) {
-          setDailyLogs(
-            snapshot.dailyLogs
-          );
-        }
-
-        if (snapshot.photos) {
-          setPhotos(
-            snapshot.photos
-          );
-        }
-
-        if (snapshot.materials) {
-          setMaterials(
-            snapshot.materials
-          );
-        }
-
-        if (snapshot.workers) {
-          setWorkers(
-            snapshot.workers
-          );
-        }
-
-        if (snapshot.allocations) {
-          setAllocations(
-            snapshot.allocations
-          );
-        }
-
-        if (snapshot.equipments) {
-          setEquipments(
-            snapshot.equipments
-          );
-        }
-
-        if (snapshot.auditLogs) {
-          setAuditLogs(
-            snapshot.auditLogs
-          );
-        }
-
-        if (snapshot.notifications) {
-          setNotifications(
-            snapshot.notifications
-          );
-        }
-
-        if (snapshot.calendarEvents) {
-          setCalendarEvents(
-            snapshot.calendarEvents
-          );
-        }
-
-        if (snapshot.documents) {
-          setDocuments(
-            snapshot.documents
-          );
-        }
+      (_snapshot: any) => {
+        /*
+         * Do NOT apply localStorage snapshot data.
+         *
+         * Always reload the authoritative state from Supabase.
+         */
+        void loadCloudData(
+          false
+        );
       },
-      []
+      [loadCloudData]
     );
 
   const {
@@ -1089,6 +1399,11 @@ export default function App() {
       handleReloadFromSnapshot,
   });
 
+  // Prevent unused-variable TypeScript errors if the current
+  // hook exposes these values but the existing UI doesn't need them.
+  void isOutOfSync;
+  void sessionVersion;
+
   // ============================================================
   // AUDIT LOG
   // ============================================================
@@ -1098,24 +1413,30 @@ export default function App() {
     details: string
   ) => {
     const actorName =
-      userNameMap[currentRole] ||
+      userNameMap[
+        currentRole
+      ] ||
       (
-        currentRole === 'Direktur'
-          ? 'H. Bambang S.'
+        currentRole ===
+        'Direktur'
+          ? 'HASANUDIN'
           : currentRole ===
             'Site Manager'
-          ? 'Ir. Agus Pratama'
+          ? 'EKO YULIANTO'
           : 'Dedi Kurniawan'
       );
 
-    const newLog: AuditLog = {
+    const newLog:
+      AuditLog = {
       id: `AUD-${Date.now()}`,
       timestamp:
         new Date().toLocaleString(
           'id-ID'
         ),
-      userName: actorName,
-      userRole: currentRole,
+      userName:
+        actorName,
+      userRole:
+        currentRole,
       action,
       details,
     };
@@ -1127,16 +1448,23 @@ export default function App() {
       ]
     );
 
-    const updatedMeta =
-      recordPrimaryStateUpdate(
-        action,
-        currentRole,
-        actorName
+    /*
+     * IMPORTANT:
+     *
+     * We no longer call recordPrimaryStateUpdate().
+     * That old function could write project state to
+     * localStorage and create a second source of truth.
+     *
+     * markLocalEdit() is retained only for the existing
+     * sync-monitor UI.
+     */
+    try {
+      markLocalEdit(
+        Date.now()
       );
-
-    markLocalEdit(
-      updatedMeta.version
-    );
+    } catch {
+      // Sync monitor must never break the application.
+    }
   };
 
   // ============================================================
@@ -1147,14 +1475,15 @@ export default function App() {
     role: StakeholderRoleKey,
     userName: string
   ) => {
-    const newSession: AuthSession =
-      {
-        isAuthenticated: true,
-        role,
-        userName,
-        loginTime:
-          new Date().toISOString(),
-      };
+    const newSession:
+      AuthSession = {
+      isAuthenticated:
+        true,
+      role,
+      userName,
+      loginTime:
+        new Date().toISOString(),
+    };
 
     setAuthSession(
       newSession
@@ -1177,7 +1506,7 @@ export default function App() {
         'true'
       );
     } catch {
-      // Session storage errors must not crash the app.
+      // Session only.
     }
 
     addAuditLog(
@@ -1186,8 +1515,9 @@ export default function App() {
     );
 
     const rolePerms =
-      stakeholderProfiles[role]
-        ?.permissions;
+      stakeholderProfiles[
+        role
+      ]?.permissions;
 
     if (
       rolePerms &&
@@ -1201,211 +1531,221 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
-    const loggedOutSession: AuthSession =
-      {
-        isAuthenticated: false,
-        role: 'Kontraktor',
+  const handleLogout =
+    () => {
+      const loggedOutSession:
+        AuthSession = {
+        isAuthenticated:
+          false,
+        role:
+          'Kontraktor',
         userName: '',
         loginTime: '',
       };
 
-    setAuthSession(
-      loggedOutSession
-    );
-
-    try {
-      localStorage.removeItem(
-        'FORESYNDO_AUTH_SESSION'
+      setAuthSession(
+        loggedOutSession
       );
 
-      sessionStorage.removeItem(
-        'FORESYNDO_SESSION_ACTIVE'
+      try {
+        localStorage.removeItem(
+          'FORESYNDO_AUTH_SESSION'
+        );
+
+        sessionStorage.removeItem(
+          'FORESYNDO_SESSION_ACTIVE'
+        );
+      } catch {
+        // Ignore.
+      }
+
+      addAuditLog(
+        'Logout Sistem',
+        `Sesi pengguna (${currentRole}) telah keluar.`
       );
-    } catch {
-      // Ignore.
-    }
+    };
 
-    addAuditLog(
-      'Logout Sistem',
-      `Sesi pengguna (${currentRole}) telah keluar.`
-    );
-  };
+  const handleRoleChange =
+    (newRole: UserRole) => {
+      if (
+        (
+          currentRole ===
+            'Kontraktor' ||
+          currentRole ===
+            'Site Manager'
+        ) &&
+        (
+          newRole === 'Owner' ||
+          newRole ===
+            'Konsultan' ||
+          newRole ===
+            'Direktur'
+        )
+      ) {
+        return;
+      }
 
-  const handleRoleChange = (
-    newRole: UserRole
-  ) => {
-    if (
-      (
-        currentRole ===
-          'Kontraktor' ||
-        currentRole ===
-          'Site Manager'
-      ) &&
-      (
+      setCurrentRole(
+        newRole
+      );
+
+      const mappedKey:
+        StakeholderRoleKey =
         newRole === 'Owner' ||
         newRole ===
-          'Konsultan' ||
-        newRole ===
           'Direktur'
-      )
-    ) {
-      return;
-    }
+          ? 'Owner'
+          : newRole ===
+            'Konsultan'
+          ? 'Konsultan'
+          : newRole ===
+                'Kontraktor' ||
+              newRole ===
+                'Site Manager'
+          ? 'Kontraktor'
+          : 'Viewer';
 
-    setCurrentRole(
-      newRole
-    );
+      const uName =
+        stakeholderProfiles[
+          mappedKey
+        ]?.personName ||
+        userNameMap[
+          newRole
+        ];
 
-    const mappedKey: StakeholderRoleKey =
-      newRole === 'Owner' ||
-      newRole === 'Direktur'
-        ? 'Owner'
-        : newRole ===
-          'Konsultan'
-        ? 'Konsultan'
-        : newRole ===
-            'Kontraktor' ||
-          newRole ===
-            'Site Manager'
-        ? 'Kontraktor'
-        : 'Viewer';
-
-    const uName =
-      stakeholderProfiles[
-        mappedKey
-      ]?.personName ||
-      userNameMap[newRole];
-
-    const updatedSession: AuthSession =
-      {
-        isAuthenticated: true,
-        role: mappedKey,
+      const updatedSession:
+        AuthSession = {
+        isAuthenticated:
+          true,
+        role:
+          mappedKey,
         userName:
           uName,
         loginTime:
           new Date().toISOString(),
       };
 
-    setAuthSession(
-      updatedSession
-    );
-
-    try {
-      localStorage.setItem(
-        'FORESYNDO_AUTH_SESSION',
-        JSON.stringify(
-          updatedSession
-        )
+      setAuthSession(
+        updatedSession
       );
-    } catch {
-      // Ignore.
-    }
 
-    addAuditLog(
-      'Ganti Peran',
-      `Beralih ke peran ${newRole}`
-    );
-  };
+      try {
+        localStorage.setItem(
+          'FORESYNDO_AUTH_SESSION',
+          JSON.stringify(
+            updatedSession
+          )
+        );
+      } catch {
+        // Ignore.
+      }
+
+      addAuditLog(
+        'Ganti Peran',
+        `Beralih ke peran ${newRole}`
+      );
+    };
 
   // ============================================================
   // PROJECT HANDLERS
   // ============================================================
 
-  const handleUpdateProjectStatus = (
-    status: ProjectInfo['status']
-  ) => {
-    setProject(
-      (prev) => ({
-        ...prev,
-        status,
-      })
-    );
-  };
+  const handleUpdateProjectStatus =
+    (
+      status: ProjectInfo['status']
+    ) => {
+      setProject(
+        (prev) => ({
+          ...prev,
+          status,
+        })
+      );
+    };
 
   // ============================================================
   // WORK ITEM HANDLERS
   // ============================================================
 
-  const handleUpdateWorkItem = (
-    updated: WorkItem
-  ) => {
-    setWorkItems(
-      (prev) =>
-        prev.map(
-          (item) =>
-            item.id === updated.id
-              ? updated
-              : item
-        )
-    );
+  const handleUpdateWorkItem =
+    (updated: WorkItem) => {
+      setWorkItems(
+        (prev) =>
+          prev.map(
+            (item) =>
+              item.id ===
+              updated.id
+                ? updated
+                : item
+          )
+      );
 
-    addAuditLog(
-      'Update Progress Time Schedule',
-      `Memperbarui ${updated.name} (Progress: ${updated.realizedProgressPercent}%, Status: ${updated.status})`
-    );
-  };
+      addAuditLog(
+        'Update Progress Time Schedule',
+        `Memperbarui ${updated.name} (Progress: ${updated.realizedProgressPercent}%, Status: ${updated.status})`
+      );
+    };
 
-  const handleAddWorkItem = (
-    newItemData: Omit<
-      WorkItem,
-      'id'
-    >
-  ) => {
-    const newItem: WorkItem =
-      {
+  const handleAddWorkItem =
+    (
+      newItemData: Omit<
+        WorkItem,
+        'id'
+      >
+    ) => {
+      const newItem:
+        WorkItem = {
         ...newItemData,
         id: `WI-${Date.now()}`,
       };
 
-    setWorkItems(
-      (prev) => [
-        ...prev,
-        newItem,
-      ]
-    );
-
-    addAuditLog(
-      'Tambah Pekerjaan',
-      `Menambahkan item pekerjaan baru: ${newItem.name} (Bobot: ${newItem.bobotPercent}%)`
-    );
-  };
-
-  const handleDeleteWorkItem = (
-    id: string
-  ) => {
-    const item =
-      workItems.find(
-        (w) => w.id === id
+      setWorkItems(
+        (prev) => [
+          ...prev,
+          newItem,
+        ]
       );
 
-    setWorkItems(
-      (prev) =>
-        prev.filter(
-          (w) => w.id !== id
-        )
-    );
-
-    if (item) {
       addAuditLog(
-        'Hapus Pekerjaan',
-        `Menghapus item pekerjaan: ${item.name}`
+        'Tambah Pekerjaan',
+        `Menambahkan item pekerjaan baru: ${newItem.name} (Bobot: ${newItem.bobotPercent}%)`
       );
-    }
-  };
+    };
 
-  const handleReorderWorkItems = (
-    reorderedItems: WorkItem[]
-  ) => {
-    setWorkItems(
-      reorderedItems
-    );
+  const handleDeleteWorkItem =
+    (id: string) => {
+      const item =
+        workItems.find(
+          (w) => w.id === id
+        );
 
-    addAuditLog(
-      'Re-order Time Schedule',
-      'Mengubah urutan sekuensi tahapan pekerjaan (Drag & Drop / Re-sequence)'
-    );
-  };
+      setWorkItems(
+        (prev) =>
+          prev.filter(
+            (w) => w.id !== id
+          )
+      );
+
+      if (item) {
+        addAuditLog(
+          'Hapus Pekerjaan',
+          `Menghapus item pekerjaan: ${item.name}`
+        );
+      }
+    };
+
+  const handleReorderWorkItems =
+    (
+      reorderedItems: WorkItem[]
+    ) => {
+      setWorkItems(
+        reorderedItems
+      );
+
+      addAuditLog(
+        'Re-order Time Schedule',
+        'Mengubah urutan sekuensi tahapan pekerjaan (Drag & Drop / Re-sequence)'
+      );
+    };
 
   const handleApplyProgress25Percent =
     () => {
@@ -1505,384 +1845,396 @@ export default function App() {
   // PAYMENT HANDLERS
   // ============================================================
 
-  const handleUpdateTermStatus = (
-    termNumber: number,
-    status: PaymentTerm['status'],
-    paymentDate?: string,
-    proofUrl?: string,
-    approvedBy?: string
-  ) => {
-    setPaymentTerms(
-      (prev) =>
-        prev.map(
-          (t) =>
-            t.termNumber ===
-            termNumber
-              ? {
-                  ...t,
-                  status,
-                  paymentDate:
-                    paymentDate ||
-                    t.paymentDate,
-                  proofUrl:
-                    proofUrl ||
-                    t.proofUrl,
-                  approvedBy:
-                    approvedBy ||
-                    t.approvedBy,
-                }
-              : t
-        )
-    );
+  const handleUpdateTermStatus =
+    (
+      termNumber: number,
+      status: PaymentTerm['status'],
+      paymentDate?: string,
+      proofUrl?: string,
+      approvedBy?: string
+    ) => {
+      setPaymentTerms(
+        (prev) =>
+          prev.map(
+            (t) =>
+              t.termNumber ===
+              termNumber
+                ? {
+                    ...t,
+                    status,
+                    paymentDate:
+                      paymentDate ||
+                      t.paymentDate,
+                    proofUrl:
+                      proofUrl ||
+                      t.proofUrl,
+                    approvedBy:
+                      approvedBy ||
+                      t.approvedBy,
+                  }
+                : t
+          )
+      );
 
-    addAuditLog(
-      `Status Termin ${termNumber}: ${status}`,
-      `Pencairan Termin ${termNumber} diperbarui menjadi ${status}${
-        approvedBy
-          ? ` (Approved: ${approvedBy})`
-          : ''
-      }`
-    );
-  };
+      addAuditLog(
+        `Status Termin ${termNumber}: ${status}`,
+        `Pencairan Termin ${termNumber} diperbarui menjadi ${status}${
+          approvedBy
+            ? ` (Approved: ${approvedBy})`
+            : ''
+        }`
+      );
+    };
 
   // ============================================================
   // DAILY LOG
   // ============================================================
 
-  const handleAddDailyLog = (
-    logData: Omit<
-      DailyLog,
-      'id'
-    >
-  ) => {
-    const newLog: DailyLog =
-      {
+  const handleAddDailyLog =
+    (
+      logData: Omit<
+        DailyLog,
+        'id'
+      >
+    ) => {
+      const newLog:
+        DailyLog = {
         ...logData,
         id: `LOG-${Date.now()}`,
       };
 
-    setDailyLogs(
-      (prev) => [
-        newLog,
-        ...prev,
-      ]
-    );
-
-    if (
-      logData.photos &&
-      logData.photos.length > 0
-    ) {
-      const newPhotoItems: PhotoItem[] =
-        logData.photos.map(
-          (url, idx) => ({
-            id: `PHT-${Date.now()}-${idx}`,
-            date: logData.date,
-            category:
-              'Progress Hari Ini',
-            title: `Dokumentasi Laporan Harian ${logData.date}${
-              logData.photos
-                .length > 1
-                ? ` (Foto #${
-                    idx + 1
-                  })`
-                : ''
-            }`,
-            url,
-            uploadedBy:
-              currentRole,
-            notes:
-              logData.activitySummary,
-          })
-        );
-
-      setPhotos(
+      setDailyLogs(
         (prev) => [
-          ...newPhotoItems,
+          newLog,
           ...prev,
         ]
       );
-    }
 
-    addAuditLog(
-      'Input Laporan Harian',
-      `Pencatatan kegiatan harian tanggal ${logData.date} (${logData.workerCount} pekerja)`
-    );
-  };
+      if (
+        logData.photos &&
+        logData.photos.length >
+          0
+      ) {
+        const newPhotoItems:
+          PhotoItem[] =
+          logData.photos.map(
+            (url, idx) => ({
+              id: `PHT-${Date.now()}-${idx}`,
+              date:
+                logData.date,
+              category:
+                'Progress Hari Ini',
+              title: `Dokumentasi Laporan Harian ${logData.date}${
+                logData.photos
+                  .length > 1
+                  ? ` (Foto #${
+                      idx + 1
+                    })`
+                  : ''
+              }`,
+              url,
+              uploadedBy:
+                currentRole,
+              notes:
+                logData.activitySummary,
+            })
+          );
+
+        setPhotos(
+          (prev) => [
+            ...newPhotoItems,
+            ...prev,
+          ]
+        );
+      }
+
+      addAuditLog(
+        'Input Laporan Harian',
+        `Pencatatan kegiatan harian tanggal ${logData.date} (${logData.workerCount} pekerja)`
+      );
+    };
 
   // ============================================================
   // PHOTO
   // ============================================================
 
-  const handleAddPhoto = (
-    photoData: Omit<
-      PhotoItem,
-      'id'
-    >
-  ) => {
-    const newPht: PhotoItem =
-      {
+  const handleAddPhoto =
+    (
+      photoData: Omit<
+        PhotoItem,
+        'id'
+      >
+    ) => {
+      const newPht:
+        PhotoItem = {
         ...photoData,
         id: `PHT-${Date.now()}`,
       };
 
-    setPhotos(
-      (prev) => [
-        newPht,
-        ...prev,
-      ]
-    );
+      setPhotos(
+        (prev) => [
+          newPht,
+          ...prev,
+        ]
+      );
 
-    addAuditLog(
-      'Upload Dokumentasi Foto',
-      `Mengunggah foto kategori ${photoData.category}: ${photoData.title}`
-    );
-  };
+      addAuditLog(
+        'Upload Dokumentasi Foto',
+        `Mengunggah foto kategori ${photoData.category}: ${photoData.title}`
+      );
+    };
 
   // ============================================================
   // MATERIAL
   // ============================================================
 
-  const handleAddMaterial = (
-    matData: Omit<
-      MaterialItem,
-      'id'
-    >
-  ) => {
-    const newMat: MaterialItem =
-      {
+  const handleAddMaterial =
+    (
+      matData: Omit<
+        MaterialItem,
+        'id'
+      >
+    ) => {
+      const newMat:
+        MaterialItem = {
         ...matData,
         id: `MAT-${Date.now()}`,
       };
 
-    setMaterials(
-      (prev) => [
-        ...prev,
-        newMat,
-      ]
-    );
+      setMaterials(
+        (prev) => [
+          ...prev,
+          newMat,
+        ]
+      );
 
-    addAuditLog(
-      'Tambah Stok Material',
-      `Menambahkan material baru: ${matData.name} dari ${matData.supplier}`
-    );
-  };
+      addAuditLog(
+        'Tambah Stok Material',
+        `Menambahkan material baru: ${matData.name} dari ${matData.supplier}`
+      );
+    };
 
-  const handleUpdateMaterial = (
-    updatedMat: MaterialItem
-  ) => {
-    setMaterials(
-      (prev) =>
-        prev.map(
-          (m) =>
-            m.id === updatedMat.id
-              ? updatedMat
-              : m
-        )
-    );
+  const handleUpdateMaterial =
+    (
+      updatedMat: MaterialItem
+    ) => {
+      setMaterials(
+        (prev) =>
+          prev.map(
+            (m) =>
+              m.id ===
+              updatedMat.id
+                ? updatedMat
+                : m
+          )
+      );
 
-    addAuditLog(
-      'Update Stok Material',
-      `Memperbarui data/stok material ${updatedMat.name} (Sisa: ${updatedMat.stockRemaining} ${updatedMat.unit})`
-    );
-  };
+      addAuditLog(
+        'Update Stok Material',
+        `Memperbarui data/stok material ${updatedMat.name} (Sisa: ${updatedMat.stockRemaining} ${updatedMat.unit})`
+      );
+    };
 
   // ============================================================
   // WORKERS
   // ============================================================
 
-  const handleAddWorker = (
-    workerData: Omit<
-      WorkerItem,
-      'id'
-    >
-  ) => {
-    const newWrk: WorkerItem =
-      {
+  const handleAddWorker =
+    (
+      workerData: Omit<
+        WorkerItem,
+        'id'
+      >
+    ) => {
+      const newWrk:
+        WorkerItem = {
         ...workerData,
         id: `WRK-${Date.now()}`,
       };
 
-    setWorkers(
-      (prev) => [
-        ...prev,
-        newWrk,
-      ]
-    );
+      setWorkers(
+        (prev) => [
+          ...prev,
+          newWrk,
+        ]
+      );
 
-    addAuditLog(
-      'Tambah Tenaga Kerja',
-      `Menambahkan pekerja baru: ${workerData.name} (${workerData.role})`
-    );
-  };
+      addAuditLog(
+        'Tambah Tenaga Kerja',
+        `Menambahkan pekerja baru: ${workerData.name} (${workerData.role})`
+      );
+    };
 
-  const handleAddAllocation = (
-    allocData: Omit<
-      WorkerAllocation,
-      'id'
-    >
-  ) => {
-    const newAlloc:
-      WorkerAllocation =
-      {
+  const handleAddAllocation =
+    (
+      allocData: Omit<
+        WorkerAllocation,
+        'id'
+      >
+    ) => {
+      const newAlloc:
+        WorkerAllocation = {
         ...allocData,
         id: `ALLOC-${Date.now()}`,
       };
 
-    setAllocations(
-      (prev) => [
-        newAlloc,
-        ...prev,
-      ]
-    );
-
-    addAuditLog(
-      'Alokasi Pekerja Baru',
-      `Mengalokasikan ${allocData.workerName} ke ${allocData.workItemName}`
-    );
-  };
-
-  const handleUpdateAllocation = (
-    updated: WorkerAllocation
-  ) => {
-    setAllocations(
-      (prev) =>
-        prev.map(
-          (a) =>
-            a.id === updated.id
-              ? updated
-              : a
-        )
-    );
-
-    addAuditLog(
-      'Update Alokasi Pekerja',
-      `Memperbarui output/status alokasi ${updated.workerName}`
-    );
-  };
-
-  const handleDeleteAllocation = (
-    id: string
-  ) => {
-    const target =
-      allocations.find(
-        (a) => a.id === id
+      setAllocations(
+        (prev) => [
+          newAlloc,
+          ...prev,
+        ]
       );
 
-    setAllocations(
-      (prev) =>
-        prev.filter(
-          (a) => a.id !== id
-        )
-    );
-
-    if (target) {
       addAuditLog(
-        'Hapus Alokasi Pekerja',
-        `Menghapus alokasi ${target.workerName} dari ${target.workItemName}`
+        'Alokasi Pekerja Baru',
+        `Mengalokasikan ${allocData.workerName} ke ${allocData.workItemName}`
       );
-    }
-  };
+    };
+
+  const handleUpdateAllocation =
+    (
+      updated: WorkerAllocation
+    ) => {
+      setAllocations(
+        (prev) =>
+          prev.map(
+            (a) =>
+              a.id === updated.id
+                ? updated
+                : a
+          )
+      );
+
+      addAuditLog(
+        'Update Alokasi Pekerja',
+        `Memperbarui output/status alokasi ${updated.workerName}`
+      );
+    };
+
+  const handleDeleteAllocation =
+    (id: string) => {
+      const target =
+        allocations.find(
+          (a) => a.id === id
+        );
+
+      setAllocations(
+        (prev) =>
+          prev.filter(
+            (a) => a.id !== id
+          )
+      );
+
+      if (target) {
+        addAuditLog(
+          'Hapus Alokasi Pekerja',
+          `Menghapus alokasi ${target.workerName} dari ${target.workItemName}`
+        );
+      }
+    };
 
   // ============================================================
   // EQUIPMENT
   // ============================================================
 
-  const handleAddEquipment = (
-    eqData: Omit<
-      EquipmentItem,
-      'id'
-    >
-  ) => {
-    const newEq: EquipmentItem =
-      {
+  const handleAddEquipment =
+    (
+      eqData: Omit<
+        EquipmentItem,
+        'id'
+      >
+    ) => {
+      const newEq:
+        EquipmentItem = {
         ...eqData,
         id: `EQP-${Date.now()}`,
       };
 
-    setEquipments(
-      (prev) => [
-        ...prev,
-        newEq,
-      ]
-    );
+      setEquipments(
+        (prev) => [
+          ...prev,
+          newEq,
+        ]
+      );
 
-    addAuditLog(
-      'Tambah Unit Alat',
-      `Menambahkan alat berat baru: ${eqData.name}`
-    );
-  };
+      addAuditLog(
+        'Tambah Unit Alat',
+        `Menambahkan alat berat baru: ${eqData.name}`
+      );
+    };
 
   // ============================================================
   // CALENDAR
   // ============================================================
 
-  const handleAddCalendarEvent = (
-    eData: Omit<
-      CalendarEvent,
-      'id'
-    >
-  ) => {
-    const newEvt:
-      CalendarEvent = {
-      ...eData,
-      id: `CAL-${Date.now()}`,
-      isCustom: true,
+  const handleAddCalendarEvent =
+    (
+      eData: Omit<
+        CalendarEvent,
+        'id'
+      >
+    ) => {
+      const newEvt:
+        CalendarEvent = {
+        ...eData,
+        id: `CAL-${Date.now()}`,
+        isCustom: true,
+      };
+
+      setCalendarEvents(
+        (prev) => [
+          newEvt,
+          ...prev,
+        ]
+      );
+
+      addAuditLog(
+        'Tambah Event Kalender',
+        `Menambahkan event baru: ${eData.title} (${eData.date})`
+      );
     };
 
-    setCalendarEvents(
-      (prev) => [
-        newEvt,
-        ...prev,
-      ]
-    );
+  const handleDeleteCalendarEvent =
+    (id: string) => {
+      const target =
+        calendarEvents.find(
+          (e) => e.id === id
+        );
 
-    addAuditLog(
-      'Tambah Event Kalender',
-      `Menambahkan event baru: ${eData.title} (${eData.date})`
-    );
-  };
-
-  const handleDeleteCalendarEvent = (
-    id: string
-  ) => {
-    const target =
-      calendarEvents.find(
-        (e) => e.id === id
+      setCalendarEvents(
+        (prev) =>
+          prev.filter(
+            (e) => e.id !== id
+          )
       );
 
-    setCalendarEvents(
-      (prev) =>
-        prev.filter(
-          (e) => e.id !== id
-        )
-    );
+      if (target) {
+        addAuditLog(
+          'Hapus Event Kalender',
+          `Menghapus event: ${target.title}`
+        );
+      }
+    };
 
-    if (target) {
+  const handleUpdateCalendarEvent =
+    (
+      updated: CalendarEvent
+    ) => {
+      setCalendarEvents(
+        (prev) =>
+          prev.map(
+            (e) =>
+              e.id === updated.id
+                ? updated
+                : e
+          )
+      );
+
       addAuditLog(
-        'Hapus Event Kalender',
-        `Menghapus event: ${target.title}`
+        'Update Event Kalender',
+        `Memperbarui event: ${updated.title}`
       );
-    }
-  };
-
-  const handleUpdateCalendarEvent = (
-    updated: CalendarEvent
-  ) => {
-    setCalendarEvents(
-      (prev) =>
-        prev.map(
-          (e) =>
-            e.id === updated.id
-              ? updated
-              : e
-        )
-    );
-
-    addAuditLog(
-      'Update Event Kalender',
-      `Memperbarui event: ${updated.title}`
-    );
-  };
+    };
 
   // ============================================================
   // NOTIFICATIONS
@@ -1917,97 +2269,101 @@ export default function App() {
       );
     };
 
-  const handleAddNotification = (
-    newNotif: Omit<
-      NotificationItem,
-      'id' | 'timestamp' | 'isRead'
-    >
-  ) => {
-    const item:
-      NotificationItem = {
-      ...newNotif,
-      id: `NOTIF-${Date.now()}`,
-      timestamp:
-        new Date().toLocaleString(
-          'id-ID',
-          {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-          }
-        ),
-      isRead: false,
-    };
+  const handleAddNotification =
+    (
+      newNotif: Omit<
+        NotificationItem,
+        'id' |
+          'timestamp' |
+          'isRead'
+      >
+    ) => {
+      const item:
+        NotificationItem = {
+        ...newNotif,
+        id: `NOTIF-${Date.now()}`,
+        timestamp:
+          new Date().toLocaleString(
+            'id-ID',
+            {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+            }
+          ),
+        isRead: false,
+      };
 
-    setNotifications(
-      (prev) => [
-        item,
-        ...prev,
-      ]
-    );
-  };
+      setNotifications(
+        (prev) => [
+          item,
+          ...prev,
+        ]
+      );
+    };
 
   // ============================================================
   // DOCUMENTS
   // ============================================================
 
-  const handleAddDocument = (
-    newDoc: ProjectDocument
-  ) => {
-    setDocuments(
-      (prev) => [
-        newDoc,
-        ...prev,
-      ]
-    );
+  const handleAddDocument =
+    (
+      newDoc: ProjectDocument
+    ) => {
+      setDocuments(
+        (prev) => [
+          newDoc,
+          ...prev,
+        ]
+      );
 
-    const isMK =
-      newDoc.uploadedByRole ===
-      'Konsultan';
+      const isMK =
+        newDoc.uploadedByRole ===
+        'Konsultan';
 
-    const isOwner =
-      newDoc.uploadedByRole ===
-        'Owner' ||
-      newDoc.uploadedByRole ===
-        'Direktur';
+      const isOwner =
+        newDoc.uploadedByRole ===
+          'Owner' ||
+        newDoc.uploadedByRole ===
+          'Direktur';
 
-    let notifTitle =
-      '📄 Dokumen Baru Diunggah';
+      let notifTitle =
+        '📄 Dokumen Baru Diunggah';
 
-    let notifType:
-      NotificationItem['type'] =
-      'info';
+      let notifType:
+        NotificationItem['type'] =
+        'info';
 
-    if (isMK) {
-      notifTitle =
-        '📄 Dokumen Baru dari Konsultan MK';
-      notifType =
-        'reminder';
-    } else if (isOwner) {
-      notifTitle =
-        '📄 Dokumen Baru dari Owner Proyek';
-      notifType =
-        'reminder';
-    }
+      if (isMK) {
+        notifTitle =
+          '📄 Dokumen Baru dari Konsultan MK';
+        notifType =
+          'reminder';
+      } else if (isOwner) {
+        notifTitle =
+          '📄 Dokumen Baru dari Owner Proyek';
+        notifType =
+          'reminder';
+      }
 
-    handleAddNotification({
-      title:
-        notifTitle,
-      message: `Dokumen "${newDoc.documentNumber}: ${newDoc.title}" (${newDoc.version}) diterbitkan oleh ${newDoc.uploadedBy} [${newDoc.uploadedByRole}].`,
-      type:
-        notifType,
-      category:
-        'document',
-      documentId:
-        newDoc.id,
-      uploaderRole:
-        newDoc.uploadedByRole,
-      uploaderName:
-        newDoc.uploadedBy,
-    });
-  };
+      handleAddNotification({
+        title:
+          notifTitle,
+        message: `Dokumen "${newDoc.documentNumber}: ${newDoc.title}" (${newDoc.version}) diterbitkan oleh ${newDoc.uploadedBy} [${newDoc.uploadedByRole}].`,
+        type:
+          notifType,
+        category:
+          'document',
+        documentId:
+          newDoc.id,
+        uploaderRole:
+          newDoc.uploadedByRole,
+        uploaderName:
+          newDoc.uploadedBy,
+      });
+    };
 
   const handleSimulateMKDocument =
     () => {
@@ -2186,42 +2542,42 @@ export default function App() {
       );
     };
 
-  const handleUpdateDocument = (
-    updatedDoc: ProjectDocument
-  ) => {
-    setDocuments(
-      (prev) =>
-        prev.map(
-          (d) =>
-            d.id ===
-            updatedDoc.id
-              ? updatedDoc
-              : d
-        )
-    );
+  const handleUpdateDocument =
+    (
+      updatedDoc: ProjectDocument
+    ) => {
+      setDocuments(
+        (prev) =>
+          prev.map(
+            (d) =>
+              d.id ===
+              updatedDoc.id
+                ? updatedDoc
+                : d
+          )
+      );
 
-    handleAddNotification({
-      title:
-        'Status Dokumen Diperbarui',
-      message: `${updatedDoc.documentNumber} berstatus "${updatedDoc.status}"`,
-      type:
-        updatedDoc.status ===
-        'Revision'
-          ? 'warning'
-          : 'info',
-    });
-  };
+      handleAddNotification({
+        title:
+          'Status Dokumen Diperbarui',
+        message: `${updatedDoc.documentNumber} berstatus "${updatedDoc.status}"`,
+        type:
+          updatedDoc.status ===
+          'Revision'
+            ? 'warning'
+            : 'info',
+      });
+    };
 
-  const handleDeleteDocument = (
-    id: string
-  ) => {
-    setDocuments(
-      (prev) =>
-        prev.filter(
-          (d) => d.id !== id
-        )
-    );
-  };
+  const handleDeleteDocument =
+    (id: string) => {
+      setDocuments(
+        (prev) =>
+          prev.filter(
+            (d) => d.id !== id
+          )
+      );
+    };
 
   // ============================================================
   // MANUAL PUSH
@@ -2230,15 +2586,22 @@ export default function App() {
   const handlePushToSupabase =
     async () => {
       try {
-        setIsSavingToCloud(true);
-        setCloudError(null);
+        setIsSavingToCloud(
+          true
+        );
+
+        setCloudError(
+          null
+        );
 
         const result =
           await pushAllDataToSupabase(
             buildCloudPayload()
           );
 
-        if (!result?.success) {
+        if (
+          !result?.success
+        ) {
           throw new Error(
             result?.message ||
               'Gagal mengunggah data ke Supabase.'
@@ -2267,19 +2630,18 @@ export default function App() {
           // Ignore.
         }
 
-        addAuditLog(
-          'Sinkronisasi Supabase',
-          `Berhasil mengunggah data proyek ke Cloud (${result.counts?.documents ?? documents.length} dokumen, ${result.counts?.dailyLogs ?? dailyLogs.length} laporan harian)`
+        /*
+         * IMPORTANT:
+         *
+         * Do NOT call addAuditLog() here.
+         * Do NOT call handleAddNotification() here.
+         *
+         * Doing so would modify React state AFTER the push
+         * and trigger another automatic cloud save.
+         */
+        setCloudError(
+          null
         );
-
-        handleAddNotification({
-          title:
-            'Sinkronisasi Cloud Berhasil',
-          message:
-            'Data proyek berhasil disimpan ke Supabase untuk digunakan bersama oleh akun/browser lain.',
-          type:
-            'info',
-        });
 
         return result;
       } catch (error: any) {
@@ -2296,7 +2658,9 @@ export default function App() {
           message,
         };
       } finally {
-        setIsSavingToCloud(false);
+        setIsSavingToCloud(
+          false
+        );
       }
     };
 
@@ -2306,96 +2670,32 @@ export default function App() {
 
   const handlePullFromSupabase =
     async () => {
-      try {
-        setCloudStatus(
-          'loading'
-        );
-        setCloudError(null);
-
-        const remoteData =
-          await pullAllDataFromSupabase(
-            PROJECT_ID
-          );
-
-        if (!remoteData) {
-          throw new Error(
-            'Tidak ada data proyek yang ditemukan di Supabase.'
-          );
-        }
-
-        skipNextAutoSyncRef.current =
-          true;
-
-        applyRemoteData(
-          remoteData
+      /*
+       * Reuse the same authoritative cloud-loading process.
+       *
+       * Because the application has already been hydrated,
+       * this does NOT replace the entire application with
+       * the loading screen.
+       */
+      const success =
+        await loadCloudData(
+          false
         );
 
-        const timeStr =
-          new Date().toLocaleTimeString(
-            'id-ID',
-            {
-              hour: '2-digit',
-              minute: '2-digit',
-            }
-          ) + ' WIB';
-
-        setLastSupabaseSync(
-          timeStr
-        );
-
-        try {
-          localStorage.setItem(
-            'FORESYNDO_LAST_SUPABASE_SYNC',
-            timeStr
-          );
-        } catch {
-          // Ignore.
-        }
-
-        cloudHydratedRef.current =
-          true;
-
-        setCloudStatus(
-          'ready'
-        );
-
-        addAuditLog(
-          'Tarik Data Cloud',
-          'Berhasil memperbarui data proyek dari Supabase.'
-        );
-
-        handleAddNotification({
-          title:
-            'Data Cloud Berhasil Dimuat',
-          message:
-            'Data proyek berhasil disinkronkan dari Supabase.',
-          type:
-            'info',
-        });
-
+      if (success) {
         return {
           success: true,
           message:
             'Data proyek berhasil diperbarui dari Supabase.',
         };
-      } catch (error: any) {
-        setCloudStatus(
-          'error'
-        );
-
-        const message =
-          error?.message ||
-          'Gagal menarik data dari Supabase.';
-
-        setCloudError(
-          message
-        );
-
-        return {
-          success: false,
-          message,
-        };
       }
+
+      return {
+        success: false,
+        message:
+          cloudError ||
+          'Gagal menarik data dari Supabase.',
+      };
     };
 
   // ============================================================
@@ -2403,8 +2703,18 @@ export default function App() {
   // ============================================================
 
   useEffect(() => {
+    /*
+     * IMPORTANT FIX:
+     *
+     * The old code checked cloudHydratedRef but only depended
+     * on loadCloudData. Because refs do not trigger effects,
+     * realtime could fail to subscribe after initial hydration.
+     *
+     * cloudStatus is now a dependency.
+     */
     if (
-      !cloudHydratedRef.current
+      !cloudHydratedRef.current ||
+      cloudStatus !== 'ready'
     ) {
       return;
     }
@@ -2418,14 +2728,11 @@ export default function App() {
           );
 
           /*
-           * Do not trust only the realtime event payload.
-           * Pull the authoritative row/snapshot again from
-           * Supabase so every browser gets the complete state.
+           * Always pull the complete authoritative cloud state.
+           * Never reconstruct project state from the realtime
+           * event itself.
            */
           try {
-            skipNextAutoSyncRef.current =
-              true;
-
             await loadCloudData(
               false
             );
@@ -2440,9 +2747,19 @@ export default function App() {
       );
 
     return () => {
-      unsubscribe();
+      try {
+        unsubscribe();
+      } catch (error) {
+        console.error(
+          'Supabase realtime unsubscribe failed:',
+          error
+        );
+      }
     };
-  }, [loadCloudData]);
+  }, [
+    cloudStatus,
+    loadCloudData,
+  ]);
 
   // ============================================================
   // RESET PROJECT
@@ -2471,11 +2788,27 @@ export default function App() {
       );
 
       setDailyLogs(
-        INITIAL_DAILY_LOGS
+        INITIAL_DAILY_LOGS.map(
+          (log) => ({
+            ...log,
+            photos: (
+              log.photos || []
+            ).map((p) =>
+              sanitizeImageUrl(p)
+            ),
+          })
+        )
       );
 
       setPhotos(
-        INITIAL_PHOTOS
+        INITIAL_PHOTOS.map(
+          (photo) => ({
+            ...photo,
+            url: sanitizeImageUrl(
+              photo.url
+            ),
+          })
+        )
       );
 
       setMaterials(
@@ -2510,13 +2843,16 @@ export default function App() {
         INITIAL_PROJECT_DOCUMENTS
       );
 
+      setCustomCategories(
+        []
+      );
+
       /*
-       * IMPORTANT:
-       * Never use localStorage.clear().
-       * It can destroy authentication/session/UI settings
-       * and is not needed anymore.
+       * DO NOT localStorage.clear().
        *
-       * The automatic Supabase sync will persist the reset.
+       * React state above becomes the new authoritative
+       * project state and the autosave effect writes it
+       * to Supabase.
        */
     };
 
@@ -2574,9 +2910,6 @@ export default function App() {
 
   // ============================================================
   // CLOUD LOADING SCREEN
-  //
-  // Absolutely no project data is rendered before Supabase
-  // succeeds.
   // ============================================================
 
   if (
@@ -2593,12 +2926,14 @@ export default function App() {
           </h1>
 
           <p className="mt-2 text-sm text-slate-500">
-            Memuat data proyek FORESYNDO-PROJECT-2
+            Memuat data proyek
+            FORESYNDO-PROJECT-2
             dari database cloud.
           </p>
 
           <div className="mt-5 rounded-xl bg-sky-50 border border-sky-100 p-3 text-xs text-sky-700">
-            Data aplikasi tidak diambil dari
+            Data aplikasi tidak
+            diambil dari
             localStorage.
           </div>
         </div>
@@ -2607,9 +2942,7 @@ export default function App() {
   }
 
   // ============================================================
-  // CLOUD ERROR SCREEN
-  //
-  // Do NOT silently fallback to localStorage.
+  // INITIAL CLOUD ERROR
   // ============================================================
 
   if (
@@ -2629,8 +2962,9 @@ export default function App() {
           </h1>
 
           <p className="mt-2 text-sm text-slate-500 text-center">
-            Aplikasi tidak dapat memuat data
-            proyek dari Supabase.
+            Aplikasi tidak dapat
+            memuat data proyek
+            dari Supabase.
           </p>
 
           <div className="mt-5 rounded-xl bg-red-50 border border-red-200 p-4">
@@ -2657,7 +2991,7 @@ export default function App() {
           <button
             type="button"
             onClick={() =>
-              loadCloudData(
+              void loadCloudData(
                 true
               )
             }
@@ -2667,9 +3001,13 @@ export default function App() {
           </button>
 
           <p className="mt-4 text-[11px] text-center text-slate-400">
-            Pastikan VITE_SUPABASE_URL dan
-            VITE_SUPABASE_ANON_KEY tersedia
-            saat proses build/deploy.
+            Pastikan
+            VITE_SUPABASE_URL
+            dan
+            VITE_SUPABASE_ANON_KEY
+            tersedia saat
+            proses
+            build/deploy.
           </p>
         </div>
       </div>
@@ -2788,6 +3126,7 @@ export default function App() {
                   subTab ||
                     'profiles'
                 );
+
                 setIsRoleModalOpen(
                   true
                 );
@@ -2820,8 +3159,11 @@ export default function App() {
       {cloudError && (
         <div className="mx-4 mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center justify-between gap-4">
           <span>
-            Perubahan belum berhasil disimpan
-            ke Supabase: {cloudError}
+            Perubahan belum
+            berhasil
+            disimpan ke
+            Supabase:{' '}
+            {cloudError}
           </span>
 
           <button
@@ -2840,7 +3182,8 @@ export default function App() {
 
       {isSavingToCloud && (
         <div className="mx-4 mt-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-xs text-sky-700">
-          Menyimpan perubahan ke Supabase...
+          Menyimpan perubahan
+          ke Supabase...
         </div>
       )}
 
@@ -2901,6 +3244,7 @@ export default function App() {
                     subTab ||
                       'profiles'
                   );
+
                   setIsRoleModalOpen(
                     true
                   );
@@ -2949,9 +3293,11 @@ export default function App() {
                 setCurrentRole(
                   'Owner'
                 );
+
                 setRoleModalTab(
                   'permissions'
                 );
+
                 setIsRoleModalOpen(
                   true
                 );
@@ -2960,6 +3306,7 @@ export default function App() {
                 setRoleModalTab(
                   'permissions'
                 );
+
                 setIsRoleModalOpen(
                   true
                 );
@@ -3527,53 +3874,51 @@ export default function App() {
         profiles={
           stakeholderProfiles
         }
-        onUpdateProfiles={
-          (
+        onUpdateProfiles={(
+          newProfiles
+        ) => {
+          setStakeholderProfiles(
             newProfiles
-          ) => {
-            setStakeholderProfiles(
-              newProfiles
-            );
+          );
 
-            setUserNameMap(
-              (prev) => ({
-                ...prev,
-                Owner:
-                  newProfiles
-                    .Owner
-                    ?.personName ||
-                  prev.Owner,
-                Konsultan:
-                  newProfiles
-                    .Konsultan
-                    ?.personName ||
-                  prev.Konsultan,
-                Kontraktor:
-                  newProfiles
-                    .Kontraktor
-                    ?.personName ||
-                  prev.Kontraktor,
-                Direktur:
-                  newProfiles
-                    .Owner
-                    ?.personName ||
-                  prev.Direktur,
-                'Site Manager':
-                  newProfiles
-                    .Kontraktor
-                    ?.personName ||
-                  prev[
-                    'Site Manager'
-                  ],
-                Viewer:
-                  newProfiles
-                    .Viewer
-                    ?.personName ||
-                  prev.Viewer,
-              })
-            );
-          }
-        }
+          setUserNameMap(
+            (prev) => ({
+              ...prev,
+              Owner:
+                newProfiles
+                  .Owner
+                  ?.personName ||
+                prev.Owner,
+              Konsultan:
+                newProfiles
+                  .Konsultan
+                  ?.personName ||
+                prev.Konsultan,
+              Kontraktor:
+                newProfiles
+                  .Kontraktor
+                  ?.personName ||
+                prev.Kontraktor,
+              Direktur:
+                newProfiles
+                  .Owner
+                  ?.personName ||
+                prev.Direktur,
+              'Site Manager':
+                newProfiles
+                  .Kontraktor
+                  ?.personName ||
+                prev[
+                  'Site Manager'
+                ],
+              Viewer:
+                newProfiles
+                  .Viewer
+                  ?.personName ||
+                prev.Viewer,
+            })
+          );
+        }}
         project={
           project
         }
@@ -3625,6 +3970,7 @@ export default function App() {
         }
         onForceSync={() => {
           syncWithPrimaryState();
+
           setIsSyncModalOpen(
             false
           );
@@ -3651,4 +3997,3 @@ export default function App() {
     </div>
   );
 }
-```

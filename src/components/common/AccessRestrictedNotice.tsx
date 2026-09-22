@@ -31,7 +31,7 @@ const TAB_LABELS: Record<ActiveTab, string> = {
 export const AccessRestrictedNotice: React.FC<AccessRestrictedNoticeProps> = ({
   tab,
   currentRole,
-  ownerName = 'H. Bambang S., M.T. (PT Foresyndo Global Indonesia)',
+  ownerName = 'HASANUDIN (PT Foresyndo Global Indonesia)',
   onGoBackToDashboard,
   onSwitchToOwner,
   onOpenRoleModal,
