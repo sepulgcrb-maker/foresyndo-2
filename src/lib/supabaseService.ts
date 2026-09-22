@@ -1,4 +1,4 @@
-import { getSupabase, isSupabaseConnected } from './supabase';
+import { getSupabase } from './supabase';
 import {
   ProjectInfo,
   ProjectDocument,
@@ -59,24 +59,19 @@ export interface SupabaseSyncResult {
   error?: string;
 }
 
+const DEFAULT_PROJECT_ID = 'FORESYNDO-PROJECT-2';
+
 /**
- * Returns the ready-to-use SQL Migration script that the user can paste
- * directly into Supabase Dashboard -> SQL Editor.
+ * Returns the ready-to-use SQL Migration script.
  */
 export function getSupabaseSqlSchema(): string {
   return `-- ====================================================================
--- SKEMA LENGKAP DATABASE SUPABASE (POSTGRESQL)
--- SISTEM MONITORING PEMBANGUNAN PROYEK GEDUNG PT. FORESYNDO GLOBAL INDONESIA
--- Lokasi Proyek: Jatitujuh, Majalengka, Jawa Barat
--- ====================================================================
--- PETUNJUK:
--- 1. Buka Supabase Dashboard -> SQL Editor -> New Query
--- 2. Tempel seluruh skrip ini dan klik RUN
+-- SKEMA DATABASE SUPABASE
+-- FORESYNDO PROJECT 2
 -- ====================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. TABEL SNAPSHOT MASTER (Sync State Menyeluruh & Realtime Backup)
 CREATE TABLE IF NOT EXISTS public.project_snapshots (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
@@ -85,7 +80,6 @@ CREATE TABLE IF NOT EXISTS public.project_snapshots (
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 2. TABEL INFORMASI PROYEK
 CREATE TABLE IF NOT EXISTS public.project_info (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -105,7 +99,6 @@ CREATE TABLE IF NOT EXISTS public.project_info (
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 3. TABEL DOKUMEN PROYEK (DED, Shop Drawing, Kontrak, Notulen, BAST)
 CREATE TABLE IF NOT EXISTS public.project_documents (
   id TEXT PRIMARY KEY,
   document_number TEXT NOT NULL,
@@ -127,7 +120,6 @@ CREATE TABLE IF NOT EXISTS public.project_documents (
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 4. TABEL LAPORAN HARIAN LAPANGAN
 CREATE TABLE IF NOT EXISTS public.daily_logs (
   id TEXT PRIMARY KEY,
   date TEXT NOT NULL,
@@ -143,7 +135,6 @@ CREATE TABLE IF NOT EXISTS public.daily_logs (
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 5. TABEL ITEM PEKERJAAN & KURVA S
 CREATE TABLE IF NOT EXISTS public.work_items (
   id TEXT PRIMARY KEY,
   code TEXT NOT NULL,
@@ -161,7 +152,6 @@ CREATE TABLE IF NOT EXISTS public.work_items (
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 6. TABEL INVENTARIS MATERIAL & LOGISTIK
 CREATE TABLE IF NOT EXISTS public.material_inventory (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -180,7 +170,6 @@ CREATE TABLE IF NOT EXISTS public.material_inventory (
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 7. TABEL TENAGA KERJA (Manpower)
 CREATE TABLE IF NOT EXISTS public.workers (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -194,7 +183,6 @@ CREATE TABLE IF NOT EXISTS public.workers (
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 8. TABEL MONITORING ALAT BERAT
 CREATE TABLE IF NOT EXISTS public.equipments (
   id TEXT PRIMARY KEY,
   code TEXT NOT NULL,
@@ -212,7 +200,6 @@ CREATE TABLE IF NOT EXISTS public.equipments (
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 9. TABEL TERMIN PEMBAYARAN
 CREATE TABLE IF NOT EXISTS public.payment_terms (
   term_number INTEGER PRIMARY KEY,
   title TEXT NOT NULL,
@@ -229,7 +216,6 @@ CREATE TABLE IF NOT EXISTS public.payment_terms (
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 10. TABEL AUDIT LOG TRIPARTIT
 CREATE TABLE IF NOT EXISTS public.audit_logs (
   id TEXT PRIMARY KEY,
   timestamp TEXT NOT NULL,
@@ -240,14 +226,21 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
   created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- Indexing
-CREATE INDEX IF NOT EXISTS idx_documents_category ON public.project_documents(category);
-CREATE INDEX IF NOT EXISTS idx_documents_status ON public.project_documents(status);
-CREATE INDEX IF NOT EXISTS idx_daily_logs_date ON public.daily_logs(date);
-CREATE INDEX IF NOT EXISTS idx_material_status ON public.material_inventory(status);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON public.audit_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_documents_category
+  ON public.project_documents(category);
 
--- Aktifkan Row Level Security (RLS)
+CREATE INDEX IF NOT EXISTS idx_documents_status
+  ON public.project_documents(status);
+
+CREATE INDEX IF NOT EXISTS idx_daily_logs_date
+  ON public.daily_logs(date);
+
+CREATE INDEX IF NOT EXISTS idx_material_status
+  ON public.material_inventory(status);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp
+  ON public.audit_logs(timestamp);
+
 ALTER TABLE public.project_snapshots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_info ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_documents ENABLE ROW LEVEL SECURITY;
@@ -259,60 +252,139 @@ ALTER TABLE public.equipments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payment_terms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Kebijakan Akses (RLS Policies)
-DROP POLICY IF EXISTS "Akses publik snapshots" ON public.project_snapshots;
-CREATE POLICY "Akses publik snapshots" ON public.project_snapshots FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Akses publik snapshots"
+ON public.project_snapshots;
 
-DROP POLICY IF EXISTS "Akses publik project info" ON public.project_info;
-CREATE POLICY "Akses publik project info" ON public.project_info FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Akses publik snapshots"
+ON public.project_snapshots
+FOR ALL
+USING (true)
+WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Akses publik documents" ON public.project_documents;
-CREATE POLICY "Akses publik documents" ON public.project_documents FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Akses publik project info"
+ON public.project_info;
 
-DROP POLICY IF EXISTS "Akses publik daily logs" ON public.daily_logs;
-CREATE POLICY "Akses publik daily logs" ON public.daily_logs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Akses publik project info"
+ON public.project_info
+FOR ALL
+USING (true)
+WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Akses publik work items" ON public.work_items;
-CREATE POLICY "Akses publik work items" ON public.work_items FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Akses publik documents"
+ON public.project_documents;
 
-DROP POLICY IF EXISTS "Akses publik materials" ON public.material_inventory;
-CREATE POLICY "Akses publik materials" ON public.material_inventory FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Akses publik documents"
+ON public.project_documents
+FOR ALL
+USING (true)
+WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Akses publik workers" ON public.workers;
-CREATE POLICY "Akses publik workers" ON public.workers FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Akses publik daily logs"
+ON public.daily_logs;
 
-DROP POLICY IF EXISTS "Akses publik equipments" ON public.equipments;
-CREATE POLICY "Akses publik equipments" ON public.equipments FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Akses publik daily logs"
+ON public.daily_logs
+FOR ALL
+USING (true)
+WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Akses publik payment terms" ON public.payment_terms;
-CREATE POLICY "Akses publik payment terms" ON public.payment_terms FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Akses publik work items"
+ON public.work_items;
 
-DROP POLICY IF EXISTS "Akses publik audit logs" ON public.audit_logs;
-CREATE POLICY "Akses publik audit logs" ON public.audit_logs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Akses publik work items"
+ON public.work_items
+FOR ALL
+USING (true)
+WITH CHECK (true);
 
--- Aktifkan Supabase Realtime
+DROP POLICY IF EXISTS "Akses publik materials"
+ON public.material_inventory;
+
+CREATE POLICY "Akses publik materials"
+ON public.material_inventory
+FOR ALL
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Akses publik workers"
+ON public.workers;
+
+CREATE POLICY "Akses publik workers"
+ON public.workers
+FOR ALL
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Akses publik equipments"
+ON public.equipments;
+
+CREATE POLICY "Akses publik equipments"
+ON public.equipments
+FOR ALL
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Akses publik payment terms"
+ON public.payment_terms;
+
+CREATE POLICY "Akses publik payment terms"
+ON public.payment_terms
+FOR ALL
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Akses publik audit logs"
+ON public.audit_logs;
+
+CREATE POLICY "Akses publik audit logs"
+ON public.audit_logs
+FOR ALL
+USING (true)
+WITH CHECK (true);
+
 DO $$
 BEGIN
   BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.project_snapshots;
+    ALTER PUBLICATION supabase_realtime
+    ADD TABLE public.project_snapshots;
   EXCEPTION WHEN duplicate_object THEN NULL;
   END;
+
   BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.project_documents;
+    ALTER PUBLICATION supabase_realtime
+    ADD TABLE public.project_documents;
   EXCEPTION WHEN duplicate_object THEN NULL;
   END;
+
   BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.daily_logs;
+    ALTER PUBLICATION supabase_realtime
+    ADD TABLE public.daily_logs;
   EXCEPTION WHEN duplicate_object THEN NULL;
   END;
+
   BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.payment_terms;
+    ALTER PUBLICATION supabase_realtime
+    ADD TABLE public.payment_terms;
   EXCEPTION WHEN duplicate_object THEN NULL;
   END;
 END $$;
 
--- Data Awal Identitas Proyek
-INSERT INTO public.project_info (id, name, code, owner, contractor, consultant, location, contract_number, contract_value, start_date, end_date, duration_weeks, status, current_week)
+INSERT INTO public.project_info (
+  id,
+  name,
+  code,
+  owner,
+  contractor,
+  consultant,
+  location,
+  contract_number,
+  contract_value,
+  start_date,
+  end_date,
+  duration_weeks,
+  status,
+  current_week
+)
 VALUES (
   'FORESYNDO-PROJECT-2',
   'Pembangunan Gedung Kantor & Fasilitas Produksi Foresyndo 2',
@@ -334,56 +406,80 @@ ON CONFLICT (id) DO NOTHING;
 }
 
 /**
- * Tests connection to Supabase instance and measures latency
+ * Test direct connection to Supabase.
+ *
+ * Tidak menggunakan /api/*
+ * Tidak menggunakan localStorage.
  */
 export async function testSupabaseConnection(): Promise<SupabaseTestResult> {
   const supabase = getSupabase();
+
   if (!supabase) {
     return {
       success: false,
-      message: 'Supabase URL atau Anon Key belum dikonfigurasi. Silakan isi URL dan Anon Key atau atur di Environment Variables.',
+      message:
+        'Supabase belum dikonfigurasi. Pastikan VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY tersedia saat build.',
     };
   }
 
   const startTime = performance.now();
+
   try {
-    const { error } = await supabase.from('project_snapshots').select('id').limit(1);
-    const latency = Math.round(performance.now() - startTime);
+    const { error } = await supabase
+      .from('project_snapshots')
+      .select('id')
+      .limit(1);
+
+    const latencyMs = Math.round(performance.now() - startTime);
 
     if (error) {
-      if (error.code === '42P01' || error.message.includes('relation') || error.message.includes('does not exist')) {
+      if (
+        error.code === '42P01' ||
+        error.message?.includes('relation') ||
+        error.message?.includes('does not exist')
+      ) {
         return {
-          success: true,
-          latencyMs: latency,
-          message: `Koneksi Supabase aktif (${latency}ms), namun tabel belum dibuat. Jalankan skrip SQL skema untuk mengaktifkan tabel.`,
+          success: false,
+          latencyMs,
+          message:
+            'Supabase berhasil dihubungi, tetapi tabel project_snapshots belum tersedia. Jalankan SQL schema terlebih dahulu.',
         };
       }
+
       return {
         success: false,
-        latencyMs: latency,
-        message: `Koneksi gagal: ${error.message} (Kode: ${error.code || 'UNKNOWN'})`,
+        latencyMs,
+        message: `Koneksi Supabase gagal: ${error.message} (${error.code || 'UNKNOWN'})`,
       };
     }
 
     return {
       success: true,
-      latencyMs: latency,
-      message: `Terhubung ke Supabase dengan respons cepat (${latency}ms). Database siap digunakan!`,
+      latencyMs,
+      message: `Supabase terhubung. Database siap digunakan (${latencyMs}ms).`,
     };
-  } catch (err: any) {
-    const latency = Math.round(performance.now() - startTime);
+  } catch (error: any) {
     return {
       success: false,
-      latencyMs: latency,
-      message: `Gagal menghubungi server Supabase: ${err.message || 'Network error'}`,
+      latencyMs: Math.round(performance.now() - startTime),
+      message:
+        error?.message ||
+        'Tidak dapat menghubungi Supabase. Periksa koneksi internet dan konfigurasi environment.',
     };
   }
 }
 
 /**
- * Pushes all current project state into Supabase Cloud & Server Snapshot
+ * Push seluruh state aplikasi langsung ke Supabase.
+ *
+ * IMPORTANT:
+ * - Tidak ada fetch('/api/project/snapshot')
+ * - Tidak ada server fallback
+ * - Tidak ada localStorage fallback
  */
-export async function pushAllDataToSupabase(payload: ProjectSyncPayload): Promise<SupabaseSyncResult> {
+export async function pushAllDataToSupabase(
+  payload: ProjectSyncPayload
+): Promise<SupabaseSyncResult> {
   const supabase = getSupabase();
   const timestamp = new Date().toISOString();
 
@@ -395,309 +491,468 @@ export async function pushAllDataToSupabase(payload: ProjectSyncPayload): Promis
     auditLogs: payload.auditLogs?.length || 0,
   };
 
-  let clientSuccess = false;
-  let clientError = '';
-
-  // 1. Client-side direct Supabase upsert (if connected)
-  if (supabase) {
-    try {
-      const { error: snapshotError } = await supabase
-        .from('project_snapshots')
-        .upsert({
-          id: payload.projectId || 'FORESYNDO-PROJECT-2',
-          project_id: payload.projectId || 'FORESYNDO-PROJECT-2',
-          data: payload,
-          synced_by: payload.syncedBy || 'Owner / Konsultan MK',
-          updated_at: timestamp,
-        });
-
-      if (snapshotError) {
-        clientError = snapshotError.message;
-      } else {
-        clientSuccess = true;
-      }
-
-      // Granular documents upsert
-      if (payload.documents && payload.documents.length > 0) {
-        try {
-          const docRows = payload.documents.map((d) => ({
-            id: d.id,
-            document_number: d.documentNumber,
-            title: d.title,
-            category: d.category,
-            file_type: d.fileType,
-            file_size: d.fileSize,
-            file_url: d.fileUrl || null,
-            status: d.status,
-            version: d.version,
-            upload_date: d.uploadDate,
-            uploaded_by: d.uploadedBy,
-            uploaded_by_role: d.uploadedByRole,
-            description: d.description,
-            confidentiality: d.confidentiality,
-            raw_data: d,
-            updated_at: timestamp,
-          }));
-          await supabase.from('project_documents').upsert(docRows);
-        } catch (docErr) {
-          console.warn('Granular documents table sync notice:', docErr);
-        }
-      }
-
-      // Granular daily logs upsert
-      if (payload.dailyLogs && payload.dailyLogs.length > 0) {
-        try {
-          const reportRows = payload.dailyLogs.map((r) => ({
-            id: r.id,
-            date: r.date,
-            weather: r.weather,
-            worker_count: r.workerCount,
-            mandor_name: r.mandorName,
-            activity_summary: r.activitySummary,
-            volume_done: r.volumeDone,
-            notes: r.notes,
-            created_by: r.createdBy,
-            raw_data: r,
-            updated_at: timestamp,
-          }));
-          await supabase.from('daily_logs').upsert(reportRows);
-        } catch (repErr) {
-          console.warn('Granular daily_logs sync notice:', repErr);
-        }
-      }
-    } catch (err: any) {
-      clientError = err?.message || 'Client direct sync notice';
-    }
-  }
-
-  // 2. Server-side unified snapshot push (Persists to server disk & server-side Supabase client)
-  let serverSuccess = false;
-  try {
-    const endpoint = '/api/project/snapshot';
-    const fullUrl =
-      typeof window !== 'undefined'
-        ? new URL(endpoint, window.location.origin).href
-        : endpoint;
-
-    const serverRes = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({ payload }),
-    });
-
-    const contentType = serverRes.headers.get('content-type') || '';
-    const isJson = contentType.toLowerCase().includes('application/json');
-
-    if (!serverRes.ok) {
-      let errorBody = '';
-      try {
-        errorBody = await serverRes.text();
-      } catch (e) {
-        errorBody = `[Unable to read body: ${e}]`;
-      }
-      console.warn(
-        `[Server Snapshot Push Notice]\n` +
-        `  Target URL: ${fullUrl}\n` +
-        `  Resolved URL: ${serverRes.url || fullUrl}\n` +
-        `  HTTP Status: ${serverRes.status} (${serverRes.statusText})\n` +
-        `  Content-Type: "${contentType}"\n` +
-        `  Response Body Snippet:\n${errorBody.slice(0, 1000)}`
-      );
-    } else if (!isJson) {
-      let unexpectedBody = '';
-      try {
-        unexpectedBody = await serverRes.text();
-      } catch (e) {
-        unexpectedBody = `[Unable to read body: ${e}]`;
-      }
-      console.warn(
-        `[Server Snapshot Push Notice - Non-JSON / HTML Returned]\n` +
-        `  Expected: "application/json"\n` +
-        `  Received Content-Type: "${contentType}"\n` +
-        `  Target URL: ${fullUrl}\n` +
-        `  Resolved URL: ${serverRes.url || fullUrl}\n` +
-        `  HTTP Status: ${serverRes.status} (${serverRes.statusText})\n` +
-        `  Response Body Snippet (HTML returned instead of JSON):\n${unexpectedBody.slice(0, 1000)}`
-      );
-    } else {
-      serverSuccess = true;
-    }
-  } catch (serverErr) {
-    console.warn('Server snapshot push notice:', serverErr);
-  }
-
-  const overallSuccess = clientSuccess || serverSuccess;
-  const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-  if (overallSuccess) {
+  if (!supabase) {
     return {
-      success: true,
-      message: 'Seluruh data proyek berhasil disimpan ke Supabase Cloud & tersinkronisasi untuk semua browser!',
-      syncedAt: timeStr,
+      success: false,
+      message:
+        'Supabase tidak tersedia. Data TIDAK disimpan ke localStorage atau server fallback.',
+      syncedAt: timestamp,
       counts,
+      error: 'SUPABASE_NOT_CONFIGURED',
     };
   }
 
-  return {
-    success: false,
-    message: clientError || 'Gagal melakukan sinkronisasi data ke cloud server.',
-    syncedAt: timeStr,
-    counts,
-    error: clientError,
-  };
+  try {
+    /**
+     * ================================================================
+     * 1. MASTER SNAPSHOT
+     * ================================================================
+     */
+    const { error: snapshotError } = await supabase
+      .from('project_snapshots')
+      .upsert(
+        {
+          id: payload.projectId || DEFAULT_PROJECT_ID,
+          project_id: payload.projectId || DEFAULT_PROJECT_ID,
+          data: {
+            ...payload,
+            syncedAt: timestamp,
+          },
+          synced_by: payload.syncedBy || 'System',
+          updated_at: timestamp,
+        },
+        {
+          onConflict: 'id',
+        }
+      );
+
+    if (snapshotError) {
+      throw new Error(
+        `Gagal menyimpan project_snapshots: ${snapshotError.message}`
+      );
+    }
+
+    /**
+     * ================================================================
+     * 2. PROJECT INFO
+     * ================================================================
+     */
+    if (payload.projectInfo) {
+      const project = payload.projectInfo;
+
+      const { error } = await supabase
+        .from('project_info')
+        .upsert(
+          {
+            id: project.id || payload.projectId || DEFAULT_PROJECT_ID,
+            name: project.name || '',
+            code: project.code || null,
+            owner: project.owner || '',
+            contractor: project.contractor || '',
+            consultant: project.consultant || '',
+            location: project.location || '',
+            contract_number: project.contractNumber || null,
+            contract_value: Number(project.contractValue || 0),
+            start_date: project.startDate || null,
+            end_date: project.endDate || null,
+            duration_weeks: Number(project.durationWeeks || 0),
+            status: project.status || 'Berjalan',
+            current_week: Number(project.currentWeek || 1),
+            raw_data: project,
+            updated_at: timestamp,
+          },
+          {
+            onConflict: 'id',
+          }
+        );
+
+      if (error) {
+        throw new Error(`Gagal menyimpan project_info: ${error.message}`);
+      }
+    }
+
+    /**
+     * ================================================================
+     * 3. DOCUMENTS
+     * ================================================================
+     */
+    if (payload.documents?.length) {
+      const documentRows = payload.documents.map((d) => ({
+        id: d.id,
+        document_number: d.documentNumber,
+        title: d.title,
+        category: d.category,
+        file_type: d.fileType,
+        file_size: d.fileSize,
+        file_url: d.fileUrl || null,
+        status: d.status,
+        version: d.version,
+        upload_date: d.uploadDate,
+        uploaded_by: d.uploadedBy,
+        uploaded_by_role: d.uploadedByRole,
+        description: d.description,
+        confidentiality: d.confidentiality,
+        signatures: d.signatures || [],
+        review_notes: d.reviewNotes || [],
+        raw_data: d,
+        updated_at: timestamp,
+      }));
+
+      const { error } = await supabase
+        .from('project_documents')
+        .upsert(documentRows, {
+          onConflict: 'id',
+        });
+
+      if (error) {
+        throw new Error(
+          `Gagal menyimpan project_documents: ${error.message}`
+        );
+      }
+    }
+
+    /**
+     * ================================================================
+     * 4. DAILY LOGS
+     * ================================================================
+     */
+    if (payload.dailyLogs?.length) {
+      const rows = payload.dailyLogs.map((r) => ({
+        id: r.id,
+        date: r.date,
+        weather: r.weather,
+        worker_count: r.workerCount,
+        mandor_name: r.mandorName,
+        activity_summary: r.activitySummary,
+        volume_done: r.volumeDone,
+        photos: r.photos || [],
+        notes: r.notes,
+        created_by: r.createdBy,
+        raw_data: r,
+        updated_at: timestamp,
+      }));
+
+      const { error } = await supabase
+        .from('daily_logs')
+        .upsert(rows, {
+          onConflict: 'id',
+        });
+
+      if (error) {
+        throw new Error(`Gagal menyimpan daily_logs: ${error.message}`);
+      }
+    }
+
+    /**
+     * ================================================================
+     * 5. WORK ITEMS
+     * ================================================================
+     */
+    if (payload.workItems?.length) {
+      const rows = payload.workItems.map((w) => ({
+        id: w.id,
+        code: w.code,
+        name: w.name,
+        category: w.category,
+        weight: Number(w.weight || 0),
+        unit: w.unit,
+        volume: Number(w.volume || 0),
+        price_per_unit: Number(w.pricePerUnit || 0),
+        total_price: Number(w.totalPrice || 0),
+        weekly_plan: w.weeklyPlan || [],
+        weekly_actual: w.weeklyActual || [],
+        status: w.status,
+        raw_data: w,
+        updated_at: timestamp,
+      }));
+
+      const { error } = await supabase
+        .from('work_items')
+        .upsert(rows, {
+          onConflict: 'id',
+        });
+
+      if (error) {
+        throw new Error(`Gagal menyimpan work_items: ${error.message}`);
+      }
+    }
+
+    /**
+     * ================================================================
+     * 6. MATERIALS
+     * ================================================================
+     */
+    if (payload.materials?.length) {
+      const rows = payload.materials.map((m) => ({
+        id: m.id,
+        name: m.name,
+        category: m.category,
+        unit: m.unit,
+        total_rab: Number(m.totalRAB || 0),
+        ordered: Number(m.ordered || 0),
+        arrived: Number(m.arrived || 0),
+        used: Number(m.used || 0),
+        stock: Number(m.stock || 0),
+        status: m.status,
+        min_threshold: Number(m.minThreshold || 0),
+        supplier: m.supplier,
+        last_updated: m.lastUpdated,
+        raw_data: m,
+        updated_at: timestamp,
+      }));
+
+      const { error } = await supabase
+        .from('material_inventory')
+        .upsert(rows, {
+          onConflict: 'id',
+        });
+
+      if (error) {
+        throw new Error(
+          `Gagal menyimpan material_inventory: ${error.message}`
+        );
+      }
+    }
+
+    /**
+     * ================================================================
+     * 7. WORKERS
+     * ================================================================
+     */
+    if (payload.workers?.length) {
+      const rows = payload.workers.map((w) => ({
+        id: w.id,
+        name: w.name,
+        trade: w.trade,
+        mandor: w.mandor,
+        phone: w.phone,
+        status: w.status,
+        daily_rate: Number(w.dailyRate || 0),
+        rating: Number(w.rating || 5),
+        raw_data: w,
+        updated_at: timestamp,
+      }));
+
+      const { error } = await supabase
+        .from('workers')
+        .upsert(rows, {
+          onConflict: 'id',
+        });
+
+      if (error) {
+        throw new Error(`Gagal menyimpan workers: ${error.message}`);
+      }
+    }
+
+    /**
+     * ================================================================
+     * 8. EQUIPMENTS
+     * ================================================================
+     */
+    if (payload.equipments?.length) {
+      const rows = payload.equipments.map((e) => ({
+        id: e.id,
+        code: e.code,
+        name: e.name,
+        category: e.category,
+        capacity: e.capacity,
+        operator: e.operator,
+        daily_rent_cost: Number(e.dailyRentCost || 0),
+        condition: e.condition,
+        location: e.location,
+        working_hours_today: Number(e.workingHoursToday || 0),
+        total_working_hours: Number(e.totalWorkingHours || 0),
+        fuel_level: e.fuelLevel,
+        raw_data: e,
+        updated_at: timestamp,
+      }));
+
+      const { error } = await supabase
+        .from('equipments')
+        .upsert(rows, {
+          onConflict: 'id',
+        });
+
+      if (error) {
+        throw new Error(`Gagal menyimpan equipments: ${error.message}`);
+      }
+    }
+
+    /**
+     * ================================================================
+     * 9. PAYMENT TERMS
+     * ================================================================
+     */
+    if (payload.paymentTerms?.length) {
+      const rows = payload.paymentTerms.map((p) => ({
+        term_number: Number(p.termNumber),
+        title: p.title,
+        percentage: Number(p.percentage || 0),
+        planned_amount: Number(p.plannedAmount || 0),
+        target_progress: Number(p.targetProgress || 0),
+        invoice_number: p.invoiceNumber,
+        status: p.status,
+        submission_date: p.submissionDate,
+        verification_date_mk: p.verificationDateMK,
+        approval_date_owner: p.approvalDateOwner,
+        notes: p.notes,
+        raw_data: p,
+        updated_at: timestamp,
+      }));
+
+      const { error } = await supabase
+        .from('payment_terms')
+        .upsert(rows, {
+          onConflict: 'term_number',
+        });
+
+      if (error) {
+        throw new Error(`Gagal menyimpan payment_terms: ${error.message}`);
+      }
+    }
+
+    /**
+     * ================================================================
+     * 10. AUDIT LOGS
+     * ================================================================
+     */
+    if (payload.auditLogs?.length) {
+      const rows = payload.auditLogs.map((a) => ({
+        id: a.id,
+        timestamp: a.timestamp,
+        action: a.action,
+        role: a.role,
+        user_name: a.userName,
+        details: a.details,
+        updated_at: timestamp,
+      }));
+
+      const { error } = await supabase
+        .from('audit_logs')
+        .upsert(rows, {
+          onConflict: 'id',
+        });
+
+      if (error) {
+        throw new Error(`Gagal menyimpan audit_logs: ${error.message}`);
+      }
+    }
+
+    /**
+     * ================================================================
+     * SUCCESS
+     * ================================================================
+     */
+    const timeStr = new Date().toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+
+    return {
+      success: true,
+      message:
+        'Data berhasil disimpan langsung ke Supabase Cloud. Tidak menggunakan localStorage sebagai database.',
+      syncedAt: timeStr,
+      counts,
+    };
+  } catch (error: any) {
+    const timeStr = new Date().toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+
+    return {
+      success: false,
+      message:
+        error?.message ||
+        'Gagal menyimpan data ke Supabase Cloud.',
+      syncedAt: timeStr,
+      counts,
+      error: error?.message || 'SUPABASE_SYNC_ERROR',
+    };
+  }
 }
 
 /**
- * Pulls all project state from Supabase Cloud (with server fallback)
- * Ensures any browser immediately retrieves the shared project state.
- * Strictly verifies response.ok and Content-Type before parsing JSON.
+ * Pull seluruh state proyek langsung dari Supabase.
+ *
+ * Tidak ada:
+ * - localStorage fallback
+ * - /api/project/snapshot
+ * - server disk fallback
  */
-export async function pullAllDataFromSupabase(projectId = 'FORESYNDO-PROJECT-2'): Promise<ProjectSyncPayload | null> {
+export async function pullAllDataFromSupabase(
+  projectId = DEFAULT_PROJECT_ID
+): Promise<ProjectSyncPayload | null> {
   const supabase = getSupabase();
 
-  // 1. Try client direct pull from Supabase Cloud
-  if (supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('project_snapshots')
-        .select('data, updated_at, synced_by')
-        .eq('id', projectId)
-        .single();
-
-      if (!error && data && data.data) {
-        const payload = data.data as ProjectSyncPayload;
-        payload.syncedAt = data.updated_at;
-        payload.syncedBy = data.synced_by;
-        return payload;
-      }
-    } catch (err) {
-      console.warn('Client direct pull notice:', err);
-    }
-  }
-
-  // 2. Server-side retrieval fallback (Server fetches from Supabase or persistent snapshot)
-  const endpoint = '/api/project/snapshot';
-  const fullUrl =
-    typeof window !== 'undefined'
-      ? new URL(endpoint, window.location.origin).href
-      : endpoint;
-
-  const fetchWithRetry = async (retries = 1, delay = 800): Promise<Response | null> => {
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const res = await fetch(endpoint, {
-          headers: {
-            Accept: 'application/json',
-          },
-        });
-        return res;
-      } catch (networkErr: any) {
-        if (attempt < retries) {
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        } else {
-          console.warn(
-            `[Project Snapshot Pull Notice - Server snapshot currently unavailable]\n` +
-            `  Target URL: ${fullUrl}\n` +
-            `  Details: ${networkErr?.message || networkErr}. Menggunakan data lokal (localStorage).`
-          );
-        }
-      }
-    }
+  if (!supabase) {
+    console.error(
+      'Supabase tidak tersedia. Pull dibatalkan. Tidak menggunakan localStorage fallback.'
+    );
     return null;
-  };
+  }
 
   try {
-    const res = await fetchWithRetry(1, 800);
-    if (!res) {
-      return null;
-    }
+    const { data, error } = await supabase
+      .from('project_snapshots')
+      .select('data, updated_at, synced_by')
+      .eq('id', projectId)
+      .maybeSingle();
 
-    const contentType = res.headers.get('content-type') || '';
-    const isJson = contentType.toLowerCase().includes('application/json');
-
-    if (!res.ok) {
-      let errorBody = '';
-      try {
-        errorBody = await res.text();
-      } catch (readErr) {
-        errorBody = `[Unable to read response body: ${readErr}]`;
-      }
-      console.warn(
-        `[Project Snapshot Pull Notice]\n` +
-        `  Target URL: ${fullUrl}\n` +
-        `  Resolved URL: ${res.url || fullUrl}\n` +
-        `  HTTP Status: ${res.status} (${res.statusText})\n` +
-        `  Content-Type: "${contentType}"\n` +
-        `  Response Body Snippet:\n${errorBody.slice(0, 1000)}`
+    if (error) {
+      console.error(
+        'Gagal mengambil project_snapshots dari Supabase:',
+        error
       );
       return null;
     }
 
-    if (!isJson) {
-      let unexpectedBody = '';
-      try {
-        unexpectedBody = await res.text();
-      } catch (readErr) {
-        unexpectedBody = `[Unable to read response body: ${readErr}]`;
-      }
+    if (!data?.data) {
       console.warn(
-        `[Project Snapshot Pull Notice - Non-JSON Returned]\n` +
-        `  Expected: "application/json"\n` +
-        `  Received Content-Type: "${contentType}"\n` +
-        `  Target URL: ${fullUrl}\n` +
-        `  Resolved URL: ${res.url || fullUrl}\n` +
-        `  HTTP Status: ${res.status} (${res.statusText})\n` +
-        `  Response Body Snippet:\n${unexpectedBody.slice(0, 1000)}`
+        `Snapshot proyek ${projectId} belum ditemukan di Supabase.`
       );
       return null;
     }
 
-    const rawText = await res.text();
-    let result: any = null;
-    try {
-      result = JSON.parse(rawText);
-    } catch (parseErr: any) {
-      console.warn(
-        `[Project Snapshot Pull Notice - JSON Parse Failure]\n` +
-        `  Target URL: ${fullUrl}\n` +
-        `  Resolved URL: ${res.url || fullUrl}\n` +
-        `  HTTP Status: ${res.status} (${res.statusText})\n` +
-        `  Content-Type: "${contentType}"\n` +
-        `  Parse Error: ${parseErr?.message}\n` +
-        `  Raw Body Preview:\n${rawText.slice(0, 1000)}`
-      );
-      return null;
-    }
+    const payload = data.data as ProjectSyncPayload;
 
-    if (result && result.success && result.data) {
-      const payload = result.data as ProjectSyncPayload;
-      payload.syncedAt = result.updatedAt;
-      payload.syncedBy = result.syncedBy;
-      return payload;
-    }
-  } catch (err: any) {
-    console.warn(
-      `[Project Snapshot Pull Fallback Notice]\n` +
-      `  Target URL: ${fullUrl}\n` +
-      `  Notice: ${err?.message || err}. Data fallback ke penyimpanan lokal.`
+    return {
+      ...payload,
+      projectId: payload.projectId || projectId,
+      syncedAt: data.updated_at,
+      syncedBy: data.synced_by,
+    };
+  } catch (error) {
+    console.error(
+      'Unexpected Supabase pull error:',
+      error
     );
-  }
 
-  return null;
+    return null;
+  }
 }
 
 /**
- * Subscribes to realtime changes from Supabase
+ * Realtime subscription.
+ *
+ * Perubahan di browser/account lain akan memberitahu aplikasi,
+ * lalu App.tsx dapat melakukan pull ulang dari Supabase.
  */
 export function subscribeToSupabaseRealtime(
   onUpdate: (payload: any) => void,
-  projectId = 'FORESYNDO-PROJECT-2'
+  projectId = DEFAULT_PROJECT_ID
 ): () => void {
   const supabase = getSupabase();
-  if (!supabase) return () => {};
+
+  if (!supabase) {
+    console.warn(
+      'Supabase tidak tersedia. Realtime subscription tidak dibuat.'
+    );
+    return () => {};
+  }
 
   try {
     const channel = supabase
@@ -725,21 +980,117 @@ export function subscribeToSupabaseRealtime(
           onUpdate(payload);
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_logs',
+        },
+        (payload) => {
+          onUpdate(payload);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'work_items',
+        },
+        (payload) => {
+          onUpdate(payload);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'material_inventory',
+        },
+        (payload) => {
+          onUpdate(payload);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'workers',
+        },
+        (payload) => {
+          onUpdate(payload);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'equipments',
+        },
+        (payload) => {
+          onUpdate(payload);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payment_terms',
+        },
+        (payload) => {
+          onUpdate(payload);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'audit_logs',
+        },
+        (payload) => {
+          onUpdate(payload);
+        }
+      )
       .subscribe((status, err) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn(`[Supabase Realtime Notice: ${status}]`, err?.message || err);
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT'
+        ) {
+          console.warn(
+            `[Supabase Realtime ${status}]`,
+            err?.message || err
+          );
+        }
+
+        if (status === 'SUBSCRIBED') {
+          console.log(
+            `Supabase Realtime aktif untuk ${projectId}`
+          );
         }
       });
 
     return () => {
       try {
         supabase.removeChannel(channel);
-      } catch {
-        // ignore cleanup error
+      } catch (error) {
+        console.warn(
+          'Gagal membersihkan Supabase Realtime channel:',
+          error
+        );
       }
     };
-  } catch (err) {
-    console.warn('Realtime subscription skipped:', err);
+  } catch (error) {
+    console.warn(
+      'Realtime subscription gagal dibuat:',
+      error
+    );
+
     return () => {};
   }
 }
