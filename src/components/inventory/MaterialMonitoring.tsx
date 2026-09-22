@@ -33,6 +33,8 @@ import {
   FileCheck2,
   Clock,
   Ban,
+  FolderPlus,
+  Filter,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { BarcodeSVG } from '../common/BarcodeSVG';
@@ -41,6 +43,7 @@ import { formatIDR } from '../../utils/calculations';
 import { MaterialBarcodeScannerModal } from './MaterialBarcodeScannerModal';
 import { MaterialBatchBarcodePrintModal } from './MaterialBatchBarcodePrintModal';
 import { MaterialApprovalModal } from './MaterialApprovalModal';
+import { MaterialCategoryModal } from './MaterialCategoryModal';
 
 interface MaterialMonitoringProps {
   materials: MaterialItem[];
@@ -88,6 +91,100 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
 
   const canApprove =
     userRole === 'Konsultan' || userRole === 'Admin' || userRole === 'Owner' || userRole === 'Direktur';
+
+  // Material Categories Management State
+  const DEFAULT_MATERIAL_CATEGORIES = [
+    'Struktur & Sipil',
+    'Arsitektur',
+    'MEP Plumbing',
+    'MEP Listrik',
+    'MEP Fire Fighting',
+    'Finishing',
+    'Lainnya',
+  ];
+
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('FORESYNDO_CUSTOM_MATERIAL_CATEGORIES');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Listen to cross-browser / remote sync category updates
+  React.useEffect(() => {
+    const handleStorage = () => {
+      try {
+        const saved = localStorage.getItem('FORESYNDO_CUSTOM_MATERIAL_CATEGORIES');
+        if (saved) {
+          setCustomCategories(JSON.parse(saved));
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('foresyndo_categories_updated', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('foresyndo_categories_updated', handleStorage);
+    };
+  }, []);
+
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
+  const [isCustomCategoryMode, setIsCustomCategoryMode] = useState(false);
+  const [manualCategoryInput, setManualCategoryInput] = useState('');
+
+  // Combined list of categories (Default + Custom + Existing in Materials)
+  const allCategories = React.useMemo(() => {
+    const set = new Set<string>(DEFAULT_MATERIAL_CATEGORIES);
+    customCategories.forEach((c) => {
+      if (c && c.trim()) set.add(c.trim());
+    });
+    materials.forEach((m) => {
+      if (m.category && m.category.trim()) set.add(m.category.trim());
+    });
+    return Array.from(set);
+  }, [customCategories, materials]);
+
+  const handleAddCustomCategory = (newCat: string) => {
+    const trimmed = newCat.trim();
+    if (!trimmed) return;
+    if (!customCategories.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      const updated = [...customCategories, trimmed];
+      setCustomCategories(updated);
+      try {
+        localStorage.setItem('FORESYNDO_CUSTOM_MATERIAL_CATEGORIES', JSON.stringify(updated));
+        window.dispatchEvent(new Event('foresyndo_categories_updated'));
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    if (onAddAuditLog) {
+      onAddAuditLog('Tambah Kategori Material Manual', `Menambahkan kategori baru: ${trimmed}`);
+    }
+  };
+
+  const handleDeleteCustomCategory = (catToDelete: string) => {
+    const updated = customCategories.filter(
+      (c) => c.toLowerCase() !== catToDelete.toLowerCase()
+    );
+    setCustomCategories(updated);
+    try {
+      localStorage.setItem('FORESYNDO_CUSTOM_MATERIAL_CATEGORIES', JSON.stringify(updated));
+      window.dispatchEvent(new Event('foresyndo_categories_updated'));
+    } catch (err) {
+      console.error(err);
+    }
+    if (onAddAuditLog) {
+      onAddAuditLog('Hapus Kategori Material', `Menghapus kategori kustom: ${catToDelete}`);
+    }
+    if (selectedCategoryFilter === catToDelete) {
+      setSelectedCategoryFilter('all');
+    }
+  };
 
   const [newMat, setNewMat] = useState<Omit<MaterialItem, 'id'>>({
     name: '',
@@ -307,6 +404,13 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
     if (approvalFilter === 'rejected') {
       return m.approvalStatus === 'Ditolak';
     }
+
+    if (selectedCategoryFilter !== 'all') {
+      if ((m.category || 'Lainnya') !== selectedCategoryFilter) {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -317,6 +421,16 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMat.name) return;
+
+    // Determine final category (manual custom typed vs selected from list)
+    const finalCategory =
+      isCustomCategoryMode && manualCategoryInput.trim()
+        ? manualCategoryInput.trim()
+        : newMat.category || 'Struktur & Sipil';
+
+    if (isCustomCategoryMode && manualCategoryInput.trim()) {
+      handleAddCustomCategory(manualCategoryInput.trim());
+    }
 
     const isDirectApproved = newMatDirectApproval && canApprove;
     const finalBarcode = isDirectApproved
@@ -333,6 +447,7 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
 
     const matToAdd: Omit<MaterialItem, 'id'> = {
       ...newMat,
+      category: finalCategory,
       barcode: finalBarcode,
       stockRemaining: newMat.volumeTotal - newMat.volumeUsed,
       approvalStatus: isDirectApproved ? 'Disetujui' : 'Menunggu Approval',
@@ -353,10 +468,13 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
     if (onAddAuditLog) {
       onAddAuditLog(
         isDirectApproved ? 'Tambah & Sahkan Material' : 'Pendaftaran Pasokan Material Masuk',
-        `Menambahkan ${newMat.name} (Status: ${isDirectApproved ? 'Disetujui Masuk Gudang' : 'Menunggu Approval Konsultan MK'})`
+        `Menambahkan ${newMat.name} (Kategori: ${finalCategory}, Status: ${isDirectApproved ? 'Disetujui Masuk Gudang' : 'Menunggu Approval Konsultan MK'})`
       );
     }
 
+    // Reset form states
+    setIsCustomCategoryMode(false);
+    setManualCategoryInput('');
     setIsAddModalOpen(false);
   };
 
@@ -565,6 +683,14 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                 <Printer className="w-4 h-4 text-slate-500 dark:text-slate-400" /> Cetak Label QR
               </button>
 
+              <button
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 shrink-0 transition-all cursor-pointer"
+                title="Tambah atau kelola kategori material secara manual"
+              >
+                <FolderPlus className="w-4 h-4 text-orange-500" /> + Kategori Manual
+              </button>
+
               {canEdit && (
                 <button
                   onClick={() => setIsAddModalOpen(true)}
@@ -684,6 +810,57 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
             </div>
           </div>
 
+          {/* Category Filter Bar */}
+          <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 max-w-full text-xs">
+              <span className="text-[11px] font-bold text-slate-400 mr-1 flex items-center gap-1 shrink-0">
+                <Tag className="w-3.5 h-3.5 text-orange-500" /> Filter Kategori:
+              </span>
+              <button
+                onClick={() => setSelectedCategoryFilter('all')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs shrink-0 transition-all cursor-pointer ${
+                  selectedCategoryFilter === 'all'
+                    ? 'bg-orange-500 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                Semua Kategori ({materials.length})
+              </button>
+              {allCategories.map((cat) => {
+                const count = materials.filter((m) => (m.category || 'Lainnya') === cat).length;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategoryFilter(cat)}
+                    className={`px-2.5 py-1.5 rounded-xl font-bold text-xs shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                      selectedCategoryFilter === cat
+                        ? 'bg-orange-500 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>{cat}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                        selectedCategoryFilter === cat
+                          ? 'bg-white/20 text-white'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setIsCategoryModalOpen(true)}
+              className="text-[11px] font-bold text-orange-600 dark:text-orange-400 hover:text-orange-700 flex items-center gap-1 shrink-0 self-end md:self-center cursor-pointer px-2 py-1 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-all"
+            >
+              <FolderPlus className="w-3.5 h-3.5" /> + Tambah Kategori Manual
+            </button>
+          </div>
+
           {/* Material Table */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
@@ -749,7 +926,17 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                           </div>
                           <span className="font-bold text-slate-900 dark:text-white text-xs block mt-0.5">{m.name}</span>
                           <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 flex-wrap">
-                            {m.category && <span className="text-slate-500">{m.category}</span>}
+                            {m.category && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCategoryFilter(m.category!)}
+                                className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-orange-500/10 hover:text-orange-600 dark:hover:text-orange-400 text-slate-600 dark:text-slate-300 font-semibold cursor-pointer transition-colors"
+                                title={`Filter berdasarkan kategori: ${m.category}`}
+                              >
+                                <Tag className="w-2.5 h-2.5 mr-1 text-orange-500" />
+                                {m.category}
+                              </button>
+                            )}
                             {m.locationRack && (
                               <span className={isApproved ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-slate-400 italic'}>
                                 📍 {m.locationRack}
@@ -1307,22 +1494,76 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
-                    Kategori Material
-                  </label>
-                  <select
-                    value={newMat.category || 'Struktur & Sipil'}
-                    onChange={(e) => setNewMat({ ...newMat, category: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="Struktur & Sipil">Struktur &amp; Sipil (Besi, Semen, Pasir)</option>
-                    <option value="Arsitektur">Arsitektur (Bata, Granit, Cat)</option>
-                    <option value="MEP Plumbing">MEP - Plumbing &amp; Sanitasi</option>
-                    <option value="MEP Listrik">MEP - Elektrikal &amp; Kabel</option>
-                    <option value="MEP Fire Fighting">MEP - Proteksi Kebakaran</option>
-                    <option value="Finishing">Finishing &amp; Interior</option>
-                    <option value="Lainnya">Lain-lain / General</option>
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-orange-500" />
+                      Kategori Material
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomCategoryMode(!isCustomCategoryMode);
+                          if (!isCustomCategoryMode && !manualCategoryInput) {
+                            setManualCategoryInput('');
+                          }
+                        }}
+                        className="text-[10px] font-bold text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-0.5 cursor-pointer"
+                      >
+                        {isCustomCategoryMode ? '← Pilih dari List' : '+ Ketik Manual'}
+                      </button>
+                      <span className="text-slate-300 dark:text-slate-600">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsCategoryModalOpen(true)}
+                        className="text-[10px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-0.5 cursor-pointer"
+                        title="Buka dialog kelola kategori lengkap"
+                      >
+                        <FolderPlus className="w-3 h-3 text-orange-500" /> Kelola
+                      </button>
+                    </div>
+                  </div>
+
+                  {isCustomCategoryMode ? (
+                    <div className="space-y-1">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ketik nama kategori baru (contoh: K3 & APD, Baja Ringan)..."
+                          value={manualCategoryInput}
+                          onChange={(e) => setManualCategoryInput(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl bg-orange-500/5 dark:bg-orange-500/10 border-2 border-orange-500/40 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                          autoFocus
+                        />
+                      </div>
+                      <p className="text-[10px] text-orange-600 dark:text-orange-400 font-medium">
+                        ✨ Kategori baru ini akan otomatis tersimpan ke daftar kategori proyek saat disimpan.
+                      </p>
+                    </div>
+                  ) : (
+                    <select
+                      value={newMat.category || 'Struktur & Sipil'}
+                      onChange={(e) => {
+                        if (e.target.value === '__NEW_CUSTOM_CATEGORY__') {
+                          setIsCustomCategoryMode(true);
+                          setManualCategoryInput('');
+                        } else {
+                          setNewMat({ ...newMat, category: e.target.value });
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium"
+                    >
+                      {allCategories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                      <option value="__NEW_CUSTOM_CATEGORY__" className="font-bold text-orange-600">
+                        ➕ Tambah Kategori Baru (Manual)...
+                      </option>
+                    </select>
+                  )}
                 </div>
               </div>
 
@@ -1515,6 +1756,23 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
           onOpenBarcodeTag={(mat) => {
             setSelectedApprovalMaterial(null);
             setSelectedQrMaterial(mat);
+          }}
+        />
+      )}
+
+      {/* Manual Material Category Management Modal */}
+      {isCategoryModalOpen && (
+        <MaterialCategoryModal
+          isOpen={isCategoryModalOpen}
+          onClose={() => setIsCategoryModalOpen(false)}
+          categories={allCategories}
+          materials={materials}
+          defaultCategories={DEFAULT_MATERIAL_CATEGORIES}
+          onAddCategory={handleAddCustomCategory}
+          onDeleteCategory={handleDeleteCustomCategory}
+          onSelectCategory={(cat) => {
+            setNewMat((prev) => ({ ...prev, category: cat }));
+            setSelectedCategoryFilter(cat);
           }}
         />
       )}

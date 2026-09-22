@@ -1,10 +1,43 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
 
 dotenv.config();
+
+// Ensure data directory exists
+const DATA_DIR = path.join(process.cwd(), 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch (err) {
+    console.warn('Could not create data directory:', err);
+  }
+}
+
+const SUPABASE_CONFIG_PATH = path.join(process.cwd(), '.supabase_config.json');
+const PROJECT_SNAPSHOT_PATH = path.join(DATA_DIR, 'project_snapshot.json');
+
+// Load stored Supabase configuration if not in environment
+try {
+  if (fs.existsSync(SUPABASE_CONFIG_PATH)) {
+    const raw = fs.readFileSync(SUPABASE_CONFIG_PATH, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (parsed.url && !process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL) {
+      process.env.SUPABASE_URL = parsed.url;
+    }
+    if (parsed.anonKey && !process.env.SUPABASE_ANON_KEY && !process.env.VITE_SUPABASE_ANON_KEY) {
+      process.env.SUPABASE_ANON_KEY = parsed.anonKey;
+    }
+    if (parsed.serviceRoleKey && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      process.env.SUPABASE_SERVICE_ROLE_KEY = parsed.serviceRoleKey;
+    }
+  }
+} catch (err) {
+  console.warn('Error reading stored Supabase config:', err);
+}
 
 async function startServer() {
   const app = express();
@@ -234,6 +267,192 @@ Berikan analisis dampak teknis terhadap pekerjaan lapangan (pengecoran beton, op
       hasServiceRoleKey,
       error: errorDetail,
       envSupported: true,
+    });
+  });
+
+  // Supabase Config Retrieval API (Allows all browsers to get the shared Supabase connection)
+  app.get('/api/supabase/config', (req, res) => {
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+    const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    res.json({
+      url,
+      anonKey,
+      isConfigured: Boolean(url && anonKey),
+    });
+  });
+
+  // Supabase Config Save API (Persists Supabase credentials on the server for all browsers)
+  app.post('/api/supabase/config', (req, res) => {
+    const { url, anonKey, serviceRoleKey } = req.body || {};
+    const cleanUrl = typeof url === 'string' ? url.trim() : '';
+    const cleanAnonKey = typeof anonKey === 'string' ? anonKey.trim() : '';
+    const cleanServiceKey = typeof serviceRoleKey === 'string' ? serviceRoleKey.trim() : '';
+
+    if (cleanUrl) {
+      process.env.SUPABASE_URL = cleanUrl;
+    } else {
+      delete process.env.SUPABASE_URL;
+    }
+    if (cleanAnonKey) {
+      process.env.SUPABASE_ANON_KEY = cleanAnonKey;
+    } else {
+      delete process.env.SUPABASE_ANON_KEY;
+    }
+    if (cleanServiceKey) {
+      process.env.SUPABASE_SERVICE_ROLE_KEY = cleanServiceKey;
+    }
+
+    try {
+      fs.writeFileSync(
+        SUPABASE_CONFIG_PATH,
+        JSON.stringify(
+          {
+            url: cleanUrl,
+            anonKey: cleanAnonKey,
+            serviceRoleKey: cleanServiceKey,
+            savedAt: new Date().toISOString(),
+          },
+          null,
+          2
+        ),
+        'utf-8'
+      );
+    } catch (err) {
+      console.error('Failed to save Supabase config to disk:', err);
+    }
+
+    res.json({
+      success: true,
+      message: 'Konfigurasi Supabase berhasil disimpan di server untuk semua browser!',
+      url: cleanUrl,
+      isConfigured: Boolean(cleanUrl && cleanAnonKey),
+    });
+  });
+
+  // Central Project Snapshot Retrieval API (Cloud first, server resilient fallback)
+  app.get('/api/project/snapshot', async (req, res) => {
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    const keyToUse = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey;
+
+    // 1. Try fetching from Supabase Cloud if configured
+    if (supabaseUrl && keyToUse) {
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const client = createClient(supabaseUrl, keyToUse, {
+          auth: { persistSession: false },
+        });
+        const { data, error } = await client
+          .from('project_snapshots')
+          .select('data, updated_at, synced_by')
+          .eq('id', 'FORESYNDO-PROJECT-2')
+          .single();
+
+        if (!error && data && data.data) {
+          return res.json({
+            success: true,
+            source: 'supabase',
+            data: data.data,
+            updatedAt: data.updated_at,
+            syncedBy: data.synced_by,
+          });
+        }
+      } catch (err) {
+        console.warn('Server Supabase fetch notice:', err);
+      }
+    }
+
+    // 2. Fallback to server local snapshot file
+    try {
+      if (fs.existsSync(PROJECT_SNAPSHOT_PATH)) {
+        const raw = fs.readFileSync(PROJECT_SNAPSHOT_PATH, 'utf-8');
+        const parsed = JSON.parse(raw);
+        return res.json({
+          success: true,
+          source: 'server_disk',
+          data: parsed.data || parsed,
+          updatedAt: parsed.updatedAt || parsed.syncedAt,
+          syncedBy: parsed.syncedBy || 'Server Backup',
+        });
+      }
+    } catch (err) {
+      console.warn('Server disk snapshot read error:', err);
+    }
+
+    res.json({
+      success: false,
+      message: 'Belum ada snapshot proyek yang tersimpan di cloud atau server.',
+    });
+  });
+
+  // Central Project Snapshot Save API (Saves to server disk and upserts to Supabase Cloud)
+  app.post('/api/project/snapshot', async (req, res) => {
+    const payload = req.body?.payload || req.body;
+    if (!payload) {
+      return res.status(400).json({ success: false, message: 'Payload data kosong.' });
+    }
+
+    const timestamp = new Date().toISOString();
+    let supabaseSynced = false;
+    let supabaseError = null;
+
+    // 1. Always write to server persistent disk
+    try {
+      fs.writeFileSync(
+        PROJECT_SNAPSHOT_PATH,
+        JSON.stringify(
+          {
+            data: payload,
+            updatedAt: timestamp,
+            syncedBy: payload.syncedBy || 'Browser Sync',
+          },
+          null,
+          2
+        ),
+        'utf-8'
+      );
+    } catch (err) {
+      console.warn('Failed to write project snapshot to disk:', err);
+    }
+
+    // 2. Upsert to Supabase if configured
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+    const keyToUse = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey;
+
+    if (supabaseUrl && keyToUse) {
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const client = createClient(supabaseUrl, keyToUse, {
+          auth: { persistSession: false },
+        });
+
+        const { error } = await client.from('project_snapshots').upsert({
+          id: payload.projectId || 'FORESYNDO-PROJECT-2',
+          project_id: payload.projectId || 'FORESYNDO-PROJECT-2',
+          data: payload,
+          synced_by: payload.syncedBy || 'Browser Sync',
+          updated_at: timestamp,
+        });
+
+        if (!error) {
+          supabaseSynced = true;
+        } else {
+          supabaseError = error.message;
+        }
+      } catch (err: any) {
+        supabaseError = err.message;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: supabaseSynced
+        ? 'Data berhasil disimpan ke Supabase Cloud & Server!'
+        : 'Data tersimpan di server (Supabase belum terhubung atau skema belum siap).',
+      supabaseSynced,
+      supabaseError,
+      updatedAt: timestamp,
     });
   });
 

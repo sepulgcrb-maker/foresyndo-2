@@ -93,9 +93,9 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveSupabaseConfig(url.trim(), key.trim());
+    await saveSupabaseConfig(url.trim(), key.trim());
     setSavedSuccess(true);
     setTimeout(() => {
       setSavedSuccess(false);
@@ -397,11 +397,14 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({
                 </p>
               </div>
 
-              <div className="p-3 rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-900/40 text-[11px] text-sky-800 dark:text-sky-300 leading-relaxed">
-                <strong>Tips Environment Variable:</strong> Anda juga dapat mendefinisikan{' '}
-                <code className="bg-sky-100 dark:bg-sky-900 px-1 py-0.5 rounded font-mono">SUPABASE_URL</code> dan{' '}
-                <code className="bg-sky-100 dark:bg-sky-900 px-1 py-0.5 rounded font-mono">SUPABASE_ANON_KEY</code> di menu Secrets
-                AI Studio atau berkas <code className="font-mono">.env</code>.
+              <div className="p-3 rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-900/40 text-[11px] text-sky-800 dark:text-sky-300 leading-relaxed space-y-1">
+                <p>
+                  <strong>Sinkronisasi Antar-Browser:</strong> Kredensial yang disimpan di sini otomatis didistribusikan ke server sehingga saat pengguna lain membuka aplikasi dari browser atau perangkat lain, mereka langsung terhubung ke database Supabase yang sama.
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Anda juga dapat mendefinisikan <code className="bg-sky-100 dark:bg-sky-900 px-1 py-0.5 rounded font-mono">SUPABASE_URL</code> dan{' '}
+                  <code className="bg-sky-100 dark:bg-sky-900 px-1 py-0.5 rounded font-mono">SUPABASE_ANON_KEY</code> di konfigurasi Secrets server.
+                </p>
               </div>
 
               {savedSuccess && (

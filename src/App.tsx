@@ -60,6 +60,7 @@ import { FinalInspection } from './components/inspection/FinalInspection';
 import { ReportCenter } from './components/reports/ReportCenter';
 import { SupabaseModal } from './components/common/SupabaseModal';
 import { pushAllDataToSupabase, pullAllDataFromSupabase, subscribeToSupabaseRealtime } from './lib/supabaseService';
+import { initSupabaseFromRemote, isSupabaseConnected } from './lib/supabase';
 import { NotificationDrawer } from './components/common/NotificationDrawer';
 import { ProjectSettingsModal } from './components/common/ProjectSettingsModal';
 import { ContractorSettingsModal } from './components/common/ContractorSettingsModal';
@@ -890,8 +891,16 @@ export default function App() {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
   };
 
-  // Supabase Cloud Sync Handlers
+  // Supabase Cloud & Server Dual-Sync Handlers
   const handlePushToSupabase = async () => {
+    let customCats: string[] = [];
+    try {
+      const savedCats = localStorage.getItem('FORESYNDO_CUSTOM_MATERIAL_CATEGORIES');
+      if (savedCats) customCats = JSON.parse(savedCats);
+    } catch {
+      // ignore
+    }
+
     const payload = {
       projectId: project.id || 'FORESYNDO-PROJECT-2',
       projectInfo: project,
@@ -905,6 +914,11 @@ export default function App() {
       auditLogs,
       paymentTerms,
       photos,
+      calendarEvents,
+      notifications,
+      customCategories: customCats,
+      userNames: userNameMap,
+      rolePins,
       syncedBy: `${currentRole} - ${userNameMap[currentRole] || 'User'}`,
     };
 
@@ -915,11 +929,11 @@ export default function App() {
       localStorage.setItem('FORESYNDO_LAST_SUPABASE_SYNC', timeStr);
       addAuditLog(
         'Sinkronisasi Supabase',
-        `Berhasil mengunggah data proyek ke Supabase Cloud (${result.counts.documents} dokumen, ${result.counts.dailyLogs} laporan harian)`
+        `Berhasil mengunggah data proyek ke Cloud (${result.counts.documents} dokumen, ${result.counts.dailyLogs} laporan harian)`
       );
       handleAddNotification({
-        title: 'Sinkronisasi Supabase Berhasil',
-        message: `${result.counts.documents} dokumen & ${result.counts.dailyLogs} laporan tersimpan di cloud.`,
+        title: 'Sinkronisasi Cloud Berhasil',
+        message: `${result.counts.documents} dokumen & ${result.counts.dailyLogs} laporan tersimpan di cloud untuk semua browser.`,
         type: 'info',
       });
     }
@@ -932,7 +946,7 @@ export default function App() {
       if (!remoteData) {
         return {
           success: false,
-          message: 'Tidak ada snapshot data proyek yang ditemukan di Supabase. Silakan unggah data terlebih dahulu.',
+          message: 'Tidak ada snapshot data proyek yang ditemukan di cloud/server. Silakan simpan/unggah data terlebih dahulu.',
         };
       }
 
@@ -944,30 +958,121 @@ export default function App() {
       if (remoteData.allocations && Array.isArray(remoteData.allocations)) setAllocations(remoteData.allocations);
       if (remoteData.equipments && Array.isArray(remoteData.equipments)) setEquipments(remoteData.equipments);
       if (remoteData.paymentTerms && Array.isArray(remoteData.paymentTerms)) setPaymentTerms(remoteData.paymentTerms);
+      if (remoteData.photos && Array.isArray(remoteData.photos)) setPhotos(remoteData.photos);
+      if (remoteData.auditLogs && Array.isArray(remoteData.auditLogs)) setAuditLogs(remoteData.auditLogs);
+      if (remoteData.calendarEvents && Array.isArray(remoteData.calendarEvents)) setCalendarEvents(remoteData.calendarEvents);
       if (remoteData.projectInfo) setProject(remoteData.projectInfo);
+
+      if (remoteData.customCategories && Array.isArray(remoteData.customCategories)) {
+        localStorage.setItem('FORESYNDO_CUSTOM_MATERIAL_CATEGORIES', JSON.stringify(remoteData.customCategories));
+        window.dispatchEvent(new Event('foresyndo_categories_updated'));
+      }
+      if (remoteData.userNames && typeof remoteData.userNames === 'object') {
+        setUserNameMap((prev) => ({ ...prev, ...remoteData.userNames }));
+      }
+      if (remoteData.rolePins && typeof remoteData.rolePins === 'object') {
+        setRolePins((prev) => ({ ...prev, ...remoteData.rolePins }));
+      }
 
       const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
       setLastSupabaseSync(timeStr);
       localStorage.setItem('FORESYNDO_LAST_SUPABASE_SYNC', timeStr);
-      addAuditLog('Tarik Data Supabase', 'Berhasil memperbarui data proyek lokal dari Supabase Cloud.');
+      addAuditLog('Tarik Data Cloud', 'Berhasil memperbarui data proyek dari cloud untuk seluruh browser.');
 
       handleAddNotification({
-        title: 'Data Supabase Berhasil Dimuat',
-        message: 'Data proyek berhasil diperbarui dari database Supabase Cloud.',
+        title: 'Data Cloud Berhasil Dimuat',
+        message: 'Data proyek berhasil disinkronkan dari database Cloud (Supabase/Server).',
         type: 'info',
       });
 
       return {
         success: true,
-        message: 'Data proyek berhasil diperbarui dari Supabase Cloud!',
+        message: 'Data proyek berhasil diperbarui dari Cloud!',
       };
     } catch (err: any) {
       return {
         success: false,
-        message: err.message || 'Gagal menarik data dari Supabase',
+        message: err.message || 'Gagal menarik data dari Cloud',
       };
     }
   };
+
+  // Auto initialize Supabase from server and perform initial cloud pull
+  useEffect(() => {
+    let isMounted = true;
+    const syncInit = async () => {
+      // 1. Fetch Supabase URL & Key from server config so all browsers share it
+      await initSupabaseFromRemote();
+
+      // 2. Pull remote project snapshot
+      try {
+        const remoteData = await pullAllDataFromSupabase(project.id || 'FORESYNDO-PROJECT-2');
+        if (remoteData && isMounted) {
+          if (remoteData.documents && Array.isArray(remoteData.documents)) setDocuments(remoteData.documents);
+          if (remoteData.dailyLogs && Array.isArray(remoteData.dailyLogs)) setDailyLogs(remoteData.dailyLogs);
+          if (remoteData.materials && Array.isArray(remoteData.materials)) setMaterials(remoteData.materials);
+          if (remoteData.workItems && Array.isArray(remoteData.workItems)) setWorkItems(remoteData.workItems);
+          if (remoteData.workers && Array.isArray(remoteData.workers)) setWorkers(remoteData.workers);
+          if (remoteData.allocations && Array.isArray(remoteData.allocations)) setAllocations(remoteData.allocations);
+          if (remoteData.equipments && Array.isArray(remoteData.equipments)) setEquipments(remoteData.equipments);
+          if (remoteData.paymentTerms && Array.isArray(remoteData.paymentTerms)) setPaymentTerms(remoteData.paymentTerms);
+          if (remoteData.photos && Array.isArray(remoteData.photos)) setPhotos(remoteData.photos);
+          if (remoteData.auditLogs && Array.isArray(remoteData.auditLogs)) setAuditLogs(remoteData.auditLogs);
+          if (remoteData.calendarEvents && Array.isArray(remoteData.calendarEvents)) setCalendarEvents(remoteData.calendarEvents);
+          if (remoteData.projectInfo) setProject(remoteData.projectInfo);
+
+          if (remoteData.customCategories && Array.isArray(remoteData.customCategories)) {
+            localStorage.setItem('FORESYNDO_CUSTOM_MATERIAL_CATEGORIES', JSON.stringify(remoteData.customCategories));
+            window.dispatchEvent(new Event('foresyndo_categories_updated'));
+          }
+          if (remoteData.userNames && typeof remoteData.userNames === 'object') {
+            setUserNameMap((prev) => ({ ...prev, ...remoteData.userNames }));
+          }
+          if (remoteData.rolePins && typeof remoteData.rolePins === 'object') {
+            setRolePins((prev) => ({ ...prev, ...remoteData.rolePins }));
+          }
+
+          const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+          setLastSupabaseSync(timeStr);
+          localStorage.setItem('FORESYNDO_LAST_SUPABASE_SYNC', timeStr);
+        }
+      } catch (err) {
+        console.warn('Initial cloud pull notice:', err);
+      }
+    };
+
+    syncInit();
+
+    // 3. Tab visibility listener: when user returns or switches to this tab, refresh cloud data
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        pullAllDataFromSupabase(project.id || 'FORESYNDO-PROJECT-2').then((remote) => {
+          if (remote && isMounted) {
+            if (remote.documents && Array.isArray(remote.documents)) setDocuments(remote.documents);
+            if (remote.dailyLogs && Array.isArray(remote.dailyLogs)) setDailyLogs(remote.dailyLogs);
+            if (remote.materials && Array.isArray(remote.materials)) setMaterials(remote.materials);
+            if (remote.workItems && Array.isArray(remote.workItems)) setWorkItems(remote.workItems);
+            if (remote.workers && Array.isArray(remote.workers)) setWorkers(remote.workers);
+            if (remote.allocations && Array.isArray(remote.allocations)) setAllocations(remote.allocations);
+            if (remote.equipments && Array.isArray(remote.equipments)) setEquipments(remote.equipments);
+            if (remote.paymentTerms && Array.isArray(remote.paymentTerms)) setPaymentTerms(remote.paymentTerms);
+            if (remote.photos && Array.isArray(remote.photos)) setPhotos(remote.photos);
+            if (remote.projectInfo) setProject(remote.projectInfo);
+            if (remote.customCategories && Array.isArray(remote.customCategories)) {
+              localStorage.setItem('FORESYNDO_CUSTOM_MATERIAL_CATEGORIES', JSON.stringify(remote.customCategories));
+              window.dispatchEvent(new Event('foresyndo_categories_updated'));
+            }
+          }
+        }).catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // Realtime Supabase change listener
   useEffect(() => {

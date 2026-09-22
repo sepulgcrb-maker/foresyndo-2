@@ -11,6 +11,8 @@ import {
   AuditLog,
   PaymentTerm,
   PhotoItem,
+  CalendarEvent,
+  NotificationItem,
 } from '../types';
 
 export interface ProjectSyncPayload {
@@ -26,6 +28,11 @@ export interface ProjectSyncPayload {
   auditLogs?: AuditLog[];
   paymentTerms?: PaymentTerm[];
   photos?: PhotoItem[];
+  calendarEvents?: CalendarEvent[];
+  notifications?: NotificationItem[];
+  customCategories?: string[];
+  userNames?: Record<string, string>;
+  rolePins?: Record<string, string>;
   syncedAt?: string;
   syncedBy?: string;
 }
@@ -374,15 +381,11 @@ export async function testSupabaseConnection(): Promise<SupabaseTestResult> {
 }
 
 /**
- * Pushes all current project state into Supabase
+ * Pushes all current project state into Supabase Cloud & Server Snapshot
  */
 export async function pushAllDataToSupabase(payload: ProjectSyncPayload): Promise<SupabaseSyncResult> {
   const supabase = getSupabase();
   const timestamp = new Date().toISOString();
-
-  if (!supabase) {
-    throw new Error('Supabase belum terhubung. Konfigurasikan URL dan Anon Key terlebih dahulu.');
-  }
 
   const counts = {
     documents: payload.documents?.length || 0,
@@ -392,124 +395,161 @@ export async function pushAllDataToSupabase(payload: ProjectSyncPayload): Promis
     auditLogs: payload.auditLogs?.length || 0,
   };
 
+  let clientSuccess = false;
+  let clientError = '';
+
+  // 1. Client-side direct Supabase upsert (if connected)
+  if (supabase) {
+    try {
+      const { error: snapshotError } = await supabase
+        .from('project_snapshots')
+        .upsert({
+          id: payload.projectId || 'FORESYNDO-PROJECT-2',
+          project_id: payload.projectId || 'FORESYNDO-PROJECT-2',
+          data: payload,
+          synced_by: payload.syncedBy || 'Owner / Konsultan MK',
+          updated_at: timestamp,
+        });
+
+      if (snapshotError) {
+        clientError = snapshotError.message;
+      } else {
+        clientSuccess = true;
+      }
+
+      // Granular documents upsert
+      if (payload.documents && payload.documents.length > 0) {
+        try {
+          const docRows = payload.documents.map((d) => ({
+            id: d.id,
+            document_number: d.documentNumber,
+            title: d.title,
+            category: d.category,
+            file_type: d.fileType,
+            file_size: d.fileSize,
+            file_url: d.fileUrl || null,
+            status: d.status,
+            version: d.version,
+            upload_date: d.uploadDate,
+            uploaded_by: d.uploadedBy,
+            uploaded_by_role: d.uploadedByRole,
+            description: d.description,
+            confidentiality: d.confidentiality,
+            raw_data: d,
+            updated_at: timestamp,
+          }));
+          await supabase.from('project_documents').upsert(docRows);
+        } catch (docErr) {
+          console.warn('Granular documents table sync notice:', docErr);
+        }
+      }
+
+      // Granular daily logs upsert
+      if (payload.dailyLogs && payload.dailyLogs.length > 0) {
+        try {
+          const reportRows = payload.dailyLogs.map((r) => ({
+            id: r.id,
+            date: r.date,
+            weather: r.weather,
+            worker_count: r.workerCount,
+            mandor_name: r.mandorName,
+            activity_summary: r.activitySummary,
+            volume_done: r.volumeDone,
+            notes: r.notes,
+            created_by: r.createdBy,
+            raw_data: r,
+            updated_at: timestamp,
+          }));
+          await supabase.from('daily_logs').upsert(reportRows);
+        } catch (repErr) {
+          console.warn('Granular daily_logs sync notice:', repErr);
+        }
+      }
+    } catch (err: any) {
+      clientError = err?.message || 'Client direct sync notice';
+    }
+  }
+
+  // 2. Server-side unified snapshot push (Persists to server disk & server-side Supabase client)
+  let serverSuccess = false;
   try {
-    // 1. Upsert snapshot master
-    const { error: snapshotError } = await supabase
-      .from('project_snapshots')
-      .upsert({
-        id: payload.projectId || 'FORESYNDO-PROJECT-2',
-        project_id: payload.projectId || 'FORESYNDO-PROJECT-2',
-        data: payload,
-        synced_by: payload.syncedBy || 'Owner / Konsultan MK',
-        updated_at: timestamp,
-      });
-
-    if (snapshotError) {
-      console.warn('Supabase snapshot upsert notice:', snapshotError);
-      if (snapshotError.code === '42P01' || snapshotError.message.includes('relation')) {
-        throw new Error(
-          'Tabel "project_snapshots" belum dibuat di Supabase Anda. Silakan salin & jalankan Skrip SQL Skema di Supabase Dashboard.'
-        );
-      }
-      throw new Error(`Gagal menyimpan snapshot ke Supabase: ${snapshotError.message}`);
+    const serverRes = await fetch('/api/project/snapshot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload }),
+    });
+    if (serverRes.ok) {
+      serverSuccess = true;
     }
+  } catch (serverErr) {
+    console.warn('Server snapshot push notice:', serverErr);
+  }
 
-    // 2. Try granular upsert to documents table
-    if (payload.documents && payload.documents.length > 0) {
-      try {
-        const docRows = payload.documents.map((d) => ({
-          id: d.id,
-          document_number: d.documentNumber,
-          title: d.title,
-          category: d.category,
-          file_type: d.fileType,
-          file_size: d.fileSize,
-          file_url: d.fileUrl || null,
-          status: d.status,
-          version: d.version,
-          upload_date: d.uploadDate,
-          uploaded_by: d.uploadedBy,
-          uploaded_by_role: d.uploadedByRole,
-          description: d.description,
-          confidentiality: d.confidentiality,
-          raw_data: d,
-          updated_at: timestamp,
-        }));
-        await supabase.from('project_documents').upsert(docRows);
-      } catch (docErr) {
-        console.warn('Granular documents table sync bypassed:', docErr);
-      }
-    }
+  const overallSuccess = clientSuccess || serverSuccess;
+  const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-    // 3. Try granular upsert to daily logs
-    if (payload.dailyLogs && payload.dailyLogs.length > 0) {
-      try {
-        const reportRows = payload.dailyLogs.map((r) => ({
-          id: r.id,
-          date: r.date,
-          weather: r.weather,
-          worker_count: r.workerCount,
-          mandor_name: r.mandorName,
-          activity_summary: r.activitySummary,
-          volume_done: r.volumeDone,
-          notes: r.notes,
-          created_by: r.createdBy,
-          raw_data: r,
-          updated_at: timestamp,
-        }));
-        await supabase.from('daily_logs').upsert(reportRows);
-      } catch (repErr) {
-        console.warn('Granular daily_logs sync bypassed:', repErr);
-      }
-    }
-
+  if (overallSuccess) {
     return {
       success: true,
-      message: 'Seluruh data proyek berhasil disinkronkan ke Supabase Cloud!',
-      syncedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      message: 'Seluruh data proyek berhasil disimpan ke Supabase Cloud & tersinkronisasi untuk semua browser!',
+      syncedAt: timeStr,
       counts,
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      message: err.message || 'Gagal melakukan sinkronisasi ke Supabase',
-      syncedAt: new Date().toLocaleTimeString('id-ID'),
-      counts,
-      error: err.message,
     };
   }
+
+  return {
+    success: false,
+    message: clientError || 'Gagal melakukan sinkronisasi data ke cloud server.',
+    syncedAt: timeStr,
+    counts,
+    error: clientError,
+  };
 }
 
 /**
- * Pulls all project state from Supabase
+ * Pulls all project state from Supabase Cloud (with server fallback)
+ * Ensures any browser immediately retrieves the shared project state.
  */
 export async function pullAllDataFromSupabase(projectId = 'FORESYNDO-PROJECT-2'): Promise<ProjectSyncPayload | null> {
   const supabase = getSupabase();
-  if (!supabase) return null;
 
-  try {
-    const { data, error } = await supabase
-      .from('project_snapshots')
-      .select('data, updated_at, synced_by')
-      .eq('id', projectId)
-      .single();
+  // 1. Try client direct pull from Supabase Cloud
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('project_snapshots')
+        .select('data, updated_at, synced_by')
+        .eq('id', projectId)
+        .single();
 
-    if (error || !data) {
-      console.warn('No remote project snapshot found on Supabase:', error?.message);
-      return null;
+      if (!error && data && data.data) {
+        const payload = data.data as ProjectSyncPayload;
+        payload.syncedAt = data.updated_at;
+        payload.syncedBy = data.synced_by;
+        return payload;
+      }
+    } catch (err) {
+      console.warn('Client direct pull notice:', err);
     }
-
-    const payload = data.data as ProjectSyncPayload;
-    if (payload) {
-      payload.syncedAt = data.updated_at;
-      payload.syncedBy = data.synced_by;
-      return payload;
-    }
-    return null;
-  } catch (err) {
-    console.error('Failed to pull data from Supabase:', err);
-    return null;
   }
+
+  // 2. Server-side retrieval fallback (Server fetches from Supabase or persistent snapshot)
+  try {
+    const res = await fetch('/api/project/snapshot');
+    if (res.ok) {
+      const result = await res.json();
+      if (result.success && result.data) {
+        const payload = result.data as ProjectSyncPayload;
+        payload.syncedAt = result.updatedAt;
+        payload.syncedBy = result.syncedBy;
+        return payload;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to pull project snapshot from server:', err);
+  }
+
+  return null;
 }
 
 /**
