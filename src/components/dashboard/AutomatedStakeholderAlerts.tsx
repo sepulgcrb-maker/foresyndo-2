@@ -81,17 +81,17 @@ export const AutomatedStakeholderAlerts: React.FC<AutomatedStakeholderAlertsProp
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([
     {
       role: 'Direktur',
-      name: 'H. Bambang S., M.T.',
-      email: 'bambang.direktur@foresyndo.co.id',
-      phone: '+62 812-3456-7890',
+      name: 'HASANUDIN',
+      email: 'foresyndo@gmail.com',
+      phone: '+62 813 - 9554 - 5025',
       receiveDelayAlerts: true,
       receiveBudgetAlerts: true,
       pushEnabled: true,
     },
     {
       role: 'Site Manager',
-      name: 'Ir. Agus Pratama',
-      email: 'agus.sitemanager@foresyndo.co.id',
+      name: 'EKO YULIANTO',
+      email: 'arrash868@gmail.com',
       phone: '+62 811-9876-5432',
       receiveDelayAlerts: true,
       receiveBudgetAlerts: true,
@@ -99,7 +99,7 @@ export const AutomatedStakeholderAlerts: React.FC<AutomatedStakeholderAlertsProp
     },
     {
       role: 'Admin',
-      name: 'Siti Rahmawati, S.T.',
+      name: 'COKRO ',
       email: 'siti.admin@foresyndo.co.id',
       phone: '+62 813-1122-3344',
       receiveDelayAlerts: false,
