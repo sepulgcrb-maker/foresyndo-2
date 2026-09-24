@@ -28,6 +28,9 @@ import {
   StakeholderRoleKey,
   ProjectDocument,
   AuthSession,
+  SupplierPartner,
+  SupplierPurchaseOrder,
+  ContractorTransaction,
 } from './types';
 
 import {
@@ -47,6 +50,9 @@ import {
   ALL_PROJECT_TABS,
   INITIAL_PROJECT_DOCUMENTS,
   INITIAL_CONTRACTOR_PROFILE,
+  INITIAL_SUPPLIER_PARTNERS,
+  INITIAL_PURCHASE_ORDERS,
+  INITIAL_CONTRACTOR_TRANSACTIONS,
 } from './data/initialData';
 
 import { Header } from './components/layout/Header';
@@ -63,6 +69,8 @@ import { GanttChart } from './components/schedule/GanttChart';
 import { DailyMonitoring } from './components/monitoring/DailyMonitoring';
 import { PhotoGallery } from './components/gallery/PhotoGallery';
 import { TerminPayments } from './components/finance/TerminPayments';
+import { SupplierManagement } from './components/contractor/SupplierManagement';
+import { ContractorFinance } from './components/contractor/ContractorFinance';
 import { MaterialMonitoring } from './components/inventory/MaterialMonitoring';
 import { WorkforceMonitoring } from './components/workforce/WorkforceMonitoring';
 import { EquipmentMonitoring } from './components/equipment/EquipmentMonitoring';
@@ -525,8 +533,8 @@ export default function App() {
   const [userNameMap, setUserNameMap] =
     useState<Record<UserRole, string>>({
       Owner: 'HASANUDIN',
-      Konsultan: 'SYAEFUL ANWAR',
-      Kontraktor: 'ROHMAN PRIYAMBODO',
+      Konsultan: 'SAEPUL ANWAR',
+      Kontraktor: 'Rohman Priyambodo',
       Direktur: 'HASANUDIN',
       'Site Manager': 'EKO YULIANTO',
       Admin: 'COKRO',
@@ -633,6 +641,61 @@ export default function App() {
     useState<ProjectDocument[]>(
       INITIAL_PROJECT_DOCUMENTS
     );
+
+  const [suppliers, setSuppliers] =
+    useState<SupplierPartner[]>(
+      INITIAL_SUPPLIER_PARTNERS
+    );
+
+  const [purchaseOrders, setPurchaseOrders] =
+    useState<SupplierPurchaseOrder[]>(
+      INITIAL_PURCHASE_ORDERS
+    );
+
+  const [contractorTransactions, setContractorTransactions] =
+    useState<ContractorTransaction[]>(
+      INITIAL_CONTRACTOR_TRANSACTIONS
+    );
+
+  const handleAddSupplier = (supplier: SupplierPartner) => {
+    setSuppliers((prev) => [supplier, ...prev]);
+  };
+
+  const handleUpdateSupplier = (supplier: SupplierPartner) => {
+    setSuppliers((prev) => prev.map((s) => (s.id === supplier.id ? supplier : s)));
+  };
+
+  const handleDeleteSupplier = (id: string) => {
+    setSuppliers((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const handleAddPurchaseOrder = (po: SupplierPurchaseOrder) => {
+    setPurchaseOrders((prev) => [po, ...prev]);
+  };
+
+  const handleUpdatePOStatus = (
+    id: string,
+    paymentStatus: SupplierPurchaseOrder['paymentStatus'],
+    deliveryStatus: SupplierPurchaseOrder['deliveryStatus']
+  ) => {
+    setPurchaseOrders((prev) =>
+      prev.map((po) =>
+        po.id === id ? { ...po, paymentStatus, deliveryStatus } : po
+      )
+    );
+  };
+
+  const handleAddContractorTransaction = (trx: ContractorTransaction) => {
+    setContractorTransactions((prev) => [trx, ...prev]);
+  };
+
+  const handleUpdateContractorTransaction = (trx: ContractorTransaction) => {
+    setContractorTransactions((prev) => prev.map((t) => (t.id === trx.id ? trx : t)));
+  };
+
+  const handleDeleteContractorTransaction = (id: string) => {
+    setContractorTransactions((prev) => prev.filter((t) => t.id !== id));
+  };
 
   // ============================================================
   // EFFECTIVE ROLE / PERMISSIONS
@@ -984,8 +1047,8 @@ export default function App() {
               notifications: INITIAL_NOTIFICATIONS,
               userNames: {
                 Owner: 'HASANUDIN',
-                Konsultan: 'SYAEFUL ANWAR',
-                Kontraktor: 'ROHMAN PRIYAMBODO',
+                Konsultan: 'SAEPUL ANWAR',
+                Kontraktor: 'Rohman Priyambodo',
                 Direktur: 'HASANUDIN',
                 'Site Manager': 'EKO YULIANTO',
                 Admin: 'COKRO',
@@ -2497,7 +2560,7 @@ export default function App() {
             role:
               'Konsultan',
             name:
-              'Ir. Hendra Gunawan (Team Leader MK)',
+              'SAEPUL ANWAR (Kuasa Direktur MK)',
             signed:
               true,
             signedAt:
@@ -2517,7 +2580,7 @@ export default function App() {
           {
             id: `REV-MK-${Date.now()}`,
             authorName:
-              'Ir. Hendra Gunawan',
+              'SAEPUL ANWAR',
             authorRole:
               'Konsultan',
             timestamp:
@@ -2576,7 +2639,7 @@ export default function App() {
             .toISOString()
             .split('T')[0],
         uploadedBy:
-          'H. Bambang S., M.T. (Owner / Direktur)',
+          'HASANUDIN (Owner / Direktur)',
         uploadedByRole:
           'Owner',
         version:
@@ -2597,7 +2660,7 @@ export default function App() {
             role:
               'Owner',
             name:
-              'H. Bambang S., M.T.',
+              'HASANUDIN',
             signed:
               true,
             signedAt:
@@ -3626,6 +3689,39 @@ export default function App() {
                   onApplyProgress25={
                     handleApplyProgress25Percent
                   }
+                />
+              )}
+
+              {activeTab ===
+                'contractor-finance' && (
+                <ContractorFinance
+                  project={project}
+                  transactions={contractorTransactions}
+                  paymentTerms={paymentTerms}
+                  userRole={currentRole}
+                  activeUserName={userNameMap[currentRole]}
+                  onAddTransaction={handleAddContractorTransaction}
+                  onUpdateTransaction={handleUpdateContractorTransaction}
+                  onDeleteTransaction={handleDeleteContractorTransaction}
+                  onAddAuditLog={addAuditLog}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                />
+              )}
+
+              {activeTab ===
+                'suppliers' && (
+                <SupplierManagement
+                  suppliers={suppliers}
+                  purchaseOrders={purchaseOrders}
+                  userRole={currentRole}
+                  activeUserName={userNameMap[currentRole]}
+                  project={project}
+                  onAddSupplier={handleAddSupplier}
+                  onUpdateSupplier={handleUpdateSupplier}
+                  onDeleteSupplier={handleDeleteSupplier}
+                  onAddPurchaseOrder={handleAddPurchaseOrder}
+                  onUpdatePOStatus={handleUpdatePOStatus}
+                  onAddAuditLog={addAuditLog}
                 />
               )}
 

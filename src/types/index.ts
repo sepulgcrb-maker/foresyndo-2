@@ -16,6 +16,8 @@ export type ActiveTab =
   | 'daily'
   | 'photos'
   | 'termin'
+  | 'contractor-finance'
+  | 'suppliers'
   | 'materials'
   | 'workforce'
   | 'equipment'
@@ -533,5 +535,84 @@ export interface PDFCustomExportOptions {
   orientation?: 'portrait' | 'landscape';
   customNotes?: string;
   reportTitle?: string;
+}
+
+export type SupplierCategory =
+  | 'Beton & Semen'
+  | 'Besi & Baja Tulangan'
+  | 'Agregat & Pasir'
+  | 'Bata Ringan & Mortar'
+  | 'MEP & Elektrikal'
+  | 'Alat Berat & Safety Tools'
+  | 'Finishing & Keramik/Cat'
+  | 'Kayu, Bekisting & Perancah';
+
+export interface SupplierPartner {
+  id: string;
+  name: string;
+  category: SupplierCategory;
+  picName: string;
+  phone: string;
+  whatsapp?: string;
+  email?: string;
+  address: string;
+  city: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountHolder?: string;
+  npwp?: string;
+  top: string; // Term of Payment e.g. "CBD", "NET 14 Hari", "NET 30 Hari", "DP 30% Sisa COD"
+  rating: number; // 1-5
+  status: 'Aktif' | 'Prioritas' | 'On Hold';
+  notes?: string;
+  totalOrdersCount?: number;
+  totalSpent?: number;
+}
+
+export interface SupplierPurchaseOrder {
+  id: string;
+  poNumber: string; // PO-GMP/2026/09-001
+  supplierId: string;
+  supplierName: string;
+  date: string;
+  deliveryDate?: string;
+  materialItem: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  totalAmount: number;
+  paymentStatus: 'Belum Lunas' | 'DP Dibayar' | 'Lunas';
+  deliveryStatus: 'Draft' | 'Dipesan' | 'Sebagian Terkirim' | 'Diterima Lengkap' | 'Selesai';
+  deliveryOrderRef?: string; // No Surat Jalan
+  notes?: string;
+  signedBy: string;
+}
+
+export type ContractorTransactionType = 'Pemasukan' | 'Pengeluaran';
+
+export type ContractorExpenseCategory =
+  | 'Penerimaan Termin Owner'
+  | 'Modal Awal / Kas Kontraktor'
+  | 'Pengadaan Material & Supplier'
+  | 'Upah Tenaga Kerja & Mandor'
+  | 'Sewa Alat Berat & Solar BBM'
+  | 'Operasional Lapangan & Site Office'
+  | 'Kasbon Mandor & Subkontraktor'
+  | 'K3, Perizinan & Biaya QA/QC';
+
+export interface ContractorTransaction {
+  id: string;
+  transactionNumber: string; // TRX-GMP/2026/09-001
+  date: string;
+  type: ContractorTransactionType;
+  category: ContractorExpenseCategory;
+  description: string;
+  amount: number;
+  paymentMethod: 'Transfer Bank' | 'Tunai / Kas Kecil' | 'Cek / Bilyet Giro';
+  recipientOrPayer: string;
+  receiptRef?: string; // No Kuitansi / Bukti Transfer
+  approvedBy: string;
+  status: 'Terverifikasi' | 'Menunggu Verifikasi' | 'Draf';
+  notes?: string;
 }
 

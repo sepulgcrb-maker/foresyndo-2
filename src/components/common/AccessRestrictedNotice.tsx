@@ -20,6 +20,8 @@ const TAB_LABELS: Record<ActiveTab, string> = {
   daily: 'Monitoring Harian',
   photos: 'Dokumentasi Foto',
   termin: 'Pembayaran Termin',
+  'contractor-finance': 'Keuangan Proyek Kontraktor',
+  suppliers: 'Rekanan Supplier & PO',
   materials: 'Monitoring Material',
   workforce: 'Tenaga Kerja',
   equipment: 'Monitoring Alat Berat',

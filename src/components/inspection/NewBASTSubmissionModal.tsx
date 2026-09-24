@@ -92,14 +92,14 @@ export const NewBASTSubmissionModal: React.FC<NewBASTSubmissionModalProps> = ({
   const [retentionPercent, setRetentionPercent] = useState<number>(5);
 
   const [contractorName, setContractorName] = useState(
-    project.siteManager || currentSubmission?.contractorRepresentative || 'Ir. Agus Pratama'
+    project.siteManager || currentSubmission?.contractorRepresentative || 'EKO YULIANTO'
   );
   const [contractorPosition, setContractorPosition] = useState(
     currentSubmission?.contractorPosition || 'Site Manager Pelaksana'
   );
 
   const [consultantName, setConsultantName] = useState(
-    project.consultantMK || currentSubmission?.mkVerifiedBy || 'Ir. Hendra Gunawan, ST, IPU'
+    project.consultantMK || currentSubmission?.mkVerifiedBy || 'SAEPUL ANWAR'
   );
   const [consultantPosition, setConsultantPosition] = useState(
     'Team Leader Konsultan MK / Pengawas Teknis'
@@ -402,7 +402,7 @@ export const NewBASTSubmissionModal: React.FC<NewBASTSubmissionModalProps> = ({
       },
       ownerSignature: currentSubmission?.ownerSignature || {
         signed: false,
-        name: project.director || 'H. Bambang S., M.T.',
+        name: project.director || 'HASANUDIN',
         signedAt: '',
         signatureData: '',
       },

@@ -22,6 +22,8 @@ import {
   LogOut,
   HardHat,
   QrCode,
+  Wallet,
+  Building2,
 } from 'lucide-react';
 import { ActiveTab, UserRole } from '../../types';
 
@@ -77,6 +79,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'daily', label: 'Monitoring Harian', icon: ClipboardList },
     { id: 'photos', label: 'Dokumentasi Foto', icon: Camera },
     { id: 'termin', label: 'Pembayaran Termin', icon: CreditCard },
+    { id: 'contractor-finance', label: 'Keuangan Proyek', icon: Wallet },
+    { id: 'suppliers', label: 'Rekanan Supplier & PO', icon: Building2 },
     { id: 'materials', label: 'Monitoring Material', icon: Boxes },
     { id: 'workforce', label: 'Tenaga Kerja', icon: Users },
     { id: 'equipment', label: 'Monitoring Alat', icon: Truck },

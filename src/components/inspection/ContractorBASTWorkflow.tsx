@@ -287,7 +287,7 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
       contractorSignature: {
         ...submission.contractorSignature,
         signed: true,
-        name: submission.contractorRepresentative || project.siteManager || 'Ir. Agus Pratama',
+        name: submission.contractorRepresentative || project.siteManager || 'EKO YULIANTO',
         signedAt: new Date().toLocaleString('id-ID'),
         signatureData: submission.contractorSignature.signatureData || 'PRESET_VERIFIED_SM',
       },
@@ -325,11 +325,11 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
       stage: 'mk_recommended',
       mkRecommendationLetterNo: recNo,
       mkRecommendationDate: new Date().toISOString().split('T')[0],
-      mkVerifiedBy: project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+      mkVerifiedBy: project.consultantMK || 'SAEPUL ANWAR',
       mkSignature: {
         ...submission.mkSignature,
         signed: true,
-        name: project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+        name: project.consultantMK || 'SAEPUL ANWAR',
         signedAt: new Date().toLocaleString('id-ID'),
         signatureData: submission.mkSignature.signatureData || 'PRESET_VERIFIED_MK',
       },
@@ -348,11 +348,11 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
       ...submission,
       stage: 'owner_approved',
       ownerApprovalDate: new Date().toISOString().split('T')[0],
-      ownerApprovedBy: project.director || 'H. Bambang S., M.T.',
+      ownerApprovedBy: project.director || 'HASANUDIN',
       ownerSignature: {
         ...submission.ownerSignature,
         signed: true,
-        name: project.director || 'H. Bambang S., M.T.',
+        name: project.director || 'HASANUDIN',
         signedAt: new Date().toLocaleString('id-ID'),
         signatureData: submission.ownerSignature.signatureData || 'PRESET_VERIFIED_DIR',
       },
@@ -379,21 +379,21 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
       contractorSignature: {
         ...submission.contractorSignature,
         signed: true,
-        name: submission.contractorRepresentative || project.siteManager || 'Ir. Agus Pratama',
+        name: submission.contractorRepresentative || project.siteManager || 'EKO YULIANTO',
         signedAt: submission.contractorSignature.signedAt || new Date().toLocaleString('id-ID'),
         signatureData: submission.contractorSignature.signatureData || 'PRESET_VERIFIED_SM',
       },
       mkSignature: {
         ...submission.mkSignature,
         signed: true,
-        name: project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+        name: project.consultantMK || 'SAEPUL ANWAR',
         signedAt: submission.mkSignature.signedAt || new Date().toLocaleString('id-ID'),
         signatureData: submission.mkSignature.signatureData || 'PRESET_VERIFIED_MK',
       },
       ownerSignature: {
         ...submission.ownerSignature,
         signed: true,
-        name: project.director || 'H. Bambang S., M.T.',
+        name: project.director || 'HASANUDIN',
         signedAt: submission.ownerSignature.signedAt || new Date().toLocaleString('id-ID'),
         signatureData: submission.ownerSignature.signatureData || 'PRESET_VERIFIED_DIR',
       },
@@ -570,7 +570,7 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
             </div>
             <div>
               <strong className="font-bold text-orange-600 dark:text-orange-400 block">
-                Anda Masuk sebagai Kontraktor Pelaksana ({project.siteManager || 'Ir. Agus Pratama'})
+                Anda Masuk sebagai Kontraktor Pelaksana ({project.siteManager || 'EKO YULIANTO'})
               </strong>
               <span>
                 Pastikan progress fisik lapangan 100%, checklist berkas prasyarat tercentang lengkap, lalu kirim Surat Permohonan BAST-1 ke Konsultan MK.
@@ -627,7 +627,7 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
             </div>
             <div>
               <strong className="font-bold text-blue-600 dark:text-blue-400 block">
-                Anda Masuk sebagai Konsultan Pengawas MK ({project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU'})
+                Anda Masuk sebagai Konsultan Pengawas MK ({project.consultantMK || 'SAEPUL ANWAR'})
               </strong>
               <span>
                 Lakukan Opname Bersama di lapangan, periksa daftar cacat mutu (Punch List), dan terbitkan Rekomendasi Teknis Kelayakan PHO.
@@ -653,7 +653,7 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
             </div>
             <div>
               <strong className="font-bold text-emerald-600 dark:text-emerald-400 block">
-                Anda Masuk sebagai Pemberi Tugas / Owner ({project.director || 'H. Bambang S., M.T.'})
+                Anda Masuk sebagai Pemberi Tugas / Owner ({project.director || 'HASANUDIN'})
               </strong>
               <span>
                 Periksa rekomendasi teknis Konsultan MK, validasi klausul retensi 5%, dan lakukan otorisasi persetujuan serah terima BAST-1.
@@ -1151,7 +1151,7 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
                   <div>
                     <span className="text-[10px] font-bold text-orange-500 block">PIHAK KONTRAKTOR</span>
                     <span className="font-bold text-slate-900 dark:text-white">
-                      {submission.contractorRepresentative || project.contractorProfile?.management?.siteManager || project.siteManager || 'Ir. Agus Pratama'}
+                      {submission.contractorRepresentative || project.contractorProfile?.management?.siteManager || project.siteManager || 'EKO YULIANTO'}
                     </span>
                   </div>
                   <span
@@ -1170,7 +1170,7 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
                   <div>
                     <span className="text-[10px] font-bold text-blue-500 block">PIHAK KONSULTAN MK</span>
                     <span className="font-bold text-slate-900 dark:text-white">
-                      {project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU'}
+                      {project.consultantMK || 'SAEPUL ANWAR'}
                     </span>
                   </div>
                   <span
@@ -1189,7 +1189,7 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
                   <div>
                     <span className="text-[10px] font-bold text-emerald-500 block">PIHAK OWNER / DIREKSI</span>
                     <span className="font-bold text-slate-900 dark:text-white">
-                      {project.director || 'H. Bambang S., M.T.'}
+                      {project.director || 'HASANUDIN'}
                     </span>
                   </div>
                   <span
@@ -1251,7 +1251,7 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
               <div className="space-y-1.5 text-[11px]">
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500 dark:text-slate-400">Direktur Utama:</span>
-                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.director || project.director || 'H. Bambang S., M.T.'}</strong>
+                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.director || project.director || 'HASANUDIN'}</strong>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500 dark:text-slate-400">Project Manager (PM):</span>
@@ -1259,11 +1259,11 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500 dark:text-slate-400">Site Manager (SM):</span>
-                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.siteManager || project.siteManager || 'Ir. Agus Pratama'}</strong>
+                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.siteManager || project.siteManager || 'EKO YULIANTO'}</strong>
                 </div>
                 <div className="flex justify-between py-1">
                   <span className="text-slate-500 dark:text-slate-400">Lead QC Engineer:</span>
-                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.qcEngineer || project.qcEngineer || 'Hendra Gunawan, ST'}</strong>
+                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.qcEngineer || project.qcEngineer || 'KIKI'}</strong>
                 </div>
               </div>
 
@@ -1789,8 +1789,8 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
             {/* Letter Recipient */}
             <div className="text-[11px] leading-relaxed space-y-1">
               <div>Kepada Yth.</div>
-              <div className="font-bold">1. Direksi / Pemberi Tugas ({project.director || 'H. Bambang S., M.T.'})</div>
-              <div className="font-bold">2. Konsultan Pengawas MK ({project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU'})</div>
+              <div className="font-bold">1. Direksi / Pemberi Tugas ({project.director || 'HASANUDIN'})</div>
+              <div className="font-bold">2. Konsultan Pengawas MK ({project.consultantMK || 'SAEPUL ANWAR'})</div>
               <div>Di Tempat.-</div>
             </div>
 
@@ -1843,7 +1843,7 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
                   </span>
                 </div>
                 <span className="font-bold text-slate-900 block underline">
-                  {submission.contractorRepresentative || project.contractorProfile?.management?.siteManager || project.siteManager || 'Ir. Agus Pratama'}
+                  {submission.contractorRepresentative || project.contractorProfile?.management?.siteManager || project.siteManager || 'EKO YULIANTO'}
                 </span>
                 <span className="text-[10px] text-slate-500 block">
                   Site Manager {project.contractorProfile?.management?.projectManager ? `/ PM: ${project.contractorProfile.management.projectManager}` : ''}

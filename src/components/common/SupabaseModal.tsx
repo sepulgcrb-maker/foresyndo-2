@@ -519,7 +519,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({
               {schemaMode === 'unintegrated' && (
                 <div className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-[11px] space-y-1.5">
                   <div className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> 15 Tabel Baru yang Siap Dibuat:
+                    <CheckCircle2 className="w-3.5 h-3.5" /> 19 Tabel Operasional Termasuk Rekanan Supplier &amp; PO:
                   </div>
                   <div className="flex flex-wrap gap-1 text-[10px]">
                     {[
@@ -537,7 +537,11 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({
                       'user_roles_pins',
                       'material_approvals',
                       'material_projections',
-                      'custom_categories'
+                      'custom_categories',
+                      'supplier_partners',
+                      'purchase_orders',
+                      'purchase_order_items',
+                      'contractor_transactions'
                     ].map((tbl) => (
                       <span key={tbl} className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 font-mono">
                         {tbl}

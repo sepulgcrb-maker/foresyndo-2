@@ -351,7 +351,7 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
             <div className="h-16 flex items-center justify-center text-slate-400 font-normal italic text-[11px]">
               (Tanda Tangan Digital Tersimpan)
             </div>
-            <p>( {project.siteManager || 'Ir. Agus Pratama'} )</p>
+            <p>( {project.siteManager || 'EKO YULIANTO'} )</p>
           </div>
 
           <div className="text-center">
@@ -360,7 +360,7 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
             <div className="h-16 flex items-center justify-center text-slate-400 font-normal italic text-[11px]">
               (Tanda Tangan Digital Tersimpan)
             </div>
-            <p>( {project.director || 'H. Bambang S., M.T.'} )</p>
+            <p>( {project.director || 'HASANUDIN'} )</p>
           </div>
         </div>
       </div>

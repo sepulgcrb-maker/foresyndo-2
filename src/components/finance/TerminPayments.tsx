@@ -85,7 +85,7 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
   const handleApproveTerm = (term: PaymentTerm) => {
     const approver = project.director
       ? `${project.director} (Direktur / Owner)`
-      : 'H. Bambang S., M.T. (Direktur / Owner)';
+      : 'HASANUDIN (Direktur / Owner)';
 
     onUpdateTermStatus(
       term.termNumber,
@@ -102,7 +102,7 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
 
     const approver = project.director
       ? `${project.director} (Direktur / Owner)`
-      : 'H. Bambang S., M.T. (Direktur / Owner)';
+      : 'HASANUDIN (Direktur / Owner)';
 
     onUpdateTermStatus(
       uploadProofModalTerm.termNumber,

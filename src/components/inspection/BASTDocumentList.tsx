@@ -1034,7 +1034,7 @@ export const BASTDocumentList: React.FC<BASTDocumentListProps> = ({
                   <div className="space-y-0.5 text-[11px]">
                     <span className="text-slate-400 text-[10px] block">Penandatangan Resmi:</span>
                     <strong className="text-slate-900 dark:text-white block">
-                      {selectedPreviewBAST.contractorSignature.name || project.siteManager || 'Ir. Agus Pratama'}
+                      {selectedPreviewBAST.contractorSignature.name || project.siteManager || 'EKO YULIANTO'}
                     </strong>
                     <span className="text-slate-500 dark:text-slate-400 text-[10px] block">
                       Jabatan: Site Manager Lapangan
@@ -1110,7 +1110,7 @@ export const BASTDocumentList: React.FC<BASTDocumentListProps> = ({
                   <div className="space-y-0.5 text-[11px]">
                     <span className="text-slate-400 text-[10px] block">Penandatangan Resmi:</span>
                     <strong className="text-slate-900 dark:text-white block">
-                      {selectedPreviewBAST.mkSignature.name || project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU'}
+                      {selectedPreviewBAST.mkSignature.name || project.consultantMK || 'SAEPUL ANWAR'}
                     </strong>
                     <span className="text-slate-500 dark:text-slate-400 text-[10px] block">
                       Jabatan: Team Leader Konsultan Pengawas MK

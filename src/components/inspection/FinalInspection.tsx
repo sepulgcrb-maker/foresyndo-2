@@ -93,7 +93,7 @@ const getInitialBastList = (project: ProjectInfo, primary: BASTSubmissionData): 
     submissionNumber: '018/SP-BAST/FGI-KTR/V/2026',
     submissionDate: '2026-05-10',
     targetHandoverDate: '2026-05-20',
-    contractorRepresentative: project.siteManager || 'Ir. Agus Pratama',
+    contractorRepresentative: project.siteManager || 'EKO YULIANTO',
     contractorPosition: 'Site Manager Lapangan',
     contractorNotes: 'Serah terima pekerjaan struktur bawah mencakup pondasi tiang pancang, bore pile, dan pile cap.',
     stage: 'finalized',
@@ -110,19 +110,19 @@ const getInitialBastList = (project: ProjectInfo, primary: BASTSubmissionData): 
     punchList: [],
     contractorSignature: {
       signed: true,
-      name: project.siteManager || 'Ir. Agus Pratama',
+      name: project.siteManager || 'EKO YULIANTO',
       signedAt: '2026-05-18 14:30 WIB',
       signatureData: 'PRESET_VERIFIED_SM',
     },
     mkSignature: {
       signed: true,
-      name: project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+      name: project.consultantMK || 'SAEPUL ANWAR',
       signedAt: '2026-05-19 10:15 WIB',
       signatureData: 'PRESET_VERIFIED_MK',
     },
     ownerSignature: {
       signed: true,
-      name: project.director || 'H. Bambang S., M.T.',
+      name: project.director || 'HASANUDIN',
       signedAt: '2026-05-20 09:00 WIB',
       signatureData: 'PRESET_VERIFIED_OWNER',
     },
@@ -133,7 +133,7 @@ const getInitialBastList = (project: ProjectInfo, primary: BASTSubmissionData): 
     submissionNumber: '029/SP-BAST/FGI-KTR/VII/2026',
     submissionDate: '2026-07-20',
     targetHandoverDate: '2026-07-31',
-    contractorRepresentative: project.siteManager || 'Ir. Agus Pratama',
+    contractorRepresentative: project.siteManager || 'EKO YULIANTO',
     contractorPosition: 'Site Manager Lapangan',
     contractorNotes: 'Penyelesaian pekerjaan struktur utama lantai 1-4 dan dinding precast.',
     stage: 'mk_recommended',
@@ -150,19 +150,19 @@ const getInitialBastList = (project: ProjectInfo, primary: BASTSubmissionData): 
     punchList: [],
     contractorSignature: {
       signed: true,
-      name: project.siteManager || 'Ir. Agus Pratama',
+      name: project.siteManager || 'EKO YULIANTO',
       signedAt: '2026-07-28 11:20 WIB',
       signatureData: 'PRESET_VERIFIED_SM',
     },
     mkSignature: {
       signed: true,
-      name: project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+      name: project.consultantMK || 'SAEPUL ANWAR',
       signedAt: '2026-07-30 16:45 WIB',
       signatureData: 'PRESET_VERIFIED_MK',
     },
     ownerSignature: {
       signed: false,
-      name: project.director || 'H. Bambang S., M.T.',
+      name: project.director || 'HASANUDIN',
       signedAt: '',
       signatureData: '',
     },
@@ -173,7 +173,7 @@ const getInitialBastList = (project: ProjectInfo, primary: BASTSubmissionData): 
     submissionNumber: '035/SP-BAST/FGI-KTR/VIII/2026',
     submissionDate: '2026-08-15',
     targetHandoverDate: '2026-08-25',
-    contractorRepresentative: project.siteManager || 'Ir. Agus Pratama',
+    contractorRepresentative: project.siteManager || 'EKO YULIANTO',
     contractorPosition: 'Site Manager Lapangan',
     contractorNotes: 'Pengujian beban genset 250kVA, trafo TM, lift penumpang, dan sprinkler kebakaran.',
     stage: 'submitted',
@@ -190,19 +190,19 @@ const getInitialBastList = (project: ProjectInfo, primary: BASTSubmissionData): 
     punchList: INITIAL_PUNCH_LIST,
     contractorSignature: {
       signed: true,
-      name: project.siteManager || 'Ir. Agus Pratama',
+      name: project.siteManager || 'EKO YULIANTO',
       signedAt: '2026-08-20 09:40 WIB',
       signatureData: 'PRESET_VERIFIED_SM',
     },
     mkSignature: {
       signed: false,
-      name: project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+      name: project.consultantMK || 'SAEPUL ANWAR',
       signedAt: '',
       signatureData: '',
     },
     ownerSignature: {
       signed: false,
-      name: project.director || 'H. Bambang S., M.T.',
+      name: project.director || 'HASANUDIN',
       signedAt: '',
       signatureData: '',
     },
@@ -213,7 +213,7 @@ const getInitialBastList = (project: ProjectInfo, primary: BASTSubmissionData): 
     submissionNumber: '044/SP-BAST/FGI-KTR/IX/2026',
     submissionDate: '2026-09-08',
     targetHandoverDate: '2026-09-30',
-    contractorRepresentative: project.siteManager || 'Ir. Agus Pratama',
+    contractorRepresentative: project.siteManager || 'EKO YULIANTO',
     contractorPosition: 'Site Manager Lapangan',
     contractorNotes: 'Pekerjaan perkerasan jalan lingkungan, paving block drop-off, dan lansekap.',
     stage: 'draft',
@@ -230,19 +230,19 @@ const getInitialBastList = (project: ProjectInfo, primary: BASTSubmissionData): 
     punchList: [],
     contractorSignature: {
       signed: false,
-      name: project.siteManager || 'Ir. Agus Pratama',
+      name: project.siteManager || 'EKO YULIANTO',
       signedAt: '',
       signatureData: '',
     },
     mkSignature: {
       signed: false,
-      name: project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+      name: project.consultantMK || 'SAEPUL ANWAR',
       signedAt: '',
       signatureData: '',
     },
     ownerSignature: {
       signed: false,
-      name: project.director || 'H. Bambang S., M.T.',
+      name: project.director || 'HASANUDIN',
       signedAt: '',
       signatureData: '',
     },
@@ -294,7 +294,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
       submissionNumber: `042/FGI-KONT/BAST-1/IX/2026`,
       submissionDate: new Date().toISOString().split('T')[0],
       targetHandoverDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      contractorRepresentative: project.siteManager || 'Ir. Agus Pratama',
+      contractorRepresentative: project.siteManager || 'EKO YULIANTO',
       contractorPosition: 'Site Manager Lapangan',
       contractorNotes:
         'Seluruh pekerjaan konstruksi fisik 14 sektor telah terselesaikan 100%. As-Built Drawing dan hasil uji coba T&C terlampir lengkap.',
@@ -305,11 +305,11 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
       mkRecommendationDate: '',
       mkRecommendationNotes:
         'Pekerjaan fisik dinilai telah memenuhi spesifikasi teknis dan gambar terlaksana.',
-      mkVerifiedBy: project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+      mkVerifiedBy: project.consultantMK || 'SAEPUL ANWAR',
       ownerApprovalDate: '',
       ownerApprovalNotes:
         'Disetujui untuk penerbitan BAST-1 dan pelaksanaan retensi 5%.',
-      ownerApprovedBy: project.director || 'H. Bambang S., M.T.',
+      ownerApprovedBy: project.director || 'HASANUDIN',
       bastNumber: `BAST-1/FGI/${project.contractNumber}/2026`,
       handoverDate: new Date().toISOString().split('T')[0],
       maintenancePeriodDays: 180,
@@ -318,19 +318,19 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
       retentionValue: project.contractValue * 0.05,
       contractorSignature: {
         signed: false,
-        name: project.siteManager || 'Ir. Agus Pratama',
+        name: project.siteManager || 'EKO YULIANTO',
         signedAt: '',
         signatureData: '',
       },
       mkSignature: {
         signed: false,
-        name: project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+        name: project.consultantMK || 'SAEPUL ANWAR',
         signedAt: '',
         signatureData: '',
       },
       ownerSignature: {
         signed: false,
-        name: project.director || 'H. Bambang S., M.T.',
+        name: project.director || 'HASANUDIN',
         signedAt: '',
         signatureData: '',
       },
@@ -413,22 +413,22 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
       const parsed = JSON.parse(saved);
       return {
         ...parsed,
-        siteManagerName: project.siteManager || parsed.siteManagerName || 'Ir. Agus Pratama',
-        consultantMKName: project.consultantMK || parsed.consultantMKName || 'Ir. Hendra Gunawan, ST, IPU',
-        directorName: project.director || parsed.directorName || 'H. Bambang S., M.T.',
+        siteManagerName: project.siteManager || parsed.siteManagerName || 'EKO YULIANTO',
+        consultantMKName: project.consultantMK || parsed.consultantMKName || 'SAEPUL ANWAR',
+        directorName: project.director || parsed.directorName || 'HASANUDIN',
       };
     }
 
     return {
       bastNumber: `BAST-1/FGI/${project.contractNumber}/2026`,
       handoverDate: new Date().toISOString().split('T')[0],
-      siteManagerName: project.siteManager || 'Ir. Agus Pratama',
+      siteManagerName: project.siteManager || 'EKO YULIANTO',
       siteManagerSignedAt: '',
       siteManagerSignatureData: '',
-      consultantMKName: project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+      consultantMKName: project.consultantMK || 'SAEPUL ANWAR',
       consultantMKSignedAt: '',
       consultantMKSignatureData: '',
-      directorName: project.director || 'H. Bambang S., M.T.',
+      directorName: project.director || 'HASANUDIN',
       directorSignedAt: '',
       directorSignatureData: '',
       isCompleted: project.status === 'Selesai',
@@ -440,9 +440,9 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
     if (project.siteManager || project.director || project.consultantMK) {
       setBastData((prev) => ({
         ...prev,
-        siteManagerName: project.siteManager || prev.siteManagerName || 'Ir. Agus Pratama',
-        consultantMKName: project.consultantMK || prev.consultantMKName || 'Ir. Hendra Gunawan, ST, IPU',
-        directorName: project.director || prev.directorName || 'H. Bambang S., M.T.',
+        siteManagerName: project.siteManager || prev.siteManagerName || 'EKO YULIANTO',
+        consultantMKName: project.consultantMK || prev.consultantMKName || 'SAEPUL ANWAR',
+        directorName: project.director || prev.directorName || 'HASANUDIN',
       }));
     }
   }, [project.siteManager, project.director, project.consultantMK]);
@@ -659,7 +659,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
     const current = inspections[id];
     const willBeApproved = !current?.consultantApproved;
     const now = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
-    const consultantName = activeUserName || project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU';
+    const consultantName = activeUserName || project.consultantMK || 'SAEPUL ANWAR';
 
     const updated: WorkItemInspectionState = {
       ...inspections,
@@ -688,7 +688,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
     const current = inspections[id];
     const willBeApproved = !current?.directorApproved;
     const now = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
-    const ownerName = activeUserName || project.director || 'H. Bambang S., M.T.';
+    const ownerName = activeUserName || project.director || 'HASANUDIN';
 
     const updated: WorkItemInspectionState = {
       ...inspections,
@@ -736,7 +736,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
   const handleApproveAllConsultant = () => {
     if (!canConsultant) return;
     const now = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
-    const consultantName = activeUserName || project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU';
+    const consultantName = activeUserName || project.consultantMK || 'SAEPUL ANWAR';
 
     const updated: WorkItemInspectionState = { ...inspections };
     workItems.forEach((wi) => {
@@ -759,7 +759,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
   const handleApproveAllOwner = () => {
     if (!canDir) return;
     const now = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
-    const ownerName = activeUserName || project.director || 'H. Bambang S., M.T.';
+    const ownerName = activeUserName || project.director || 'HASANUDIN';
 
     const updated: WorkItemInspectionState = { ...inspections };
     workItems.forEach((wi) => {
@@ -781,8 +781,8 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
   // Bulk Approve - Tripartit Lulus 100%
   const handleApproveAll = () => {
     const now = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
-    const consultantName = activeUserName || project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU';
-    const ownerName = activeUserName || project.director || 'H. Bambang S., M.T.';
+    const consultantName = activeUserName || project.consultantMK || 'SAEPUL ANWAR';
+    const ownerName = activeUserName || project.director || 'HASANUDIN';
 
     const updated: WorkItemInspectionState = {};
     workItems.forEach((wi) => {
@@ -1048,7 +1048,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
     submissionNumber: `042/FGI-KONT/BAST-1/IX/2026`,
     submissionDate: new Date().toISOString().split('T')[0],
     targetHandoverDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    contractorRepresentative: project.siteManager || 'Ir. Agus Pratama',
+    contractorRepresentative: project.siteManager || 'EKO YULIANTO',
     contractorPosition: 'Site Manager Lapangan',
     contractorNotes:
       'Seluruh pekerjaan konstruksi fisik 14 sektor telah terselesaikan 100%. As-Built Drawing dan hasil uji coba T&C terlampir lengkap.',
@@ -1058,10 +1058,10 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
     mkRecommendationLetterNo: `REK-PHO/MK/${project.contractNumber}/2026`,
     mkRecommendationDate: '',
     mkRecommendationNotes: '',
-    mkVerifiedBy: project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+    mkVerifiedBy: project.consultantMK || 'SAEPUL ANWAR',
     ownerApprovalDate: '',
     ownerApprovalNotes: '',
-    ownerApprovedBy: project.director || 'H. Bambang S., M.T.',
+    ownerApprovedBy: project.director || 'HASANUDIN',
     bastNumber: `BAST-1/FGI/${project.contractNumber}/2026`,
     handoverDate: new Date().toISOString().split('T')[0],
     maintenancePeriodDays: 180,
@@ -1070,19 +1070,19 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
     retentionValue: project.contractValue * 0.05,
     contractorSignature: {
       signed: false,
-      name: project.siteManager || 'Ir. Agus Pratama',
+      name: project.siteManager || 'EKO YULIANTO',
       signedAt: '',
       signatureData: '',
     },
     mkSignature: {
       signed: false,
-      name: project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+      name: project.consultantMK || 'SAEPUL ANWAR',
       signedAt: '',
       signatureData: '',
     },
     ownerSignature: {
       signed: false,
-      name: project.director || 'H. Bambang S., M.T.',
+      name: project.director || 'HASANUDIN',
       signedAt: '',
       signatureData: '',
     },
@@ -1119,13 +1119,13 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
       const cleanBast: BASTDocumentData = {
         bastNumber: `BAST-1/FGI/${project.contractNumber}/2026`,
         handoverDate: new Date().toISOString().split('T')[0],
-        siteManagerName: project.siteManager || 'Ir. Agus Pratama',
+        siteManagerName: project.siteManager || 'EKO YULIANTO',
         siteManagerSignedAt: '',
         siteManagerSignatureData: '',
-        consultantMKName: project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+        consultantMKName: project.consultantMK || 'SAEPUL ANWAR',
         consultantMKSignedAt: '',
         consultantMKSignatureData: '',
-        directorName: project.director || 'H. Bambang S., M.T.',
+        directorName: project.director || 'HASANUDIN',
         directorSignedAt: '',
         directorSignatureData: '',
         isCompleted: false,
@@ -1234,7 +1234,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
       },
       mkSignature: {
         signed: true,
-        name: bastData.consultantMKName || project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
+        name: bastData.consultantMKName || project.consultantMK || 'SAEPUL ANWAR',
         signedAt: new Date().toLocaleString('id-ID'),
         signatureData: bastData.consultantMKSignatureData || 'PRESET_VERIFIED_MK',
       },
@@ -1243,7 +1243,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
     onUpdateProjectStatus('Selesai');
     onAddAuditLog(
       'Pengesahan BAST-1 Final Handover',
-      `Berita Acara Serah Terima No. ${bastData.bastNumber} disahkan resmi oleh Tripartit (Kontraktor: ${bastData.siteManagerName}, Konsultan MK: ${bastData.consultantMKName || 'Ir. Hendra Gunawan'}, Owner: ${bastData.directorName}). Status Proyek: SELESAI.`
+      `Berita Acara Serah Terima No. ${bastData.bastNumber} disahkan resmi oleh Tripartit (Kontraktor: ${bastData.siteManagerName}, Konsultan MK: ${bastData.consultantMKName || 'SAEPUL ANWAR'}, Owner: ${bastData.directorName}). Status Proyek: SELESAI.`
     );
 
     setActiveSubTab('bast');
@@ -1736,7 +1736,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
 
                 <div className="pt-1 flex items-center justify-between gap-2">
                   <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                    {project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU'}
+                    {project.consultantMK || 'SAEPUL ANWAR'}
                   </span>
                   {canConsultant && (
                     <button
@@ -1782,7 +1782,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
 
                 <div className="pt-1 flex items-center justify-between gap-2">
                   <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                    {project.director || 'H. Bambang S., M.T.'}
+                    {project.director || 'HASANUDIN'}
                   </span>
                   {canDir && (
                     <button
@@ -2356,7 +2356,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nama Team Leader MK</label>
                   <input
                     type="text"
-                    value={bastData.consultantMKName || 'Ir. Hendra Gunawan, ST, IPU'}
+                    value={bastData.consultantMKName || 'SAEPUL ANWAR'}
                     onChange={(e) => setBastData({ ...bastData, consultantMKName: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
                   />
@@ -2636,19 +2636,19 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
                   <div>
                     <span className="font-bold text-slate-900 block">1. {bastData.siteManagerName}</span>
                     <span className="text-slate-600 text-[11px]">
-                      Jabatan: Site Manager PT Foresyndo Global Indonesia, bertindak untuk dan atas nama Kontraktor Pelaksana, selanjutnya disebut <strong className="text-slate-900">PIHAK PERTAMA (KONTRAKTOR)</strong>.
+                      Jabatan: Site Manager {project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}, bertindak untuk dan atas nama Kontraktor Pelaksana, selanjutnya disebut <strong className="text-slate-900">PIHAK PERTAMA (KONTRAKTOR)</strong>.
                     </span>
                   </div>
                   <div>
-                    <span className="font-bold text-slate-900 block">2. {bastData.consultantMKName || project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU'}</span>
+                    <span className="font-bold text-slate-900 block">2. {bastData.consultantMKName || project.consultantMK || 'SAEPUL ANWAR'}</span>
                     <span className="text-slate-600 text-[11px]">
-                      Jabatan: Team Leader Konsultan Manajemen Konstruksi (MK), bertindak sebagai Pengawas Teknis Lapangan, selanjutnya disebut <strong className="text-slate-900">PIHAK KETIGA (PENGAWAS MK)</strong>.
+                      Jabatan: Kuasa Direktur PT. BENNATIN SURYA CIPTA, bertindak sebagai Konsultan Manajemen Konstruksi (MK), selanjutnya disebut <strong className="text-slate-900">PIHAK KETIGA (PENGAWAS MK)</strong>.
                     </span>
                   </div>
                   <div>
                     <span className="font-bold text-slate-900 block">3. {bastData.directorName}</span>
                     <span className="text-slate-600 text-[11px]">
-                      Jabatan: Direktur Utama PT Foresyndo Global Indonesia, bertindak untuk dan atas nama Pemilik Proyek, selanjutnya disebut <strong className="text-slate-900">PIHAK KEDUA (PEMILIK/OWNER)</strong>.
+                      Jabatan: Direktur Utama {project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'}, bertindak untuk dan atas nama Pemilik Proyek, selanjutnya disebut <strong className="text-slate-900">PIHAK KEDUA (PEMILIK/OWNER)</strong>.
                     </span>
                   </div>
                 </div>
@@ -2731,7 +2731,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
                 {/* 2. Konsultan MK */}
                 <div className="space-y-2">
                   <span className="text-[10px] font-bold text-slate-500 uppercase block">PIHAK KETIGA (PENGAWAS MK)</span>
-                  <span className="font-bold text-slate-900 block text-[11px]">{bastData.consultantMKName || project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU'}</span>
+                  <span className="font-bold text-slate-900 block text-[11px]">{bastData.consultantMKName || project.consultantMK || 'SAEPUL ANWAR'}</span>
                   <div className="h-28 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 p-2">
                     {bastData.consultantMKSignatureData === 'PRESET_VERIFIED_MK' || !bastData.consultantMKSignatureData ? (
                       <div className="flex flex-col items-center space-y-1">

@@ -387,6 +387,116 @@ CREATE INDEX IF NOT EXISTS idx_custom_categories_project_id
   ON public.custom_categories(project_id);
 
 -- ====================================================================
+-- 16. TABEL: supplier_partners (Mitra Supplier & Subkontraktor)
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS public.supplier_partners (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  pic_name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  whatsapp TEXT,
+  email TEXT,
+  address TEXT NOT NULL,
+  city TEXT NOT NULL,
+  bank_name TEXT,
+  bank_account_number TEXT,
+  bank_account_holder TEXT,
+  npwp TEXT,
+  top TEXT NOT NULL DEFAULT 'NET 14 Hari',
+  rating NUMERIC(3,2) DEFAULT 5.0 CHECK (rating >= 1.0 AND rating <= 5.0),
+  status TEXT NOT NULL DEFAULT 'Aktif' CHECK (status IN ('Aktif', 'Prioritas', 'On Hold', 'Nonaktif')),
+  notes TEXT,
+  total_orders_count INTEGER DEFAULT 0,
+  total_spent NUMERIC(15,2) DEFAULT 0,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_supplier_partners_project_id ON public.supplier_partners(project_id);
+CREATE INDEX IF NOT EXISTS idx_supplier_partners_category ON public.supplier_partners(category);
+CREATE INDEX IF NOT EXISTS idx_supplier_partners_status ON public.supplier_partners(status);
+
+-- ====================================================================
+-- 17. TABEL: purchase_orders (Purchase Order / Surat Pesanan Material)
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS public.purchase_orders (
+  id TEXT PRIMARY KEY,
+  po_number TEXT UNIQUE NOT NULL,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  supplier_id TEXT NOT NULL REFERENCES public.supplier_partners(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+  supplier_name TEXT NOT NULL,
+  date TEXT NOT NULL DEFAULT CURRENT_DATE::text,
+  delivery_date TEXT,
+  material_item TEXT NOT NULL,
+  quantity NUMERIC(15,2) NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  unit TEXT NOT NULL,
+  unit_price NUMERIC(15,2) NOT NULL DEFAULT 0 CHECK (unit_price >= 0),
+  total_amount NUMERIC(15,2) NOT NULL DEFAULT 0 CHECK (total_amount >= 0),
+  payment_status TEXT NOT NULL DEFAULT 'Belum Lunas' CHECK (payment_status IN ('Belum Lunas', 'DP Dibayar', 'Lunas', 'Dibatalkan')),
+  delivery_status TEXT NOT NULL DEFAULT 'Draft' CHECK (delivery_status IN ('Draft', 'Dipesan', 'Sebagian Terkirim', 'Diterima Lengkap', 'Selesai', 'Dibatalkan')),
+  delivery_order_ref TEXT,
+  notes TEXT,
+  signed_by TEXT NOT NULL DEFAULT 'EKO YULIANTO',
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_po_number ON public.purchase_orders(po_number);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_project_id ON public.purchase_orders(project_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_supplier_id ON public.purchase_orders(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_delivery_status ON public.purchase_orders(delivery_status);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_payment_status ON public.purchase_orders(payment_status);
+
+-- ====================================================================
+-- 18. TABEL: purchase_order_items (Rincian Item Multi-Material PO)
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS public.purchase_order_items (
+  id TEXT PRIMARY KEY DEFAULT ('POI-' || substr(md5(random()::text), 1, 8)),
+  po_id TEXT NOT NULL REFERENCES public.purchase_orders(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  item_description TEXT NOT NULL,
+  quantity NUMERIC(15,2) NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  unit TEXT NOT NULL,
+  unit_price NUMERIC(15,2) NOT NULL DEFAULT 0 CHECK (unit_price >= 0),
+  total_price NUMERIC(15,2) NOT NULL DEFAULT 0 CHECK (total_price >= 0),
+  delivery_notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_purchase_order_items_po_id ON public.purchase_order_items(po_id);
+
+-- ====================================================================
+-- 19. TABEL: contractor_transactions (Buku Kas & Keuangan Kontraktor)
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS public.contractor_transactions (
+  id TEXT PRIMARY KEY,
+  transaction_number TEXT UNIQUE NOT NULL,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  date TEXT NOT NULL DEFAULT CURRENT_DATE::text,
+  type TEXT NOT NULL CHECK (type IN ('Pemasukan', 'Pengeluaran')),
+  category TEXT NOT NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC(15,2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+  payment_method TEXT NOT NULL DEFAULT 'Transfer Bank' CHECK (payment_method IN ('Transfer Bank', 'Tunai / Kas Kecil', 'Cek / Bilyet Giro')),
+  recipient_or_payer TEXT NOT NULL,
+  receipt_ref TEXT,
+  approved_by TEXT NOT NULL DEFAULT 'EKO YULIANTO',
+  status TEXT NOT NULL DEFAULT 'Terverifikasi' CHECK (status IN ('Terverifikasi', 'Menunggu Verifikasi', 'Draf', 'Dibatalkan')),
+  notes TEXT,
+  po_id TEXT REFERENCES public.purchase_orders(id) ON UPDATE CASCADE ON DELETE SET NULL,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_contractor_trx_number ON public.contractor_transactions(transaction_number);
+CREATE INDEX IF NOT EXISTS idx_contractor_trx_type ON public.contractor_transactions(type);
+CREATE INDEX IF NOT EXISTS idx_contractor_trx_category ON public.contractor_transactions(category);
+
+-- ====================================================================
 -- ROW LEVEL SECURITY (RLS) & KEBIJAKAN AKSES
 -- ====================================================================
 ALTER TABLE public.worker_allocations ENABLE ROW LEVEL SECURITY;
@@ -404,6 +514,10 @@ ALTER TABLE public.user_roles_pins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.material_approvals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.material_projections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.custom_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.supplier_partners ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.purchase_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.purchase_order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contractor_transactions ENABLE ROW LEVEL SECURITY;
 
 DO $$
 DECLARE
@@ -423,7 +537,11 @@ DECLARE
     'user_roles_pins',
     'material_approvals',
     'material_projections',
-    'custom_categories'
+    'custom_categories',
+    'supplier_partners',
+    'purchase_orders',
+    'purchase_order_items',
+    'contractor_transactions'
   ];
 BEGIN
   FOREACH tbl IN ARRAY tables
@@ -454,7 +572,11 @@ DECLARE
     'user_roles_pins',
     'material_approvals',
     'material_projections',
-    'custom_categories'
+    'custom_categories',
+    'supplier_partners',
+    'purchase_orders',
+    'purchase_order_items',
+    'contractor_transactions'
   ];
 BEGIN
   FOREACH tbl IN ARRAY tables

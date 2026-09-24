@@ -20,6 +20,8 @@ import {
   Activity,
   FileText,
   QrCode,
+  Wallet,
+  HardHat,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -255,6 +257,53 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                 {duration.remainingDays} Hari Lagi
               </span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Contractor Role Quick Access Bar (Rekanan Supplier & Keuangan Proyek) */}
+      <div
+        className={`p-4 sm:p-5 rounded-2xl border transition-all duration-200 ${
+          darkMode
+            ? 'bg-slate-900/90 border-amber-500/30 text-slate-200'
+            : 'bg-gradient-to-r from-amber-50/90 via-sky-50/70 to-blue-50/90 border-amber-200 text-slate-800 shadow-xs'
+        }`}
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-400/40">
+              <HardHat className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                  Peran Kontraktor
+                </span>
+                <span className="text-xs font-bold text-slate-900 dark:text-white">
+                  {project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Direktur Utama: <strong>{project.contractorProfile?.management?.director || 'Rohman Priyambodo'}</strong> &bull; Site Manager: <strong>{project.siteManager || 'EKO YULIANTO'}</strong>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => onNavigateTab('suppliers')}
+              className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs cursor-pointer transition-all active:scale-95"
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Rekanan Supplier &amp; PO</span>
+            </button>
+            <button
+              onClick={() => onNavigateTab('contractor-finance')}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-xs cursor-pointer transition-all active:scale-95"
+            >
+              <Wallet className="w-4 h-4" />
+              <span>Keuangan Proyek (Cash Flow)</span>
+            </button>
           </div>
         </div>
       </div>

@@ -84,6 +84,8 @@ const MODULE_ITEMS: ModuleItem[] = [
   { id: 'daily', label: 'Monitoring Harian', desc: 'Log cuaca, presensi mandor, & ringkasan aktivitas fisik', icon: ClipboardList },
   { id: 'photos', label: 'Dokumentasi Foto', desc: 'Galeri dokumentasi progres fisik mingguan di lapangan', icon: Camera },
   { id: 'termin', label: 'Pembayaran Termin', desc: 'Klaim termin, verifikasi opname, & pencairan dana proyek', icon: CreditCard },
+  { id: 'contractor-finance', label: 'Keuangan Proyek Kontraktor', desc: 'Arus kas (Cash Flow) proyek, pencairan termin vs realisasi pengeluaran, & laba/rugi', icon: CreditCard },
+  { id: 'suppliers', label: 'Rekanan Supplier & PO', desc: 'Direktori mitra pemasok bahan, purchase order (PO), & riwayat pengiriman material', icon: Boxes },
   { id: 'materials', label: 'Monitoring Material', desc: 'Inventaris bahan bangunan, SPB, & deteksi dini defisit stok', icon: Boxes },
   { id: 'workforce', label: 'Tenaga Kerja', desc: 'Alokasi tukang/mandor, jam kerja, & perhitungan upah harian', icon: Users },
   { id: 'equipment', label: 'Monitoring Alat', desc: 'Jam operasional (HM), kondisi, & perawatan alat berat', icon: Truck },

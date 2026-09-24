@@ -829,17 +829,17 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
                 <div className="border-r border-current pr-2">
                   <div className="text-[9px] uppercase font-bold opacity-75">Pemilik Proyek (Owner):</div>
                   <div className="font-bold">PT FORESYNDO GLOBAL INDONESIA</div>
-                  <div className="text-[10px] opacity-80">Direktur: H. Bambang S., M.T.</div>
+                  <div className="text-[10px] opacity-80">Direktur: HASANUDIN</div>
                 </div>
                 <div className="border-r border-current pr-2">
                   <div className="text-[9px] uppercase font-bold opacity-75">Konsultan Manajemen Konstruksi:</div>
                   <div className="font-bold">PT BINA MANDIRI KONSULTAN</div>
-                  <div className="text-[10px] opacity-80">Team Leader: Ir. Hendra Gunawan</div>
+                  <div className="text-[10px] opacity-80">Team Leader: SAEPUL ANWAR</div>
                 </div>
                 <div className="border-r border-current pr-2">
                   <div className="text-[9px] uppercase font-bold opacity-75">Kontraktor Pelaksana:</div>
                   <div className="font-bold">PT FORESYNDO CIPTA UTAMA</div>
-                  <div className="text-[10px] opacity-80">Site Manager: Ir. Agus Pratama</div>
+                  <div className="text-[10px] opacity-80">Site Manager: EKO YULIANTO</div>
                 </div>
                 <div className="text-right flex flex-col justify-center">
                   <div className="text-[9px] uppercase font-mono font-bold text-amber-400">{doc.documentNumber}</div>
@@ -858,7 +858,7 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
               <Compass className="w-3.5 h-3.5" /> Standar Gambar: SNI 2847:2019 & SNI 1726:2019
             </span>
             <span className="text-slate-600">&bull;</span>
-            <span>Diperiksa oleh: <strong className="text-white">Ir. Hendra Gunawan, ST, IPU (MK)</strong></span>
+            <span>Diperiksa oleh: <strong className="text-white">SAEPUL ANWAR (MK)</strong></span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -971,7 +971,7 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
                     [TERVERIFIKASI DIGITAL]
                   </div>
                 </div>
-                <div className="font-bold text-white text-xs">H. Bambang S., M.T.</div>
+                <div className="font-bold text-white text-xs">HASANUDIN</div>
                 <div className="text-[10px] text-slate-500">Direktur Utama PT FGI</div>
               </div>
 
@@ -982,7 +982,7 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
                     [TERVERIFIKASI DIGITAL]
                   </div>
                 </div>
-                <div className="font-bold text-white text-xs">Ir. Hendra Gunawan, ST, IPU</div>
+                <div className="font-bold text-white text-xs">SAEPUL ANWAR</div>
                 <div className="text-[10px] text-slate-500">Team Leader MK</div>
               </div>
 
@@ -993,7 +993,7 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
                     [TERVERIFIKASI DIGITAL]
                   </div>
                 </div>
-                <div className="font-bold text-white text-xs">Ir. Agus Pratama</div>
+                <div className="font-bold text-white text-xs">EKO YULIANTO</div>
                 <div className="text-[10px] text-slate-500">Site Manager Lapangan</div>
               </div>
             </div>

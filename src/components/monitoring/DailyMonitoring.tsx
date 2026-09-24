@@ -59,12 +59,12 @@ export const DailyMonitoring: React.FC<DailyMonitoringProps> = ({
   const defaultCreator =
     activeUserName ||
     (userRole === 'Konsultan'
-      ? 'Ir. Hendra Gunawan, ST, IPU (Konsultan MK)'
+      ? 'SAEPUL ANWAR (Konsultan MK)'
       : userRole === 'Kontraktor'
-      ? 'Ir. Agus Pratama (Kontraktor Pelaksana)'
+      ? 'EKO YULIANTO (Kontraktor Pelaksana)'
       : userRole === 'Owner' || userRole === 'Direktur'
-      ? 'H. Bambang S., M.T. (Owner)'
-      : 'Ir. Agus Pratama');
+      ? 'HASANUDIN (Owner)'
+      : 'EKO YULIANTO');
 
   const [newLog, setNewLog] = useState<Omit<DailyLog, 'id'>>({
     date: new Date().toISOString().split('T')[0],

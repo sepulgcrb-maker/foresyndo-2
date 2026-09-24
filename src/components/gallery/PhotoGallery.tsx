@@ -49,12 +49,12 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
   const defaultUploader =
     activeUserName ||
     (userRole === 'Konsultan'
-      ? 'Ir. Hendra Gunawan, ST, IPU (Konsultan MK)'
+      ? 'SAEPUL ANWAR (Konsultan MK)'
       : userRole === 'Kontraktor'
-      ? 'Ir. Agus Pratama (Kontraktor Pelaksana)'
+      ? 'EKO YULIANTO (Kontraktor Pelaksana)'
       : userRole === 'Owner' || userRole === 'Direktur'
-      ? 'H. Bambang S., M.T. (Owner)'
-      : 'Ir. Agus Pratama');
+      ? 'HASANUDIN (Owner)'
+      : 'EKO YULIANTO');
 
   // New photo state
   const [newPhoto, setNewPhoto] = useState<Omit<PhotoItem, 'id'>>({

@@ -82,9 +82,9 @@ export const MaterialApprovalModal: React.FC<MaterialApprovalModalProps> = ({
 
   const defaultConsultantName =
     userRole === 'Konsultan'
-      ? 'Ir. Hendra Gunawan, ST, IPU (Konsultan MK)'
+      ? 'SAEPUL ANWAR (Kuasa Direktur MK)'
       : userRole === 'Owner' || userRole === 'Direktur'
-      ? 'H. Sutisna, SE (Direktur/Owner)'
+      ? 'HASANUDIN (Direktur Utama PT. FORESYNDO GLOBAL INDONESIA)'
       : 'Tim Pengawas Mutu (MK)';
 
   // Form states

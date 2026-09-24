@@ -1397,8 +1397,8 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
                           [TERVERIFIKASI DIGITAL]
                         </div>
                       </div>
-                      <div className="font-bold text-white text-xs">H. Bambang S., M.T.</div>
-                      <div className="text-[10px] text-slate-500">Direktur Utama PT FGI</div>
+                      <div className="font-bold text-white text-xs">{project?.director || 'HASANUDIN'}</div>
+                      <div className="text-[10px] text-slate-500">Direktur Utama PT. FORESYNDO GLOBAL INDONESIA</div>
                     </div>
 
                     {/* Konsultan MK Box */}
@@ -1409,8 +1409,8 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
                           [TERVERIFIKASI DIGITAL]
                         </div>
                       </div>
-                      <div className="font-bold text-white text-xs">Ir. Hendra Gunawan, ST, IPU</div>
-                      <div className="text-[10px] text-slate-500">Team Leader MK</div>
+                      <div className="font-bold text-white text-xs">{project?.consultantMK || 'SAEPUL ANWAR'}</div>
+                      <div className="text-[10px] text-slate-500">Kuasa Direktur PT. BENNATIN SURYA CIPTA</div>
                     </div>
 
                     {/* Kontraktor Box */}
@@ -1421,8 +1421,8 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
                           [TERVERIFIKASI DIGITAL]
                         </div>
                       </div>
-                      <div className="font-bold text-white text-xs">Ir. Agus Pratama</div>
-                      <div className="text-[10px] text-slate-500">Site Manager Lapangan</div>
+                      <div className="font-bold text-white text-xs">{project?.siteManager || 'EKO YULIANTO'}</div>
+                      <div className="text-[10px] text-slate-500">PT. GONG MBE LINK PAMUNGKAS</div>
                     </div>
                   </div>
                 </div>

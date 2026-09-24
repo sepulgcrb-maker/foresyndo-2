@@ -287,19 +287,19 @@ export function generateSCurvePDF(
     doc.text('Dibuat Oleh,', 20, sigY);
     doc.text('Site Manager Proyek', 20, sigY + 4);
     doc.setFont('helvetica', 'normal');
-    doc.text(`( ${project.siteManager || 'Ir. Agus Pratama'} )`, 20, sigY + 19);
+    doc.text(`( ${project.siteManager || 'EKO YULIANTO'} )`, 20, sigY + 19);
 
     doc.setFont('helvetica', 'bold');
     doc.text('Diperiksa Oleh,', pageWidth / 2 - 15, sigY);
     doc.text('Lead Project Engineer / QC', pageWidth / 2 - 15, sigY + 4);
     doc.setFont('helvetica', 'normal');
-    doc.text(`( ${project.qcEngineer || 'Hendra Gunawan, ST'} )`, pageWidth / 2 - 15, sigY + 19);
+    doc.text(`( ${project.qcEngineer || 'KIKI'} )`, pageWidth / 2 - 15, sigY + 19);
 
     doc.setFont('helvetica', 'bold');
     doc.text('Disetujui Oleh,', pageWidth - 60, sigY);
-    doc.text('Direktur PT. Foresyndo', pageWidth - 60, sigY + 4);
+    doc.text(`Direktur Utama (Owner)`, pageWidth - 60, sigY + 4);
     doc.setFont('helvetica', 'normal');
-    doc.text(`( ${project.director || 'H. Bambang S., M.T.'} )`, pageWidth - 60, sigY + 19);
+    doc.text(`( ${project.director || 'HASANUDIN'} )`, pageWidth - 60, sigY + 19);
   }
 
   doc.save(`Analisis_Kurva_S_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}_${viewGranularity}_${new Date().toISOString().split('T')[0]}.pdf`);
@@ -497,7 +497,7 @@ export function generateTerminPDF(
   doc.text('Dibuat & Diverifikasi Oleh,', 25, sigY);
   doc.text('Site Manager Proyek', 25, sigY + 4);
   doc.setFont('helvetica', 'normal');
-  doc.text(project.siteManager || 'Ir. Agus Pratama', 25, sigY + 22);
+  doc.text(project.siteManager || 'EKO YULIANTO', 25, sigY + 22);
   doc.setFontSize(6.5);
   doc.setTextColor(...grayColor);
   doc.text('Site Engineer & Cost Control', 25, sigY + 25);
@@ -507,9 +507,9 @@ export function generateTerminPDF(
   doc.setTextColor(...navyColor);
   doc.setFont('helvetica', 'bold');
   doc.text('Disetujui Oleh,', pageWidth - 65, sigY);
-  doc.text('Direktur PT. Foresyndo', pageWidth - 65, sigY + 4);
+  doc.text(`Direktur Utama (Owner)`, pageWidth - 65, sigY + 4);
   doc.setFont('helvetica', 'normal');
-  doc.text(project.director || 'H. Bambang S., M.T.', pageWidth - 65, sigY + 22);
+  doc.text(project.director || 'HASANUDIN', pageWidth - 65, sigY + 22);
   doc.setFontSize(6.5);
   doc.setTextColor(...grayColor);
   doc.text('Direktur Utama & Pengembang', pageWidth - 65, sigY + 25);
@@ -631,13 +631,13 @@ export function generateTerminVoucherPDF(term: PaymentTerm, project: ProjectInfo
   doc.text('Dibuat & Diverifikasi,', 25, sigY);
   doc.text('Finance & Site Manager', 25, sigY + 5);
   doc.setFont('helvetica', 'normal');
-  doc.text(project.siteManager || 'Ir. Agus Pratama', 25, sigY + 26);
+  doc.text(project.siteManager || 'EKO YULIANTO', 25, sigY + 26);
 
   doc.setFont('helvetica', 'bold');
   doc.text('Disetujui Oleh,', pageWidth - 65, sigY);
-  doc.text('Direktur PT. Foresyndo', pageWidth - 65, sigY + 5);
+  doc.text(`Direktur Utama (Owner)`, pageWidth - 65, sigY + 5);
   doc.setFont('helvetica', 'normal');
-  doc.text(term.approvedBy || project.director || 'H. Bambang S., M.T.', pageWidth - 65, sigY + 26);
+  doc.text(term.approvedBy || project.director || 'HASANUDIN', pageWidth - 65, sigY + 26);
 
   doc.save(`Voucher_Termin_${term.termNumber}_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
 }
@@ -835,21 +835,21 @@ export function generateOfficialRABPDF(
   doc.text('Dibuat & Dihitung Oleh,', 20, currentY + 6);
   doc.text('Lead Quantity Surveyor / Estimator', 20, currentY + 10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`( ${project?.estimator || project?.siteManager || 'Ir. Agus Pratama'} )`, 20, currentY + 25);
+  doc.text(`( ${project?.estimator || 'IHSAN'} )`, 20, currentY + 25);
 
   // Center
   doc.setFont('helvetica', 'bold');
   doc.text('Diperiksa Oleh,', pageWidth / 2 - 15, currentY + 6);
   doc.text('Project Manager Lapangan', pageWidth / 2 - 15, currentY + 10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`( ${project?.projectManager || 'Hendra Wijaya, ST'} )`, pageWidth / 2 - 15, currentY + 25);
+  doc.text(`( ${project?.projectManager || 'JAKA SEPTIANDANA'} )`, pageWidth / 2 - 15, currentY + 25);
 
   // Right
   doc.setFont('helvetica', 'bold');
   doc.text('Disetujui & Disahkan Oleh,', pageWidth - 60, currentY + 6);
-  doc.text('Direktur PT. Foresyndo', pageWidth - 60, currentY + 10);
+  doc.text(`Direktur Utama (Owner)`, pageWidth - 60, currentY + 10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`( ${project?.director || 'H. Bambang S., M.T.'} )`, pageWidth - 60, currentY + 25);
+  doc.text(`( ${project?.director || 'HASANUDIN'} )`, pageWidth - 60, currentY + 25);
 
   doc.save(`Dokumen_RAB_Resmi_${(project?.name || rabDoc.projectName).replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
 }
@@ -1503,21 +1503,21 @@ export async function generatePDFReport(
       doc.text('Dibuat Oleh,', 14 + colW * 0.1, sigY);
       doc.text('Site Manager Proyek', 14 + colW * 0.1, sigY + 4.5);
       doc.setFont('helvetica', 'normal');
-      doc.text(`( ${project.siteManager || 'Ir. Agus Pratama'} )`, 14 + colW * 0.1, sigY + 23);
+      doc.text(`( ${project.siteManager || 'EKO YULIANTO'} )`, 14 + colW * 0.1, sigY + 23);
 
       // Col 2 - Konsultan Pengawas / MK
       doc.setFont('helvetica', 'bold');
       doc.text('Diperiksa Oleh,', 14 + colW * 1.1, sigY);
       doc.text('Konsultan Pengawas (MK)', 14 + colW * 1.1, sigY + 4.5);
       doc.setFont('helvetica', 'normal');
-      doc.text('( Ir. Budi Santoso, IAI )', 14 + colW * 1.1, sigY + 23);
+      doc.text(`( ${project.consultantMK || 'SAEPUL ANWAR'} )`, 14 + colW * 1.1, sigY + 23);
 
       // Col 3 - Direktur Owner
       doc.setFont('helvetica', 'bold');
       doc.text('Disetujui Oleh,', 14 + colW * 2.1, sigY);
-      doc.text('Direktur PT. Foresyndo', 14 + colW * 2.1, sigY + 4.5);
+      doc.text(`Direktur Utama (Owner)`, 14 + colW * 2.1, sigY + 4.5);
       doc.setFont('helvetica', 'normal');
-      doc.text(`( ${project.director || 'H. Bambang S., M.T.'} )`, 14 + colW * 2.1, sigY + 23);
+      doc.text(`( ${project.director || 'HASANUDIN'} )`, 14 + colW * 2.1, sigY + 23);
     } else {
       // Standard 2 Signatures
       if (includeSiteManager) {
@@ -1525,15 +1525,15 @@ export async function generatePDFReport(
         doc.text('Dibuat Oleh,', 25, sigY);
         doc.text('Site Manager Proyek', 25, sigY + 4.5);
         doc.setFont('helvetica', 'normal');
-        doc.text(`( ${project.siteManager || 'Ir. Agus Pratama'} )`, 25, sigY + 23);
+        doc.text(`( ${project.siteManager || 'EKO YULIANTO'} )`, 25, sigY + 23);
       }
 
       if (includeDirector) {
         doc.setFont('helvetica', 'bold');
         doc.text('Disetujui Oleh,', pageWidth - 65, sigY);
-        doc.text('Direktur PT. Foresyndo', pageWidth - 65, sigY + 4.5);
+        doc.text(`Direktur Utama (Owner)`, pageWidth - 65, sigY + 4.5);
         doc.setFont('helvetica', 'normal');
-        doc.text(`( ${project.director || 'H. Bambang S., M.T.'} )`, pageWidth - 65, sigY + 23);
+        doc.text(`( ${project.director || 'HASANUDIN'} )`, pageWidth - 65, sigY + 23);
       }
     }
   }
@@ -1574,12 +1574,14 @@ export function generateExcelReport(
     ['STATUS PROYEK', project.status],
     ['', ''],
     ['PEJABAT & PENANGGUNG JAWAB RESMI', ''],
-    ['DIREKTUR UTAMA (PENGESAHAN)', project.director || 'H. Bambang S., M.T.'],
-    ['SITE MANAGER (PELAKSANA)', project.siteManager || 'Ir. Agus Pratama'],
-    ['LEAD QC ENGINEER (MUTU)', project.qcEngineer || 'Hendra Gunawan, ST'],
-    ['ADMIN KEUANGAN & LOGISTIK', project.financeAdmin || 'Siti Rahmawati, S.T.'],
-    ['LEAD QUANTITY SURVEYOR / ESTIMATOR', project.estimator || 'Ir. Agus Pratama'],
-    ['PROJECT MANAGER LAPANGAN', project.projectManager || 'Hendra Wijaya, ST'],
+    ['DIREKTUR UTAMA (OWNER)', project.director || 'HASANUDIN'],
+    ['KONSULTAN PENGAWAS (KUASA DIREKTUR MK)', project.consultantMK || 'SAEPUL ANWAR'],
+    ['DIREKTUR UTAMA (KONTRAKTOR)', project.contractorProfile?.management?.director || 'Rohman Priyambodo'],
+    ['SITE MANAGER (PELAKSANA LAPANGAN)', project.siteManager || 'EKO YULIANTO'],
+    ['LEAD QC ENGINEER (MUTU)', project.qcEngineer || 'KIKI'],
+    ['ADMIN KEUANGAN & LOGISTIK', project.financeAdmin || 'COKRO'],
+    ['LEAD QUANTITY SURVEYOR / ESTIMATOR', project.estimator || 'IHSAN'],
+    ['PROJECT MANAGER LAPANGAN', project.projectManager || 'JAKA SEPTIANDANA'],
     ['PENGAWAS EKSTERNAL / MK', project.inspector || 'Tamu Pengawas'],
     ['', ''],
     ['INDIKATOR KINERJA PROYEK', ''],
@@ -1834,24 +1836,24 @@ export function generateBASTPDF(
     stmtY + 4.5
   );
 
-  const contractorName = bast.contractorSignature.name || project.siteManager || 'Ir. Agus Pratama';
-  const mkName = bast.mkSignature.name || project.consultantMK || 'Ir. Hendra Gunawan, ST, IPU';
-  const ownerName = bast.ownerSignature.name || project.director || 'H. Bambang S., M.T.';
+  const contractorName = bast.contractorSignature.name || project.siteManager || 'EKO YULIANTO';
+  const mkName = bast.mkSignature.name || project.consultantMK || 'SAEPUL ANWAR';
+  const ownerName = bast.ownerSignature.name || project.director || 'HASANUDIN';
 
   doc.setFont('helvetica', 'bold');
   doc.text(`1. ${contractorName}`, 16, stmtY + 9.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(`- Jabatan: ${bast.contractorPosition || 'Site Manager Lapangan'}, bertindak untuk dan atas nama Kontraktor Pelaksana (PIHAK PERTAMA).`, 48, stmtY + 9.5);
+  doc.text(`- Jabatan: ${bast.contractorPosition || 'Site Manager Lapangan'}, bertindak untuk dan atas nama Kontraktor Pelaksana PT. GONG MBE LINK PAMUNGKAS (PIHAK PERTAMA).`, 48, stmtY + 9.5);
 
   doc.setFont('helvetica', 'bold');
   doc.text(`2. ${mkName}`, 16, stmtY + 14);
   doc.setFont('helvetica', 'normal');
-  doc.text(`- Jabatan: Team Leader Konsultan MK, bertindak sebagai Pengawas Teknis Lapangan (PIHAK KETIGA).`, 48, stmtY + 14);
+  doc.text(`- Jabatan: Kuasa Direktur PT. BENNATIN SURYA CIPTA, bertindak sebagai Konsultan Manajemen Konstruksi (PIHAK KETIGA).`, 48, stmtY + 14);
 
   doc.setFont('helvetica', 'bold');
   doc.text(`3. ${ownerName}`, 16, stmtY + 18.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(`- Jabatan: Direktur Utama PT. Foresyndo Global Indonesia, bertindak untuk dan atas nama Pemilik Proyek (PIHAK KEDUA).`, 48, stmtY + 18.5);
+  doc.text(`- Jabatan: Direktur Utama PT. FORESYNDO GLOBAL INDONESIA, bertindak untuk dan atas nama Pemilik Proyek (PIHAK KEDUA).`, 48, stmtY + 18.5);
 
   // 4. Work Items Table Breakdown
   const tableData =
@@ -2276,22 +2278,22 @@ export function generateProjectDocumentPDF(
   const signatories = [
     {
       role: 'Pemberi Tugas (Owner)',
-      name: project?.director || 'H. Bambang S., M.T.',
-      position: 'Direktur Utama PT Foresyndo',
+      name: project?.director || 'HASANUDIN',
+      position: 'Direktur Utama PT. FORESYNDO GLOBAL INDONESIA',
       signed: true,
       time: docItem.uploadDate + ' 10:00',
     },
     {
       role: 'Konsultan Pengawas (MK)',
-      name: project?.consultantMK || 'Ir. Hendra Gunawan, ST, IPU',
-      position: 'Team Leader Manajemen Konstruksi',
+      name: project?.consultantMK || 'SAEPUL ANWAR',
+      position: 'Kuasa Direktur PT. BENNATIN SURYA CIPTA',
       signed: docItem.status === 'Approved',
       time: docItem.uploadDate + ' 13:45',
     },
     {
       role: 'Kontraktor Pelaksana',
-      name: project?.siteManager || 'Ir. Agus Pratama',
-      position: 'Site Manager Lapangan',
+      name: project?.siteManager || 'EKO YULIANTO',
+      position: 'Site Manager PT. GONG MBE LINK PAMUNGKAS',
       signed: true,
       time: docItem.uploadDate + ' 09:15',
     },

@@ -64,7 +64,10 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   onUpdateProject,
   currentRole,
   userNameMap = {
-    Direktur: 'Rohman Priyambodo',
+    Owner: 'HASANUDIN',
+    Konsultan: 'SAEPUL ANWAR',
+    Kontraktor: 'Rohman Priyambodo',
+    Direktur: 'HASANUDIN',
     'Site Manager': 'EKO YULIANTO',
     Admin: 'COKRO',
     Viewer: 'Tamu Pengawas',
@@ -130,7 +133,8 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   );
 
   // Official names state
-  const [director, setDirector] = useState(project.director || userNameMap.Direktur || 'Rohman Priyambodo');
+  const [director, setDirector] = useState(project.director || userNameMap.Direktur || userNameMap.Owner || 'HASANUDIN');
+  const [consultantMK, setConsultantMK] = useState(project.consultantMK || userNameMap.Konsultan || 'SAEPUL ANWAR');
   const [siteManager, setSiteManager] = useState(project.siteManager || userNameMap['Site Manager'] || 'EKO YULIANTO ');
   const [qcEngineer, setQcEngineer] = useState(project.qcEngineer || 'KIKI ');
   const [financeAdmin, setFinanceAdmin] = useState(project.financeAdmin || userNameMap.Admin || 'COKRO ');
@@ -196,13 +200,14 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       targetEndDate: targetEndDate || project.targetEndDate,
       status,
       logoUrl: finalOwnerLogo,
-      director: director.trim() || 'Rohman Priyambodo',
+      director: director.trim() || 'HASANUDIN',
+      consultantMK: consultantMK.trim() || 'SAEPUL ANWAR',
       siteManager: siteManager.trim() || 'EKO YULIANTO',
       qcEngineer: qcEngineer.trim() || 'KIKI ',
       financeAdmin: financeAdmin.trim() || 'COKRO ',
       inspector: inspector.trim() || 'Tamu Pengawas',
       estimator: estimator.trim() || 'IHSAN ',
-      projectManager: projectManager.trim() || 'HARUN ARRASID ',
+      projectManager: projectManager.trim() || 'JAKA SEPTIANDANA',
     };
 
     if (
@@ -238,17 +243,20 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
     if (onUpdateUserNameMap) {
       onUpdateUserNameMap({
-        Direktur: director.trim(),
-        'Site Manager': siteManager.trim(),
-        Admin: financeAdmin.trim(),
-        Viewer: inspector.trim(),
+        Owner: director.trim() || 'HASANUDIN',
+        Direktur: director.trim() || 'HASANUDIN',
+        Konsultan: consultantMK.trim() || 'SAEPUL ANWAR',
+        Kontraktor: (project.contractorProfile?.management?.director || 'Rohman Priyambodo').trim(),
+        'Site Manager': siteManager.trim() || 'EKO YULIANTO',
+        Admin: financeAdmin.trim() || 'COKRO',
+        Viewer: inspector.trim() || 'Tamu Pengawas',
       });
     }
 
     if (onAddAuditLog) {
       onAddAuditLog(
         'Pengaturan Nama Pejabat & Identitas Proyek',
-        `Perubahan Pejabat: Direktur (${updatedProject.director}), SM (${updatedProject.siteManager}), QC (${updatedProject.qcEngineer}), Admin (${updatedProject.financeAdmin}), QS (${updatedProject.estimator}), PM (${updatedProject.projectManager})`
+        `Perubahan Pejabat: Direktur (${updatedProject.director}), MK (${updatedProject.consultantMK}), SM (${updatedProject.siteManager}), QC (${updatedProject.qcEngineer}), Admin (${updatedProject.financeAdmin}), QS (${updatedProject.estimator}), PM (${updatedProject.projectManager})`
       );
     }
 
@@ -261,18 +269,19 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
   const handleResetDefaults = () => {
     setName('Pembangunan Gedung 7 Lantai (Foresyndo 2)');
-    setOwner('PT Foresyndo Global Indonesia');
-    setContractor('PT Gong Mbe Link Pamungkas');
+    setOwner('PT. FORESYNDO GLOBAL INDONESIA');
+    setContractor('PT. GONG MBE LINK PAMUNGKAS');
     setLocation('Jatitujuh, Majalengka, Jawa Barat');
-    setContractNumber('001/SPK-Kons/FGI-GMP/IX/2026');
+    setContractNumber('PR-2026-FGI-004');
     setContractValue(14461760981);
     setDirector('HASANUDIN');
+    setConsultantMK('SAEPUL ANWAR');
     setSiteManager('EKO YULIANTO');
     setQcEngineer('KIKI');
-    setFinanceAdmin('COKRO.');
+    setFinanceAdmin('COKRO');
     setInspector('Tamu Pengawas');
     setEstimator('IHSAN');
-    setProjectManager('HARUN ARRASID');
+    setProjectManager('JAKA SEPTIANDANA');
   };
 
   return (
@@ -804,7 +813,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
-                    <span>Nama Direktur Utama (Direktur)</span>
+                    <span>Nama Direktur Utama Owner (PT. FORESYNDO GLOBAL INDONESIA)</span>
                     <span className="text-[10px] text-orange-500 font-normal">Pengesahan / Approval</span>
                   </label>
                   <input
@@ -812,11 +821,29 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     value={director}
                     onChange={(e) => setDirector(e.target.value)}
                     required
-                    placeholder="Contoh: H. Bambang S., M.T."
+                    placeholder="Contoh: HASANUDIN"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
                   />
                   <span className="text-[10px] text-slate-400 mt-1 block">
-                    Muncul pada TTD Direktur di Kurva-S, BAST, Termin, RAB, Laporan &amp; Excel.
+                    Muncul pada TTD Direktur Owner di Kurva-S, BAST, Termin, RAB, Laporan &amp; Excel.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                    <span>Nama Kuasa Direktur Konsultan MK (PT. BENNATIN SURYA CIPTA)</span>
+                    <span className="text-[10px] text-sky-500 font-normal">Pengawas / MK</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={consultantMK}
+                    onChange={(e) => setConsultantMK(e.target.value)}
+                    required
+                    placeholder="Contoh: SAEPUL ANWAR"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Muncul pada TTD Kuasa Direktur Konsultan MK di Kurva-S, BAST, dan Dokumen Proyek.
                   </span>
                 </div>
 
