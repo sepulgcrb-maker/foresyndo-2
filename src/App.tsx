@@ -102,7 +102,12 @@ import {
   pushAllDataToSupabase,
   pullAllDataFromSupabase,
   subscribeToSupabaseRealtime,
+  deleteWorkItemFromSupabase,
+  deleteDocumentFromSupabase,
+  deleteDailyLogFromSupabase,
+  deleteMaterialFromSupabase,
 } from './lib/supabaseService';
+import { supabase } from './lib/supabase';
 
 import {
   sanitizeImageUrl,
@@ -941,6 +946,36 @@ export default function App() {
       }
 
       if (
+        Array.isArray(
+          remoteData.suppliers
+        )
+      ) {
+        setSuppliers(
+          remoteData.suppliers
+        );
+      }
+
+      if (
+        Array.isArray(
+          remoteData.purchaseOrders
+        )
+      ) {
+        setPurchaseOrders(
+          remoteData.purchaseOrders
+        );
+      }
+
+      if (
+        Array.isArray(
+          remoteData.contractorTransactions
+        )
+      ) {
+        setContractorTransactions(
+          remoteData.contractorTransactions
+        );
+      }
+
+      if (
         remoteData.userNames &&
         typeof remoteData.userNames ===
           'object'
@@ -988,6 +1023,15 @@ export default function App() {
           remoteData.customCategories
         );
       }
+
+      console.log('[SUPABASE -> REACT] project_info loaded into state:', remoteData.projectInfo?.name);
+      console.log('[SUPABASE -> REACT] work_items loaded into state:', remoteData.workItems?.length ?? 0);
+      console.log('[SUPABASE -> REACT] daily_logs loaded into state:', remoteData.dailyLogs?.length ?? 0);
+      console.log('[SUPABASE -> REACT] workers loaded into state:', remoteData.workers?.length ?? 0);
+      console.log('[SUPABASE -> REACT] equipments loaded into state:', remoteData.equipments?.length ?? 0);
+      console.log('[SUPABASE -> REACT] material_inventory loaded into state:', remoteData.materials?.length ?? 0);
+      console.log('[SUPABASE -> REACT] payment_terms loaded into state:', remoteData.paymentTerms?.length ?? 0);
+      console.log('[SUPABASE -> REACT] project_documents loaded into state:', remoteData.documents?.length ?? 0);
     }, []);
 
   // ============================================================
@@ -1027,46 +1071,14 @@ export default function App() {
            * /api/project/snapshot or localStorage.
            */
 
-          let remoteData =
+          const remoteData =
             await pullAllDataFromSupabase(
               PROJECT_ID
             );
 
           if (!remoteData) {
-            console.warn(
-              `Snapshot ${PROJECT_ID} belum ada di Supabase. Melakukan inisialisasi awal ke Supabase...`
-            );
-            await pushAllDataToSupabase({
-              projectId: PROJECT_ID,
-              projectInfo: INITIAL_PROJECT_INFO,
-              documents: INITIAL_PROJECT_DOCUMENTS,
-              dailyLogs: INITIAL_DAILY_LOGS,
-              materials: INITIAL_MATERIALS,
-              workItems: INITIAL_WORK_ITEMS,
-              workers: INITIAL_WORKERS,
-              allocations: INITIAL_WORKER_ALLOCATIONS,
-              equipments: INITIAL_EQUIPMENT,
-              auditLogs: INITIAL_AUDIT_LOGS,
-              paymentTerms: INITIAL_PAYMENT_TERMS,
-              photos: INITIAL_PHOTOS,
-              calendarEvents: INITIAL_CALENDAR_EVENTS,
-              notifications: INITIAL_NOTIFICATIONS,
-              userNames: {
-                Owner: 'HASANUDIN',
-                Konsultan: 'SAEPUL ANWAR',
-                Kontraktor: 'Rohman Priyambodo',
-                Direktur: 'HASANUDIN',
-                'Site Manager': 'EKO YULIANTO',
-                Admin: 'COKRO',
-                Viewer: 'Tamu Pengawas',
-              },
-            });
-            remoteData = await pullAllDataFromSupabase(PROJECT_ID);
-          }
-
-          if (!remoteData) {
             throw new Error(
-              `Data proyek ${PROJECT_ID} tidak ditemukan di Supabase.`
+              `Gagal memuat data proyek dari server Supabase.`
             );
           }
 
@@ -1654,6 +1666,9 @@ export default function App() {
         'dashboard'
       );
     }
+
+    // Refresh data dari Supabase saat login
+    void loadCloudData(false);
   };
 
   const handleLogout =
@@ -1849,6 +1864,9 @@ export default function App() {
             (w) => w.id !== id
           )
       );
+
+      // Hapus langsung dari Supabase
+      void deleteWorkItemFromSupabase(id);
 
       if (item) {
         addAuditLog(
@@ -2767,6 +2785,9 @@ export default function App() {
             (d) => d.id !== id
           )
       );
+
+      // Hapus langsung dari Supabase
+      void deleteDocumentFromSupabase(id);
     };
 
   // ============================================================

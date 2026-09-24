@@ -16,6 +16,11 @@ import {
   SupplierPartner,
   SupplierPurchaseOrder,
   ContractorTransaction,
+  CategoryPekerjaan,
+  DocumentCategory,
+  WeatherCondition,
+  StakeholderRoleProfile,
+  StakeholderRoleKey,
 } from '../types';
 
 export interface ProjectSyncPayload {
@@ -39,6 +44,7 @@ export interface ProjectSyncPayload {
   contractorTransactions?: ContractorTransaction[];
   userNames?: Record<string, string>;
   rolePins?: Record<string, string>;
+  stakeholderProfiles?: Record<StakeholderRoleKey, StakeholderRoleProfile>;
   syncedAt?: string;
   syncedBy?: string;
 }
@@ -1455,10 +1461,19 @@ export async function pushAllDataToSupabase(
 /**
  * Pull seluruh state proyek langsung dari Supabase.
  *
- * Tidak ada:
- * - localStorage fallback
- * - /api/project/snapshot
- * - server disk fallback
+ * Mengambil data secara terstruktur dari seluruh tabel relasional Supabase:
+ * 1. project_info
+ * 2. work_items
+ * 3. daily_logs
+ * 4. workers
+ * 5. equipments
+ * 6. material_inventory
+ * 7. payment_terms
+ * 8. project_documents
+ * 9. project_snapshots (untuk data auxiliary: photos, allocations, dsb.)
+ *
+ * Alur: Supabase → SELECT → React State → Component → Tampilan
+ * Bebas dari ketergantungan localStorage untuk data proyek bersama.
  */
 export async function pullAllDataFromSupabase(
   projectId = DEFAULT_PROJECT_ID
@@ -1467,130 +1482,433 @@ export async function pullAllDataFromSupabase(
 
   if (!supabase) {
     console.error(
-      'Supabase tidak tersedia. Pull dibatalkan. Tidak menggunakan localStorage fallback.'
+      'Supabase client tidak tersedia. Operasi pull dibatalkan.'
     );
-    return null;
+    throw new Error('Supabase client tidak terkonfigurasi');
   }
 
   try {
-    let snapshotRecord: { data: any; updated_at?: string; synced_by?: string } | null = null;
+    // 0. Cek Auth Session
+    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+    console.log('[AUTH] session:', sessionData?.session ?? null);
+    if (sessionErr) {
+      console.warn('[AUTH] getSession error:', sessionErr);
+    }
 
-    // 1. Direct match by id
-    const { data: directData, error: directError } = await supabase
+    // 1. Load project_info
+    const { data: projectInfoRows, error: projectInfoErr } = await supabase
+      .from('project_info')
+      .select('*');
+
+    if (projectInfoErr) {
+      console.error('[SUPABASE] project_info error:', projectInfoErr);
+      throw projectInfoErr;
+    }
+    console.log('[SUPABASE] project_info loaded:', projectInfoRows?.length ?? 0);
+
+    // 2. Load work_items
+    const { data: workItemsRows, error: workItemsErr } = await supabase
+      .from('work_items')
+      .select('*');
+
+    if (workItemsErr) {
+      console.error('[SUPABASE] work_items error:', workItemsErr);
+      throw workItemsErr;
+    }
+    console.log('[SUPABASE] work_items loaded:', workItemsRows?.length ?? 0);
+
+    // 3. Load daily_logs
+    const { data: dailyLogsRows, error: dailyLogsErr } = await supabase
+      .from('daily_logs')
+      .select('*');
+
+    if (dailyLogsErr) {
+      console.error('[SUPABASE] daily_logs error:', dailyLogsErr);
+      throw dailyLogsErr;
+    }
+    console.log('[SUPABASE] daily_logs loaded:', dailyLogsRows?.length ?? 0);
+
+    // 4. Load workers
+    const { data: workersRows, error: workersErr } = await supabase
+      .from('workers')
+      .select('*');
+
+    if (workersErr) {
+      console.error('[SUPABASE] workers error:', workersErr);
+      throw workersErr;
+    }
+    console.log('[SUPABASE] workers loaded:', workersRows?.length ?? 0);
+
+    // 5. Load equipments
+    const { data: equipmentsRows, error: equipmentsErr } = await supabase
+      .from('equipments')
+      .select('*');
+
+    if (equipmentsErr) {
+      console.error('[SUPABASE] equipments error:', equipmentsErr);
+      throw equipmentsErr;
+    }
+    console.log('[SUPABASE] equipments loaded:', equipmentsRows?.length ?? 0);
+
+    // 6. Load material_inventory
+    const { data: materialsRows, error: materialsErr } = await supabase
+      .from('material_inventory')
+      .select('*');
+
+    if (materialsErr) {
+      console.error('[SUPABASE] material_inventory error:', materialsErr);
+      throw materialsErr;
+    }
+    console.log('[SUPABASE] material_inventory loaded:', materialsRows?.length ?? 0);
+
+    // 7. Load payment_terms
+    const { data: paymentTermsRows, error: paymentTermsErr } = await supabase
+      .from('payment_terms')
+      .select('*');
+
+    if (paymentTermsErr) {
+      console.error('[SUPABASE] payment_terms error:', paymentTermsErr);
+      throw paymentTermsErr;
+    }
+    console.log('[SUPABASE] payment_terms loaded:', paymentTermsRows?.length ?? 0);
+
+    // 8. Load project_documents
+    const { data: documentsRows, error: documentsErr } = await supabase
+      .from('project_documents')
+      .select('*');
+
+    if (documentsErr) {
+      console.error('[SUPABASE] project_documents error:', documentsErr);
+      throw documentsErr;
+    }
+    console.log('[SUPABASE] project_documents loaded:', documentsRows?.length ?? 0);
+
+    // 9. Load project_snapshots (untuk auxiliary items seperti photos, calendarEvents, allocations, dsb.)
+    const { data: snapshotRows, error: snapshotErr } = await supabase
       .from('project_snapshots')
-      .select('data, updated_at, synced_by')
-      .eq('id', projectId)
-      .maybeSingle();
+      .select('*')
+      .order('updated_at', { ascending: false });
 
-    if (directError) {
-      console.warn('Gagal mengambil project_snapshots direct by id:', directError);
-    } else if (directData?.data) {
-      snapshotRecord = directData;
+    if (snapshotErr) {
+      console.error('[SUPABASE] project_snapshots error:', snapshotErr);
+    } else {
+      console.log('[SUPABASE] project_snapshots loaded:', snapshotRows?.length ?? 0);
     }
 
-    // 2. Match by project_id column if direct id did not find anything
-    if (!snapshotRecord) {
-      const { data: byProjIdData } = await supabase
-        .from('project_snapshots')
-        .select('data, updated_at, synced_by')
-        .eq('project_id', projectId)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    // Temukan snapshot yang memiliki data lengkap (seperti PROJ-FORESYNDO-02 atau yang memiliki properti)
+    const validSnapshot = snapshotRows?.find(
+      (s) => s.data && (s.data.photos || s.data.calendarEvents || s.data.allocations || s.data.rolePins)
+    ) || snapshotRows?.[0];
+    const snapshotAux = (validSnapshot?.data || {}) as Partial<ProjectSyncPayload>;
 
-      if (byProjIdData?.data) {
-        snapshotRecord = byProjIdData;
-      }
-    }
+    // ============================================================
+    // PEMETAAN ENTITAS SUPABASE -> REACT MODEL
+    // ============================================================
 
-    // 3. Fallback: Check alternative standard IDs (FORESYNDO-PROJECT-2 <-> PROJ-FORESYNDO-02)
-    if (!snapshotRecord) {
-      const altId = projectId === 'FORESYNDO-PROJECT-2' ? 'PROJ-FORESYNDO-02' : 'FORESYNDO-PROJECT-2';
-      const { data: altData } = await supabase
-        .from('project_snapshots')
-        .select('data, updated_at, synced_by')
-        .or(`id.eq.${altId},project_id.eq.${altId}`)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    // 1. Project Info
+    const matchedProjectRow =
+      projectInfoRows?.find((r) => r.id === projectId) ||
+      projectInfoRows?.find((r) => r.id === 'PROJ-FORESYNDO-02' || r.id === 'FORESYNDO-PROJECT-2') ||
+      projectInfoRows?.[0];
 
-      if (altData?.data) {
-        snapshotRecord = altData;
-      }
-    }
+    const rawProject = (matchedProjectRow?.raw_data || {}) as Partial<ProjectInfo>;
+    const resolvedProjectId = matchedProjectRow?.id || projectId || DEFAULT_PROJECT_ID;
 
-    // 4. Fallback: Grab latest available snapshot in project_snapshots
-    if (!snapshotRecord) {
-      const { data: latestData } = await supabase
-        .from('project_snapshots')
-        .select('data, updated_at, synced_by')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (latestData?.data) {
-        snapshotRecord = latestData;
-      }
-    }
-
-    if (!snapshotRecord?.data) {
-      try {
-        const proxyRes = await fetch('/api/project/snapshot');
-        if (proxyRes.ok) {
-          const proxyData = await proxyRes.json();
-          if (proxyData.success && proxyData.data) {
-            snapshotRecord = {
-              data: proxyData.data,
-              updated_at: proxyData.updatedAt,
-              synced_by: proxyData.syncedBy,
-            };
-            console.log('Snapshot berhasil dimuat via server proxy fallback.');
-          }
-        }
-      } catch (proxyErr) {
-        console.warn('Server proxy snapshot fallback fetch error:', proxyErr);
-      }
-    }
-
-    if (!snapshotRecord?.data) {
-      console.warn(
-        `Snapshot proyek ${projectId} belum ditemukan di Supabase.`
-      );
-      return null;
-    }
-
-    const payload = snapshotRecord.data as ProjectSyncPayload;
-
-    return {
-      ...payload,
-      projectId: payload.projectId || projectId,
-      syncedAt: snapshotRecord.updated_at,
-      syncedBy: snapshotRecord.synced_by,
+    const projectInfo: ProjectInfo = {
+      id: resolvedProjectId,
+      name: String(rawProject.name || matchedProjectRow?.name || 'Pembangunan Gedung 7 Lantai (Foresyndo 2)'),
+      owner: String(rawProject.owner || matchedProjectRow?.owner || 'PT. FORESYNDO GLOBAL INDONESIA'),
+      location: String(rawProject.location || matchedProjectRow?.location || 'Jatitujuh, Majalengka, Jawa Barat'),
+      contractValue: Number(rawProject.contractValue ?? matchedProjectRow?.contract_value ?? 14461760981),
+      startDate: String(rawProject.startDate || matchedProjectRow?.start_date || '2026-09-01'),
+      targetEndDate: String(rawProject.targetEndDate || matchedProjectRow?.end_date || '2027-06-01'),
+      status: (rawProject.status || matchedProjectRow?.status || 'Belum Mulai') as any,
+      logoUrl: String(rawProject.logoUrl || '/assets/logo.png'),
+      contractNumber: String(rawProject.contractNumber || matchedProjectRow?.contract_number || 'PR-2026-FGI-004'),
+      contractor: String(rawProject.contractor || matchedProjectRow?.contractor || 'PT. GONG MBE LINK PAMUNGKAS'),
+      contractorProfile: rawProject.contractorProfile,
+      director: String(rawProject.director || 'HASANUDIN'),
+      siteManager: String(rawProject.siteManager || 'EKO YULIANTO'),
+      qcEngineer: String(rawProject.qcEngineer || 'KIKI'),
+      financeAdmin: String(rawProject.financeAdmin || 'COKRO'),
+      inspector: String(rawProject.inspector || 'Tamu Pengawas'),
+      consultantMK: String(rawProject.consultantMK || matchedProjectRow?.consultant || 'SAEPUL ANWAR'),
+      estimator: String(rawProject.estimator || 'IHSAN '),
+      projectManager: String(rawProject.projectManager || 'JAKA SEPTIANDANA'),
     };
-  } catch (error) {
-    console.error(
-      'Unexpected Supabase pull error, mencoba server proxy:',
-      error
-    );
 
-    try {
-      const proxyRes = await fetch('/api/project/snapshot');
-      if (proxyRes.ok) {
-        const proxyData = await proxyRes.json();
-        if (proxyData.success && proxyData.data) {
-          return {
-            ...proxyData.data,
-            projectId: proxyData.data.projectId || projectId,
-            syncedAt: proxyData.updatedAt,
-            syncedBy: proxyData.syncedBy,
-          };
-        }
-      }
-    } catch (proxyErr) {
-      console.error('Server proxy pull also failed:', proxyErr);
+    // 2. Work Items (14 items)
+    const workItems: WorkItem[] = (workItemsRows || []).map((row: any) => {
+      const raw = (row.raw_data || {}) as Partial<WorkItem>;
+      const codeNum = row.code ? parseInt(String(row.code).replace(/\D/g, ''), 10) : 0;
+      const no = Number(raw.no ?? (codeNum > 0 ? codeNum : 1));
+
+      return {
+        id: String(row.id || raw.id || `WI-${String(no).padStart(2, '0')}`),
+        no,
+        name: String(raw.name || row.name || `Sektor ${no}`),
+        category: (raw.category || row.category || 'Persiapan') as CategoryPekerjaan,
+        startDate: String(raw.startDate || '2026-09-01'),
+        endDate: String(raw.endDate || '2027-06-01'),
+        durationDays: Number(raw.durationDays ?? 30),
+        bobotPercent: Number(row.weight ?? raw.bobotPercent ?? 0),
+        targetProgressPercent: Number(raw.targetProgressPercent ?? 0),
+        realizedProgressPercent: Number(raw.realizedProgressPercent ?? 0),
+        volumeTarget: Number(row.volume ?? raw.volumeTarget ?? 0),
+        volumeRealized: Number(raw.volumeRealized ?? 0),
+        unit: String(row.unit || raw.unit || 'Rp'),
+        status: (row.status || raw.status || 'Belum Mulai') as any,
+        notes: String(raw.notes || ''),
+        updatedAt: String(row.updated_at || raw.updatedAt || new Date().toISOString()),
+      };
+    }).sort((a, b) => a.no - b.no);
+
+    // 3. Daily Logs
+    const dailyLogs: DailyLog[] = (dailyLogsRows || []).map((row: any) => {
+      const raw = (row.raw_data || {}) as Partial<DailyLog>;
+      return {
+        id: String(row.id || raw.id),
+        date: String(raw.date || row.date || new Date().toISOString().slice(0, 10)),
+        weather: (raw.weather || row.weather || 'Cerah') as WeatherCondition,
+        workerCount: Number(raw.workerCount ?? row.worker_count ?? 0),
+        mandorName: String(raw.mandorName || row.mandor_name || ''),
+        activitySummary: String(raw.activitySummary || row.activity_summary || ''),
+        volumeDone: String(raw.volumeDone || row.volume_done || ''),
+        photos: Array.isArray(raw.photos)
+          ? raw.photos
+          : (Array.isArray(row.photos) ? row.photos : []),
+        notes: String(raw.notes || row.notes || ''),
+        createdBy: String(raw.createdBy || row.created_by || ''),
+      };
+    }).sort((a, b) => b.date.localeCompare(a.date));
+
+    // 4. Workers (6 workers)
+    const workers: WorkerItem[] = (workersRows || []).map((row: any) => {
+      const raw = (row.raw_data || {}) as Partial<WorkerItem>;
+      return {
+        id: String(row.id || raw.id),
+        name: String(raw.name || row.name || ''),
+        role: String(raw.role || row.trade || 'Pekerja'),
+        dailyWage: Number(raw.dailyWage ?? row.daily_rate ?? 0),
+        daysWorked: Number(raw.daysWorked ?? 10),
+        status: (raw.status || row.status || 'Aktif') as any,
+      };
+    });
+
+    // 5. Equipments (2 equipments)
+    const equipments: EquipmentItem[] = (equipmentsRows || []).map((row: any) => {
+      const raw = (row.raw_data || {}) as Partial<EquipmentItem>;
+      return {
+        id: String(row.id || raw.id),
+        name: String(raw.name || row.name || ''),
+        quantity: Number(raw.quantity ?? 1),
+        condition: (raw.condition || row.condition || 'Baik') as any,
+        operator: String(raw.operator || row.operator || ''),
+        workHoursHM: Number(raw.workHoursHM ?? row.total_working_hours ?? 0),
+        lastMaintenance: String(raw.lastMaintenance || '2026-08-30'),
+        notes: String(raw.notes || row.location || ''),
+      };
+    });
+
+    // 6. Material Inventory (12 materials)
+    const materials: MaterialItem[] = (materialsRows || []).map((row: any) => {
+      const raw = (row.raw_data || {}) as Partial<MaterialItem>;
+      return {
+        id: String(row.id || raw.id),
+        name: String(raw.name || row.name || ''),
+        volumeTotal: Number(row.total_rab ?? raw.volumeTotal ?? 0),
+        volumeUsed: Number(row.used ?? raw.volumeUsed ?? 0),
+        unit: String(row.unit || raw.unit || ''),
+        pricePerUnit: Number(raw.pricePerUnit || 0),
+        supplier: String(row.supplier || raw.supplier || ''),
+        arrivalDate: String(raw.arrivalDate || row.last_updated || '2026-09-01'),
+        usageDate: raw.usageDate,
+        stockRemaining: Number(row.stock ?? raw.stockRemaining ?? 0),
+        minAlertStock: Number(row.min_threshold ?? raw.minAlertStock ?? 0),
+        leadTimeDays: raw.leadTimeDays ? Number(raw.leadTimeDays) : undefined,
+        dailyBurnRate: raw.dailyBurnRate ? Number(raw.dailyBurnRate) : undefined,
+        relatedSectorNos: Array.isArray(raw.relatedSectorNos) ? raw.relatedSectorNos : undefined,
+        category: String(raw.category || row.category || 'Struktur & Sipil'),
+        barcode: raw.barcode,
+        batchNumber: raw.batchNumber,
+        locationRack: raw.locationRack,
+        approvalStatus: raw.approvalStatus || 'Disetujui',
+        approvedBy: raw.approvedBy,
+        approvedAt: raw.approvedAt,
+        approvalNotes: raw.approvalNotes,
+        rejectionReason: raw.rejectionReason,
+        inspectionDocRef: raw.inspectionDocRef,
+        submissionDate: raw.submissionDate,
+        submittedBy: raw.submittedBy,
+      };
+    });
+
+    // 7. Payment Terms (5 terms)
+    const paymentTerms: PaymentTerm[] = (paymentTermsRows || []).map((row: any) => {
+      const raw = (row.raw_data || {}) as Partial<PaymentTerm>;
+      const grossValue = Number(row.planned_amount ?? raw.grossValue ?? 0);
+      const termValuePercent = Number(row.percentage ?? raw.termValuePercent ?? 0);
+      const retentionPercent = Number(raw.retentionPercent ?? 5);
+      const retentionValue = Number(raw.retentionValue ?? (grossValue * 0.05));
+      const netPayableValue = Number(raw.netPayableValue ?? (grossValue - retentionValue));
+
+      return {
+        termNumber: Number(row.term_number ?? raw.termNumber ?? 1),
+        title: String(raw.title || row.title || ''),
+        targetProgressPercent: Number(row.target_progress ?? raw.targetProgressPercent ?? 0),
+        termValuePercent,
+        grossValue,
+        retentionPercent,
+        retentionValue,
+        netPayableValue,
+        status: (row.status || raw.status || 'Belum Dibayar') as any,
+        paymentDate: raw.paymentDate || row.submission_date || undefined,
+        dueDate: raw.dueDate || undefined,
+        invoiceNumber: row.invoice_number || raw.invoiceNumber || undefined,
+        proofUrl: raw.proofUrl || undefined,
+        notes: raw.notes || row.notes || undefined,
+        approvedBy: raw.approvedBy || undefined,
+      };
+    }).sort((a, b) => a.termNumber - b.termNumber);
+
+    // 8. Project Documents (14 documents)
+    const documents: ProjectDocument[] = (documentsRows || []).map((row: any) => {
+      const raw = (row.raw_data || {}) as Partial<ProjectDocument>;
+      return {
+        id: String(row.id || raw.id),
+        title: String(raw.title || row.title || ''),
+        documentNumber: String(row.document_number || raw.documentNumber || ''),
+        category: (raw.category || row.category || 'other') as DocumentCategory,
+        fileType: (raw.fileType || row.file_type || 'pdf') as any,
+        fileSize: String(raw.fileSize || row.file_size || '1.0 MB'),
+        fileName: String(raw.fileName || `${row.title || 'Dokumen'}.${row.file_type || 'pdf'}`),
+        fileUrl: (row.file_url && row.file_url !== '[STORED_IN_SNAPSHOT]') ? row.file_url : (raw.fileUrl || ''),
+        uploadDate: String(raw.uploadDate || row.upload_date || '2026-09-01'),
+        uploadedBy: String(raw.uploadedBy || row.uploaded_by || 'Admin'),
+        uploadedByRole: (raw.uploadedByRole || row.uploaded_by_role || 'Kontraktor') as any,
+        version: String(raw.version || row.version || 'v1.0'),
+        status: (raw.status || row.status || 'Approved') as any,
+        description: String(raw.description || row.description || ''),
+        tags: Array.isArray(raw.tags) ? raw.tags : [],
+        confidentiality: (raw.confidentiality || row.confidentiality || 'Internal Tim Proyek') as any,
+        reviewNotes: Array.isArray(raw.reviewNotes) ? raw.reviewNotes : [],
+        signatories: Array.isArray(row.signatures) && row.signatures.length > 0
+          ? row.signatures
+          : (Array.isArray(raw.signatories) ? raw.signatories : []),
+      };
+    });
+
+    const payload: ProjectSyncPayload = {
+      projectId: resolvedProjectId,
+      projectInfo,
+      workItems,
+      dailyLogs,
+      workers,
+      equipments,
+      materials,
+      paymentTerms,
+      documents,
+      // Auxiliary items dari snapshot / state
+      photos: snapshotAux.photos || [],
+      allocations: snapshotAux.allocations || [],
+      auditLogs: snapshotAux.auditLogs || [],
+      calendarEvents: snapshotAux.calendarEvents || [],
+      notifications: snapshotAux.notifications || [],
+      customCategories: snapshotAux.customCategories || [],
+      suppliers: snapshotAux.suppliers,
+      purchaseOrders: snapshotAux.purchaseOrders,
+      contractorTransactions: snapshotAux.contractorTransactions,
+      userNames: snapshotAux.userNames,
+      rolePins: snapshotAux.rolePins,
+      stakeholderProfiles: snapshotAux.stakeholderProfiles,
+      syncedAt: validSnapshot?.updated_at || new Date().toISOString(),
+      syncedBy: validSnapshot?.synced_by || 'Supabase Direct Pull',
+    };
+
+    return payload;
+  } catch (error: any) {
+    console.error('Supabase pullAllDataFromSupabase error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Hapus Work Item langsung dari Supabase
+ */
+export async function deleteWorkItemFromSupabase(id: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase.from('work_items').delete().eq('id', id);
+    if (error) {
+      console.error('[SUPABASE] work_items delete error:', error);
+      return false;
     }
+    console.log('[SUPABASE] work_items deleted:', id);
+    return true;
+  } catch (err) {
+    console.error('[SUPABASE] work_items delete unexpected error:', err);
+    return false;
+  }
+}
 
-    return null;
+/**
+ * Hapus Dokumen langsung dari Supabase
+ */
+export async function deleteDocumentFromSupabase(id: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase.from('project_documents').delete().eq('id', id);
+    if (error) {
+      console.error('[SUPABASE] project_documents delete error:', error);
+      return false;
+    }
+    console.log('[SUPABASE] project_documents deleted:', id);
+    return true;
+  } catch (err) {
+    console.error('[SUPABASE] project_documents delete unexpected error:', err);
+    return false;
+  }
+}
+
+/**
+ * Hapus Laporan Harian langsung dari Supabase
+ */
+export async function deleteDailyLogFromSupabase(id: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase.from('daily_logs').delete().eq('id', id);
+    if (error) {
+      console.error('[SUPABASE] daily_logs delete error:', error);
+      return false;
+    }
+    console.log('[SUPABASE] daily_logs deleted:', id);
+    return true;
+  } catch (err) {
+    console.error('[SUPABASE] daily_logs delete unexpected error:', err);
+    return false;
+  }
+}
+
+/**
+ * Hapus Material langsung dari Supabase
+ */
+export async function deleteMaterialFromSupabase(id: string): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase.from('material_inventory').delete().eq('id', id);
+    if (error) {
+      console.error('[SUPABASE] material_inventory delete error:', error);
+      return false;
+    }
+    console.log('[SUPABASE] material_inventory deleted:', id);
+    return true;
+  } catch (err) {
+    console.error('[SUPABASE] material_inventory delete unexpected error:', err);
+    return false;
   }
 }
 

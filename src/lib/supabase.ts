@@ -10,9 +10,17 @@ function cleanSupabaseUrl(raw?: string): string {
   return url;
 }
 
-const rawSupabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const rawSupabaseUrl = (
+  typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL
+    ? import.meta.env.VITE_SUPABASE_URL
+    : (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_URL : '')
+)?.trim();
 const supabaseUrl = cleanSupabaseUrl(rawSupabaseUrl);
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+const supabaseAnonKey = (
+  typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY
+    ? import.meta.env.VITE_SUPABASE_ANON_KEY
+    : (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_ANON_KEY : '')
+)?.trim();
 
 if (!supabaseUrl) {
   throw new Error(
