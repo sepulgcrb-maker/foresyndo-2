@@ -138,10 +138,18 @@ export const AutomatedStakeholderAlerts: React.FC<AutomatedStakeholderAlertsProp
     },
   ]);
 
-  // Analyze Risk Statuses
+  // Analyze Risk Statuses & Upcoming Payment Terms Due Date
   const isCriticalDelay = deviation < -5 || (isProjectedOverdue && projectedDelayDays >= 7);
   const isWarningDelay = deviation < -2 || isProjectedOverdue;
-  const isFinancialRisk = finance.financialProgressPercent > physicalProgress + 15;
+
+  const upcomingDueTerm = paymentTerms.find((t) => {
+    if (t.status === 'Dibayar') return false;
+    const due = t.dueDate || (t.termNumber === 1 ? '2026-09-30' : '2026-11-15');
+    const diffDays = Math.ceil((new Date(due).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    return diffDays <= 7;
+  });
+
+  const isFinancialRisk = finance.financialProgressPercent > physicalProgress + 15 || !!upcomingDueTerm;
 
   const hasAnyCriticalRisk = isCriticalDelay || isFinancialRisk;
   const hasAnyWarningRisk = isWarningDelay || isFinancialRisk;
@@ -183,6 +191,8 @@ export const AutomatedStakeholderAlerts: React.FC<AutomatedStakeholderAlertsProp
     const nowStr = new Date().toLocaleString('id-ID');
     const alertSubject = isCriticalDelay
       ? `[ALERT KRITIS] Proyek Berisiko Terlambat +${projectedDelayDays} Hari (Deviasi: ${deviation}%)`
+      : upcomingDueTerm
+      ? `[PENGINGAT TERMIN JATUH TEMPO] ${upcomingDueTerm.title} Jatuh Tempo ${upcomingDueTerm.dueDate}`
       : isFinancialRisk
       ? `[ALERT KEUANGAN] Ketidakseimbangan Pencairan Termin vs Progress Fisik`
       : `[INFORMASI PERINGATAN] Laporan Evaluasi Kinerja Proyek ${project.name}`;

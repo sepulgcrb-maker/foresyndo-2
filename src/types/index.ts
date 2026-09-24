@@ -200,6 +200,8 @@ export interface PaymentTerm {
   netPayableValue: number; // grossValue - retentionValue (or full retention release for term 5)
   status: 'Belum Dibayar' | 'Menunggu Approval' | 'Dibayar';
   paymentDate?: string;
+  dueDate?: string; // Tanggal target jatuh tempo pembayaran
+  invoiceNumber?: string; // Nomor invoice / BAP termin resmi
   proofUrl?: string;
   notes?: string;
   approvedBy?: string;

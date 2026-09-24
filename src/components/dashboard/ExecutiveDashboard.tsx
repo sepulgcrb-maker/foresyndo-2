@@ -41,6 +41,7 @@ import { MLForecastingModule } from './MLForecastingModule';
 import { WeatherWidget } from './WeatherWidget';
 import { AutomatedStakeholderAlerts } from './AutomatedStakeholderAlerts';
 import { MilestonePredictorCard } from './MilestonePredictorCard';
+import { PaymentTermReminderAlert } from './PaymentTermReminderAlert';
 import { DeviasiBadge } from '../common/DeviasiBadge';
 import {
   formatIDR,
@@ -307,6 +308,18 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Pengingat Otomatis Termin Pembayaran Mendekati Jatuh Tempo */}
+      <PaymentTermReminderAlert
+        project={project}
+        paymentTerms={paymentTerms}
+        physicalProgress={physicalProgress}
+        currentRole={currentRole}
+        onNavigateTab={onNavigateTab}
+        onAddNotification={onAddNotification}
+        onAddAuditLog={onAddAuditLog}
+        darkMode={darkMode}
+      />
 
       {/* Automated Stakeholder Alert System (Real-time Email / Push Alerts) */}
       <AutomatedStakeholderAlerts
