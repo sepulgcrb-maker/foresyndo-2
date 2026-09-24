@@ -35,13 +35,25 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
-import { ProjectInfo, WorkItem, PaymentTerm, AuditLog, NotificationItem, UserRole } from '../../types';
+import {
+  ProjectInfo,
+  WorkItem,
+  PaymentTerm,
+  AuditLog,
+  NotificationItem,
+  UserRole,
+  DailyLog,
+  SupplierPurchaseOrder,
+  SupplierPartner,
+} from '../../types';
 import { CircularProgress } from './CircularProgress';
 import { MLForecastingModule } from './MLForecastingModule';
 import { WeatherWidget } from './WeatherWidget';
 import { AutomatedStakeholderAlerts } from './AutomatedStakeholderAlerts';
 import { MilestonePredictorCard } from './MilestonePredictorCard';
 import { PaymentTermReminderAlert } from './PaymentTermReminderAlert';
+import { VelocityAnalyticsDashboard } from './VelocityAnalyticsDashboard';
+import { SupplierPOOverdueAlert } from '../contractor/SupplierPOOverdueAlert';
 import { DeviasiBadge } from '../common/DeviasiBadge';
 import {
   formatIDR,
@@ -61,6 +73,9 @@ interface ExecutiveDashboardProps {
   paymentTerms: PaymentTerm[];
   auditLogs: AuditLog[];
   notifications: NotificationItem[];
+  dailyLogs?: DailyLog[];
+  purchaseOrders?: SupplierPurchaseOrder[];
+  suppliers?: SupplierPartner[];
   currentRole?: UserRole;
   onNavigateTab: (tab: ActiveTab) => void;
   onAddNotification?: (notif: Omit<NotificationItem, 'id' | 'timestamp' | 'isRead'>) => void;
@@ -75,6 +90,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   paymentTerms,
   auditLogs,
   notifications,
+  dailyLogs = [],
+  purchaseOrders = [],
+  suppliers = [],
   currentRole = 'Direktur',
   onNavigateTab,
   onAddNotification,
@@ -321,6 +339,20 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         darkMode={darkMode}
       />
 
+      {/* Pengingat Otomatis Keterlambatan Pengiriman PO Supplier */}
+      {purchaseOrders && purchaseOrders.length > 0 && (
+        <SupplierPOOverdueAlert
+          purchaseOrders={purchaseOrders}
+          suppliers={suppliers}
+          project={project}
+          currentRole={currentRole}
+          onNavigateTab={onNavigateTab}
+          onAddNotification={onAddNotification}
+          onAddAuditLog={onAddAuditLog}
+          compact={true}
+        />
+      )}
+
       {/* Automated Stakeholder Alert System (Real-time Email / Push Alerts) */}
       <AutomatedStakeholderAlerts
         project={project}
@@ -336,6 +368,15 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         finance={finance}
         onAddNotification={onAddNotification}
         onAddAuditLog={onAddAuditLog}
+      />
+
+      {/* Dasbor Analitik Mendalam: Tren Kecepatan Kerja (Velocity) & Prediksi Tanggal Selesai */}
+      <VelocityAnalyticsDashboard
+        project={project}
+        workItems={workItems}
+        dailyLogs={dailyLogs}
+        paymentTerms={paymentTerms}
+        darkMode={darkMode}
       />
 
       {/* Visual Indicator: Predicted Date of Next Major Milestone */}

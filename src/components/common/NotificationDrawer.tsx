@@ -14,6 +14,7 @@ import {
   Sparkles,
   Check,
   Filter,
+  Truck,
 } from 'lucide-react';
 import { NotificationItem } from '../../types';
 
@@ -24,6 +25,7 @@ interface NotificationDrawerProps {
   onMarkAllRead: () => void;
   onMarkItemRead?: (id: string) => void;
   onNavigateToDocument?: (docId?: string) => void;
+  onNavigateToSuppliers?: () => void;
   onSimulateMKDocument?: () => void;
   onSimulateOwnerDocument?: () => void;
   darkMode?: boolean;
@@ -36,6 +38,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   onMarkAllRead,
   onMarkItemRead,
   onNavigateToDocument,
+  onNavigateToSuppliers,
   onSimulateMKDocument,
   onSimulateOwnerDocument,
   darkMode = false,
@@ -67,6 +70,19 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
       return (
         <div className="p-2 rounded-xl bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30">
           <FileText className="w-4 h-4" />
+        </div>
+      );
+    }
+    const isSupplierPO =
+      item.title.toLowerCase().includes('po ') ||
+      item.title.toLowerCase().includes('supplier') ||
+      item.message.toLowerCase().includes('purchase order') ||
+      item.message.toLowerCase().includes('supplier');
+
+    if (isSupplierPO) {
+      return (
+        <div className="p-2 rounded-xl bg-rose-500/15 text-rose-500 border border-rose-500/30">
+          <Truck className="w-4 h-4" />
         </div>
       );
     }
@@ -297,14 +313,27 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                         </p>
 
                         {/* Interactive Buttons */}
-                        <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                        <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60 flex-wrap">
                           {isDoc && onNavigateToDocument && (
                             <button
                               onClick={() => handleDocumentClick(notif)}
-                              className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-[11px] flex items-center gap-1 transition-all shadow-xs"
+                              className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-[11px] flex items-center gap-1 transition-all shadow-xs cursor-pointer"
                             >
                               <ExternalLink className="w-3 h-3" />
                               Buka di Dokumen & Gambar
+                            </button>
+                          )}
+                          {!isDoc && onNavigateToSuppliers && (notif.title.toLowerCase().includes('po ') || notif.message.toLowerCase().includes('supplier')) && (
+                            <button
+                              onClick={() => {
+                                if (onMarkItemRead && !notif.isRead) onMarkItemRead(notif.id);
+                                onNavigateToSuppliers();
+                                onClose();
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+                            >
+                              <Truck className="w-3 h-3" />
+                              Tindak Lanjuti di Tab Supplier
                             </button>
                           )}
                           {!notif.isRead && onMarkItemRead && (

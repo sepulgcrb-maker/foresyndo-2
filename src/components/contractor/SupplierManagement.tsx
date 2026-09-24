@@ -26,6 +26,7 @@ import {
   Send,
   Building,
   ShieldAlert,
+  MessageSquare,
 } from 'lucide-react';
 import {
   SupplierPartner,
@@ -33,8 +34,10 @@ import {
   SupplierCategory,
   UserRole,
   ProjectInfo,
+  NotificationItem,
 } from '../../types';
 import { formatIDR } from '../../utils/calculations';
+import { SupplierPOOverdueAlert } from './SupplierPOOverdueAlert';
 
 interface SupplierManagementProps {
   suppliers: SupplierPartner[];
@@ -51,6 +54,8 @@ interface SupplierManagementProps {
     paymentStatus: SupplierPurchaseOrder['paymentStatus'],
     deliveryStatus: SupplierPurchaseOrder['deliveryStatus']
   ) => void;
+  onUpdatePO?: (po: SupplierPurchaseOrder) => void;
+  onAddNotification?: (notif: Omit<NotificationItem, 'id' | 'timestamp' | 'isRead'>) => void;
   onAddAuditLog?: (action: string, details: string) => void;
 }
 
@@ -77,12 +82,15 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
   onDeleteSupplier,
   onAddPurchaseOrder,
   onUpdatePOStatus,
+  onUpdatePO,
+  onAddNotification,
   onAddAuditLog,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'directory' | 'orders' | 'performance'>('directory');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<SupplierCategory | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Aktif' | 'Prioritas' | 'On Hold'>('all');
+  const [poDeliveryFilter, setPoDeliveryFilter] = useState<'all' | 'overdue' | 'active' | 'completed'>('all');
 
   // Modals
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
@@ -90,6 +98,26 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
   const [isPOModalOpen, setIsPOModalOpen] = useState(false);
   const [selectedSupplierForPO, setSelectedSupplierForPO] = useState<SupplierPartner | null>(null);
   const [viewingPO, setViewingPO] = useState<SupplierPurchaseOrder | null>(null);
+
+  // Reference today date
+  const todayDate = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  // Overdue POs calculation
+  const overduePOsList = useMemo(() => {
+    return purchaseOrders.filter((po) => {
+      if (po.deliveryStatus === 'Diterima Lengkap' || po.deliveryStatus === 'Selesai') return false;
+      if (!po.deliveryDate) return false;
+      const d = new Date(po.deliveryDate);
+      d.setHours(0, 0, 0, 0);
+      return todayDate.getTime() - d.getTime() > 0;
+    });
+  }, [purchaseOrders, todayDate]);
+
+  const overduePOCount = overduePOsList.length;
 
   // Form states for Supplier Modal
   const [nameInput, setNameInput] = useState('');
@@ -142,9 +170,19 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
         po.supplierName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         po.materialItem.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (po.deliveryOrderRef && po.deliveryOrderRef.toLowerCase().includes(searchQuery.toLowerCase()));
-      return matchSearch;
+
+      let matchFilter = true;
+      if (poDeliveryFilter === 'overdue') {
+        matchFilter = overduePOsList.some((o) => o.id === po.id);
+      } else if (poDeliveryFilter === 'active') {
+        matchFilter = po.deliveryStatus === 'Dipesan' || po.deliveryStatus === 'Sebagian Terkirim';
+      } else if (poDeliveryFilter === 'completed') {
+        matchFilter = po.deliveryStatus === 'Diterima Lengkap' || po.deliveryStatus === 'Selesai';
+      }
+
+      return matchSearch && matchFilter;
     });
-  }, [purchaseOrders, searchQuery]);
+  }, [purchaseOrders, searchQuery, poDeliveryFilter, overduePOsList]);
 
   // Financial Stats
   const totalPOAmount = useMemo(() => {
@@ -418,6 +456,20 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
         </div>
       </div>
 
+      {/* Sistem Notifikasi Otomatis Pengingat Keterlambatan PO Supplier */}
+      <SupplierPOOverdueAlert
+        purchaseOrders={purchaseOrders}
+        suppliers={suppliers}
+        project={project}
+        activeUserName={activeUserName}
+        currentRole={userRole}
+        onUpdatePO={onUpdatePO}
+        onUpdatePOStatus={onUpdatePOStatus}
+        onAddNotification={onAddNotification}
+        onAddAuditLog={onAddAuditLog}
+        onViewPODetail={(po) => setViewingPO(po)}
+      />
+
       {/* Sub-tabs Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-2">
         <div className="flex items-center gap-2">
@@ -440,9 +492,13 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
             }`}
           >
             <span>Daftar Purchase Order ({purchaseOrders.length})</span>
-            {activePOCount > 0 && (
+            {overduePOCount > 0 ? (
+              <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse shadow-xs">
+                {overduePOCount} Terlambat
+              </span>
+            ) : activePOCount > 0 ? (
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            )}
+            ) : null}
           </button>
           <button
             onClick={() => setActiveSubTab('performance')}
@@ -627,7 +683,7 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
       {/* SUB-TAB 2: DAFTAR PURCHASE ORDER (PO) */}
       {activeSubTab === 'orders' && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h3 className="font-bold text-sm text-slate-900 dark:text-white">
                 Daftar Surat Pesanan Material (Purchase Order)
@@ -636,13 +692,65 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
                 Pencatatan resmi pengadaan barang ke supplier oleh Kontraktor Pelaksana
               </p>
             </div>
-            <button
-              onClick={() => handleOpenCreatePO()}
-              className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Buat PO Baru</span>
-            </button>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Quick Filters */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs">
+                <button
+                  type="button"
+                  onClick={() => setPoDeliveryFilter('all')}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    poDeliveryFilter === 'all'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  Semua ({purchaseOrders.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPoDeliveryFilter('overdue')}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    poDeliveryFilter === 'overdue'
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+                  }`}
+                >
+                  <AlertCircle className="w-3 h-3" />
+                  <span>Terlambat ({overduePOCount})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPoDeliveryFilter('active')}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    poDeliveryFilter === 'active'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  Berjalan ({activePOCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPoDeliveryFilter('completed')}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    poDeliveryFilter === 'completed'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  Diterima ({purchaseOrders.filter((p) => p.deliveryStatus === 'Diterima Lengkap' || p.deliveryStatus === 'Selesai').length})
+                </button>
+              </div>
+
+              <button
+                onClick={() => handleOpenCreatePO()}
+                className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Buat PO Baru</span>
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -660,68 +768,125 @@ export const SupplierManagement: React.FC<SupplierManagementProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredOrders.map((po) => (
-                  <tr key={po.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-900 dark:text-white">{po.poNumber}</div>
-                      <div className="text-[11px] text-slate-500">{po.date}</div>
-                    </td>
-                    <td className="py-3.5 px-4 font-medium text-slate-800 dark:text-slate-200">
-                      {po.supplierName}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-medium text-slate-900 dark:text-slate-100">{po.materialItem}</div>
-                      {po.deliveryOrderRef && (
-                        <div className="text-[10px] text-slate-400 font-mono">DO: {po.deliveryOrderRef}</div>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-medium text-slate-700 dark:text-slate-300">
-                      {po.quantity.toLocaleString('id-ID')} {po.unit}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-bold text-slate-900 dark:text-white">
-                      {formatIDR(po.totalAmount)}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          po.deliveryStatus === 'Diterima Lengkap' || po.deliveryStatus === 'Selesai'
-                            ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-                            : po.deliveryStatus === 'Sebagian Terkirim'
-                            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                            : po.deliveryStatus === 'Dipesan'
-                            ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600'
-                        }`}
-                      >
-                        {po.deliveryStatus}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          po.paymentStatus === 'Lunas'
-                            ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-                            : po.paymentStatus === 'DP Dibayar'
-                            ? 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300'
-                            : 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300'
-                        }`}
-                      >
-                        {po.paymentStatus}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => setViewingPO(po)}
-                          className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-[11px] flex items-center gap-1 cursor-pointer"
+                {filteredOrders.map((po) => {
+                  const isCompleted = po.deliveryStatus === 'Diterima Lengkap' || po.deliveryStatus === 'Selesai';
+                  const dDate = po.deliveryDate ? new Date(po.deliveryDate) : null;
+                  if (dDate) dDate.setHours(0, 0, 0, 0);
+                  const isOverdue = !isCompleted && dDate && todayDate.getTime() - dDate.getTime() > 0;
+                  const daysOverdue = isOverdue && dDate ? Math.floor((todayDate.getTime() - dDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                  const isDueToday = !isCompleted && dDate && todayDate.getTime() - dDate.getTime() === 0;
+
+                  return (
+                    <tr
+                      key={po.id}
+                      className={
+                        isOverdue
+                          ? 'bg-rose-50/70 dark:bg-rose-950/20 border-l-4 border-l-rose-500 hover:bg-rose-100/50 dark:hover:bg-rose-950/40 transition-colors'
+                          : isDueToday
+                          ? 'bg-amber-50/60 dark:bg-amber-950/20 border-l-4 border-l-amber-500 hover:bg-amber-100/40 transition-colors'
+                          : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors'
+                      }
+                    >
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-slate-900 dark:text-white">{po.poNumber}</div>
+                        <div className="text-[11px] text-slate-500">Tgl Terbit: {po.date}</div>
+                        {po.deliveryDate && (
+                          <div className={`text-[11px] font-semibold ${isOverdue ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
+                            Est. Tiba: {po.deliveryDate}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 font-medium text-slate-800 dark:text-slate-200">
+                        {po.supplierName}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="font-medium text-slate-900 dark:text-slate-100">{po.materialItem}</div>
+                        {po.deliveryOrderRef && (
+                          <div className="text-[10px] text-slate-400 font-mono">DO: {po.deliveryOrderRef}</div>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-medium text-slate-700 dark:text-slate-300">
+                        {po.quantity.toLocaleString('id-ID')} {po.unit}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-bold text-slate-900 dark:text-white">
+                        {formatIDR(po.totalAmount)}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          {isOverdue && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-600 text-white shadow-xs animate-pulse">
+                              <AlertCircle className="w-2.5 h-2.5" />
+                              Terlambat {daysOverdue} Hari
+                            </span>
+                          )}
+                          {isDueToday && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950 shadow-xs">
+                              <Clock className="w-2.5 h-2.5" />
+                              Tiba Hari Ini
+                            </span>
+                          )}
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              po.deliveryStatus === 'Diterima Lengkap' || po.deliveryStatus === 'Selesai'
+                                ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+                                : po.deliveryStatus === 'Sebagian Terkirim'
+                                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                                : po.deliveryStatus === 'Dipesan'
+                                ? isOverdue
+                                  ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300'
+                                  : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600'
+                            }`}
+                          >
+                            {po.deliveryStatus}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            po.paymentStatus === 'Lunas'
+                              ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+                              : po.paymentStatus === 'DP Dibayar'
+                              ? 'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300'
+                              : 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300'
+                          }`}
                         >
-                          <FileText className="w-3 h-3" />
-                          <span>Lihat Slip</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {po.paymentStatus}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          <button
+                            onClick={() => setViewingPO(po)}
+                            className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-[11px] flex items-center gap-1 cursor-pointer"
+                          >
+                            <FileText className="w-3 h-3" />
+                            <span>Slip</span>
+                          </button>
+
+                          {isOverdue && (
+                            <button
+                              onClick={() => {
+                                const sup = suppliers.find((s) => s.id === po.supplierId || s.name === po.supplierName);
+                                const phone = (sup?.whatsapp || sup?.phone || '').replace(/[^0-9]/g, '');
+                                const msg = `Yth. ${sup?.picName || 'Sales'} (${po.supplierName}),\n\nKami dari Kontraktor Pelaksana ${project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'} Proyek *${project.name}*.\n\nMengingatkan bahwa Purchase Order *${po.poNumber}* (${po.materialItem}, Volume ${po.quantity} ${po.unit}) telah MELEWATI ESTIMASI KEDATANGAN pada ${po.deliveryDate} (Terlambat ${daysOverdue} Hari).\n\nMohon konfirmasi jadwal armada pengiriman dan nomor Surat Jalan (DO) hari ini. Terima kasih.`;
+                                const url = `https://wa.me/${phone.startsWith('0') ? '62' + phone.slice(1) : phone}?text=${encodeURIComponent(msg)}`;
+                                window.open(url, '_blank');
+                                onAddAuditLog?.('ALERT_PO_SUPPLIER', `Mengirim teguran WhatsApp ke supplier ${po.supplierName} terkait keterlambatan PO ${po.poNumber}`);
+                              }}
+                              className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 cursor-pointer shadow-xs"
+                              title="Kirim Teguran WhatsApp ke Supplier"
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                              <span>Tegur WA</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
 
                 {filteredOrders.length === 0 && (
                   <tr>

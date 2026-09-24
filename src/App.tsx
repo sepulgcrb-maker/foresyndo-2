@@ -685,6 +685,12 @@ export default function App() {
     );
   };
 
+  const handleUpdatePO = (updatedPO: SupplierPurchaseOrder) => {
+    setPurchaseOrders((prev) =>
+      prev.map((po) => (po.id === updatedPO.id ? updatedPO : po))
+    );
+  };
+
   const handleAddContractorTransaction = (trx: ContractorTransaction) => {
     setContractorTransactions((prev) => [trx, ...prev]);
   };
@@ -2452,6 +2458,43 @@ export default function App() {
     };
 
   // ============================================================
+  // AUTOMATED PO DELIVERY OVERDUE NOTIFICATION SYSTEM
+  // ============================================================
+
+  useEffect(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    purchaseOrders.forEach((po) => {
+      if (
+        po.deliveryDate &&
+        po.deliveryStatus !== 'Diterima Lengkap' &&
+        po.deliveryStatus !== 'Selesai'
+      ) {
+        const dDate = new Date(po.deliveryDate);
+        dDate.setHours(0, 0, 0, 0);
+        const diffTime = today.getTime() - dDate.getTime();
+        const daysOverdue = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        if (daysOverdue > 0) {
+          const sessionKey = `fgi_po_overdue_notif_${po.id}_${po.deliveryDate}`;
+          const alreadyNotified = sessionStorage.getItem(sessionKey);
+
+          if (!alreadyNotified) {
+            sessionStorage.setItem(sessionKey, 'true');
+            handleAddNotification({
+              title: `🚨 PO Terlambat: ${po.poNumber} (${po.supplierName})`,
+              message: `Material "${po.materialItem}" (Volume: ${po.quantity.toLocaleString('id-ID')} ${po.unit}) belum dikirim supplier setelah melewati batas waktu estimasi kedatangan ${po.deliveryDate} (Terlambat ${daysOverdue} hari). Segera tindak lanjuti!`,
+              type: 'alert',
+              category: 'schedule',
+            });
+          }
+        }
+      }
+    });
+  }, [purchaseOrders]);
+
+  // ============================================================
   // DOCUMENTS
   // ============================================================
 
@@ -3482,6 +3525,15 @@ export default function App() {
                   notifications={
                     notifications
                   }
+                  dailyLogs={
+                    dailyLogs
+                  }
+                  purchaseOrders={
+                    purchaseOrders
+                  }
+                  suppliers={
+                    suppliers
+                  }
                   currentRole={
                     currentRole
                   }
@@ -3721,6 +3773,8 @@ export default function App() {
                   onDeleteSupplier={handleDeleteSupplier}
                   onAddPurchaseOrder={handleAddPurchaseOrder}
                   onUpdatePOStatus={handleUpdatePOStatus}
+                  onUpdatePO={handleUpdatePO}
+                  onAddNotification={handleAddNotification}
                   onAddAuditLog={addAuditLog}
                 />
               )}
@@ -3969,6 +4023,15 @@ export default function App() {
         onNavigateToDocument={() => {
           setActiveTab(
             'documents'
+          );
+
+          setIsNotificationsOpen(
+            false
+          );
+        }}
+        onNavigateToSuppliers={() => {
+          setActiveTab(
+            'suppliers'
           );
 
           setIsNotificationsOpen(
