@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { ProjectInfo, UserRole, ContractorProfile } from '../../types';
+import {
+  ProjectInfo,
+  UserRole,
+  ContractorProfile,
+  WorkItem,
+  CalendarEvent,
+  PaymentTerm,
+  MaterialItem,
+  WorkerAllocation,
+  DailyLog,
+} from '../../types';
 import { INITIAL_CONTRACTOR_PROFILE } from '../../data/initialData';
 import {
   X,
@@ -24,8 +34,10 @@ import {
   FileCheck2,
   CreditCard,
   Lock,
+  CalendarDays,
 } from 'lucide-react';
 import { formatIDR } from '../../utils/calculations';
+import { computeDaysOffset, syncAllProjectSchedules } from '../../utils/dateScheduleSync';
 
 interface ProjectSettingsModalProps {
   isOpen: boolean;
@@ -36,6 +48,13 @@ interface ProjectSettingsModalProps {
   userNameMap?: Record<UserRole, string>;
   onUpdateUserNameMap?: (newMap: Record<UserRole, string>) => void;
   onAddAuditLog?: (action: string, details: string) => void;
+  workItems?: WorkItem[];
+  calendarEvents?: CalendarEvent[];
+  paymentTerms?: PaymentTerm[];
+  materials?: MaterialItem[];
+  allocations?: WorkerAllocation[];
+  dailyLogs?: DailyLog[];
+  onApplyStartDateSync?: (result: any) => void;
 }
 
 export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
@@ -52,8 +71,16 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   },
   onUpdateUserNameMap,
   onAddAuditLog,
+  workItems,
+  calendarEvents,
+  paymentTerms,
+  materials,
+  allocations,
+  dailyLogs,
+  onApplyStartDateSync,
 }) => {
   const [activeTab, setActiveTab] = useState<'project' | 'contractor' | 'roles' | 'contract'>('project');
+  const [syncAllSchedules, setSyncAllSchedules] = useState(true);
 
   // Role permissions: Kontraktor tidak dapat mengubah logo perusahaan Owner
   const isOwnerRole = currentRole === 'Owner' || currentRole === 'Direktur' || currentRole === 'Admin';
@@ -178,7 +205,36 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       projectManager: projectManager.trim() || 'HARUN ARRASID ',
     };
 
-    onUpdateProject(updatedProject);
+    if (
+      startDate &&
+      startDate !== project.startDate &&
+      syncAllSchedules &&
+      onApplyStartDateSync &&
+      workItems &&
+      workItems.length > 0
+    ) {
+      const syncResult = syncAllProjectSchedules({
+        newStartDate: startDate,
+        project: updatedProject,
+        workItems,
+        calendarEvents: calendarEvents || [],
+        paymentTerms: paymentTerms || [],
+        materials: materials || [],
+        allocations: allocations || [],
+        dailyLogs: dailyLogs || [],
+        options: {
+          syncWorkItems: true,
+          syncTargetEndDate: true,
+          syncCalendarEvents: true,
+          syncPaymentTerms: true,
+          syncMaterials: true,
+          syncAllocations: true,
+        },
+      });
+      onApplyStartDateSync(syncResult);
+    } else {
+      onUpdateProject(updatedProject);
+    }
 
     if (onUpdateUserNameMap) {
       onUpdateUserNameMap({
@@ -953,6 +1009,37 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                   </select>
                 </div>
               </div>
+
+              {/* Deteksi Perubahan Tanggal Mulai Proyek */}
+              {startDate && startDate !== project.startDate && (
+                <div className="p-3.5 rounded-xl bg-orange-500/10 border border-orange-500/30 text-xs text-orange-950 dark:text-orange-200 space-y-2 animate-in fade-in">
+                  <div className="font-bold flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-orange-700 dark:text-orange-300">
+                      <CalendarDays className="w-4 h-4 text-orange-500" />
+                      Deteksi Perubahan Tanggal Mulai Pekerjaan
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-200 dark:bg-orange-950 text-orange-800 dark:text-orange-300">
+                      {computeDaysOffset(project.startDate, startDate) > 0
+                        ? `+${computeDaysOffset(project.startDate, startDate)} Hari (Mundur)`
+                        : `${computeDaysOffset(project.startDate, startDate)} Hari (Maju)`}
+                    </span>
+                  </div>
+                  <label className="flex items-start gap-2.5 cursor-pointer text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={syncAllSchedules}
+                      onChange={(e) => setSyncAllSchedules(e.target.checked)}
+                      className="mt-0.5 rounded text-orange-500 focus:ring-orange-500"
+                    />
+                    <span>
+                      Sinkronisasikan seluruh jadwal (Time Schedule, Kurva S, Kalender &amp; Termin Pembayaran) mengikuti tanggal mulai baru
+                    </span>
+                  </label>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 pl-6">
+                    Durasi tiap item pekerjaan akan tetap terjaga 100%. Tanggal mulai dan selesai pekerjaan bergeser secara proporsional.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

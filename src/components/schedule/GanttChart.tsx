@@ -1,29 +1,51 @@
-import React, { useState } from 'react';
-import { WorkItem } from '../../types';
+import React, { useState, useMemo } from 'react';
+import { WorkItem, ProjectInfo } from '../../types';
 import { BarChart3, ZoomIn, ZoomOut, Calendar, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 
 interface GanttChartProps {
   workItems: WorkItem[];
+  project?: ProjectInfo;
   onUpdateWorkItem?: (item: WorkItem) => void;
 }
 
 type ZoomMode = 'Weekly' | 'Monthly' | 'Yearly';
 
-export const GanttChart: React.FC<GanttChartProps> = ({ workItems, onUpdateWorkItem }) => {
+export const GanttChart: React.FC<GanttChartProps> = ({ workItems, project, onUpdateWorkItem }) => {
   const [zoomMode, setZoomMode] = useState<ZoomMode>('Weekly');
 
-  // Timeline boundaries (Jan 15, 2026 to Oct 15, 2026 = ~273 days)
-  const projectStart = new Date('2026-01-15').getTime();
-  const projectEnd = new Date('2026-10-15').getTime();
-  const totalDurationMs = projectEnd - projectStart;
+  // Dynamic timeline boundaries based on project start and target end dates
+  const { projectStart, projectEnd, totalDurationMs, baseDate } = useMemo(() => {
+    let startMs = project?.startDate ? new Date(project.startDate).getTime() : NaN;
+    if (isNaN(startMs)) {
+      const validStarts = workItems.map((w) => new Date(w.startDate).getTime()).filter((t) => !isNaN(t));
+      startMs = validStarts.length > 0 ? Math.min(...validStarts) : new Date('2026-09-01').getTime();
+    }
 
-  // Generate timeline headers based on zoomMode
+    let endMs = project?.targetEndDate ? new Date(project.targetEndDate).getTime() : NaN;
+    if (isNaN(endMs)) {
+      const validEnds = workItems.map((w) => new Date(w.endDate).getTime()).filter((t) => !isNaN(t));
+      endMs = validEnds.length > 0 ? Math.max(...validEnds) : startMs + 273 * 86400000;
+    }
+
+    if (endMs <= startMs) {
+      endMs = startMs + 90 * 86400000;
+    }
+
+    return {
+      projectStart: startMs,
+      projectEnd: endMs,
+      totalDurationMs: endMs - startMs,
+      baseDate: new Date(startMs),
+    };
+  }, [project?.startDate, project?.targetEndDate, workItems]);
+
+  // Generate timeline headers dynamically based on zoomMode and project start
   const getTimelineHeaders = () => {
     if (zoomMode === 'Weekly') {
       const headers = [];
-      const startDate = new Date('2026-01-15');
-      for (let i = 1; i <= 39; i++) {
-        const d = new Date(startDate);
+      const totalWeeks = Math.max(12, Math.ceil(totalDurationMs / (7 * 86400000)));
+      for (let i = 1; i <= totalWeeks; i++) {
+        const d = new Date(baseDate);
         d.setDate(d.getDate() + (i - 1) * 7);
         headers.push({
           label: `M${i}`,
@@ -32,24 +54,33 @@ export const GanttChart: React.FC<GanttChartProps> = ({ workItems, onUpdateWorkI
       }
       return headers;
     } else if (zoomMode === 'Monthly') {
-      return [
-        { label: 'Januari 2026', subLabel: 'Bulan 1' },
-        { label: 'Februari 2026', subLabel: 'Bulan 2' },
-        { label: 'Maret 2026', subLabel: 'Bulan 3' },
-        { label: 'April 2026', subLabel: 'Bulan 4' },
-        { label: 'Mei 2026', subLabel: 'Bulan 5' },
-        { label: 'Juni 2026', subLabel: 'Bulan 6' },
-        { label: 'Juli 2026', subLabel: 'Bulan 7' },
-        { label: 'Agustus 2026', subLabel: 'Bulan 8' },
-        { label: 'September 2026', subLabel: 'Bulan 9' },
-        { label: 'Oktober 2026', subLabel: 'Bulan 10' },
-      ];
+      const headers = [];
+      const startD = new Date(baseDate);
+      const endD = new Date(projectEnd);
+      let curr = new Date(startD.getFullYear(), startD.getMonth(), 1);
+      let monthIdx = 1;
+      while (curr <= endD || headers.length < 6) {
+        headers.push({
+          label: curr.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }),
+          subLabel: `Bulan ${monthIdx}`,
+        });
+        curr.setMonth(curr.getMonth() + 1);
+        monthIdx++;
+        if (headers.length >= 24) break;
+      }
+      return headers;
     } else {
       // Yearly
-      return [
-        { label: 'Tahun 2026 (Tahap I - Struktur)', subLabel: 'Kuartal 1 & 2' },
-        { label: 'Tahun 2026 (Tahap II - MEP & Finishing)', subLabel: 'Kuartal 3 & 4' },
-      ];
+      const startYear = new Date(baseDate).getFullYear();
+      const endYear = new Date(projectEnd).getFullYear();
+      const headers = [];
+      for (let yr = startYear; yr <= Math.max(startYear, endYear); yr++) {
+        headers.push(
+          { label: `Tahun ${yr} (Semester I)`, subLabel: 'Kuartal 1 & 2' },
+          { label: `Tahun ${yr} (Semester II)`, subLabel: 'Kuartal 3 & 4' }
+        );
+      }
+      return headers;
     }
   };
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ProjectInfo, ContractorProfile, UserRole } from '../../types';
 import { INITIAL_CONTRACTOR_PROFILE } from '../../data/initialData';
 import {
@@ -99,14 +99,50 @@ export const ContractorSettingsModal: React.FC<ContractorSettingsModalProps> = (
     initial.management?.hseOfficer || 'Ahmad Fauzi, S.Si (Ahli K3 Konstruksi)'
   );
   const [estimatorQS, setEstimatorQS] = useState(
-    initial.management?.estimatorQS || project.estimator || 'Ir. Agus Pratama'
+    initial.management?.estimatorQS || project.estimator || 'IHSAN'
   );
   const [financeAdmin, setFinanceAdmin] = useState(
-    initial.management?.financeAdmin || project.financeAdmin || 'COKRO '
+    initial.management?.financeAdmin || project.financeAdmin || 'COKRO'
   );
   const [siteEngineer, setSiteEngineer] = useState(
     initial.management?.siteEngineer || 'HARUN ARRASID'
   );
+
+  useEffect(() => {
+    if (isOpen) {
+      const prof = project.contractorProfile || INITIAL_CONTRACTOR_PROFILE;
+      setCompanyName(prof.companyName || project.contractor || '');
+      setBrandName(prof.brandName || '');
+      setAddress(prof.address || '');
+      setCity(prof.city || '');
+      setProvince(prof.province || '');
+      setPostalCode(prof.postalCode || '');
+      setPhone(prof.phone || '');
+      setWhatsapp(prof.whatsapp || '');
+      setEmail(prof.email || '');
+      setWebsite(prof.website || '');
+      setNpwp(prof.npwp || '');
+      setNib(prof.nib || '');
+      setIujkNumber(prof.iujkNumber || '');
+      setSbuNumber(prof.sbuNumber || '');
+      setClassification(prof.classification || '');
+      setLogoUrl(prof.logoUrl || '/assets/logo.png');
+      setBankName(prof.bankName || '');
+      setBankAccountNumber(prof.bankAccountNumber || '');
+      setBankAccountHolder(prof.bankAccountHolder || '');
+      setNotes(prof.notes || '');
+
+      const mgmt = prof.management || INITIAL_CONTRACTOR_PROFILE.management;
+      setDirector(mgmt.director || project.director || 'ROHMAN PRIYAMBODO');
+      setProjectManager(mgmt.projectManager || project.projectManager || 'JAKA SEPTIANDANA');
+      setSiteManager(mgmt.siteManager || project.siteManager || 'EKO YULIANTO');
+      setQcEngineer(mgmt.qcEngineer || project.qcEngineer || 'KIKI');
+      setHseOfficer(mgmt.hseOfficer || 'Ahmad Fauzi, S.Si (Ahli K3 Konstruksi)');
+      setEstimatorQS(mgmt.estimatorQS || project.estimator || 'IHSAN');
+      setFinanceAdmin(mgmt.financeAdmin || project.financeAdmin || 'COKRO');
+      setSiteEngineer(mgmt.siteEngineer || 'HARUN ARRASID');
+    }
+  }, [isOpen, project]);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -250,13 +286,13 @@ export const ContractorSettingsModal: React.FC<ContractorSettingsModalProps> = (
       notes: notes.trim(),
       management: {
         director: director.trim() || 'ROHMAN PRIYAMBODO',
-        projectManager: projectManager.trim() || 'JAKA SEPTIANDANA ',
-        siteManager: siteManager.trim() || 'EKO YULIANTO ',
-        qcEngineer: qcEngineer.trim() || 'KIKI ',
+        projectManager: projectManager.trim() || 'JAKA SEPTIANDANA',
+        siteManager: siteManager.trim() || 'EKO YULIANTO',
+        qcEngineer: qcEngineer.trim() || 'KIKI',
         hseOfficer: hseOfficer.trim() || 'Ahmad Fauzi, S.Si (Ahli K3 Konstruksi)',
-        estimatorQS: estimatorQS.trim() || 'IHSAN ',
-        financeAdmin: financeAdmin.trim() || 'COKRO ',
-        siteEngineer: siteEngineer.trim() || 'HARUN ARRASID ',
+        estimatorQS: estimatorQS.trim() || 'IHSAN',
+        financeAdmin: financeAdmin.trim() || 'COKRO',
+        siteEngineer: siteEngineer.trim() || 'HARUN ARRASID',
       },
     };
 

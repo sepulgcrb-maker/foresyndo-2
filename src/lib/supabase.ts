@@ -1,6 +1,17 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+function cleanSupabaseUrl(raw?: string): string {
+  if (!raw) return '';
+  let url = raw.trim();
+  url = url.replace(/\/+$/, '');
+  url = url.replace(/\/rest\/v1\/?$/, '');
+  url = url.replace(/\/auth\/v1\/?$/, '');
+  url = url.replace(/\/+$/, '');
+  return url;
+}
+
+const rawSupabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseUrl = cleanSupabaseUrl(rawSupabaseUrl);
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 
 if (!supabaseUrl) {
@@ -50,4 +61,22 @@ export function getSupabaseConfigDetails() {
     errors: [] as string[],
     warnings: [] as string[],
   };
+}
+
+export async function saveSupabaseConfig(url: string, anonKey: string): Promise<boolean> {
+  if (url) {
+    try {
+      localStorage.setItem('FORESYNDO_SUPABASE_URL', url);
+    } catch {
+      // Ignore
+    }
+  }
+  if (anonKey) {
+    try {
+      localStorage.setItem('FORESYNDO_SUPABASE_ANON_KEY', anonKey);
+    } catch {
+      // Ignore
+    }
+  }
+  return true;
 }

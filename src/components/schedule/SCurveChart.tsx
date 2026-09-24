@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -31,24 +31,27 @@ export const SCurveChart: React.FC<SCurveChartProps> = ({
   const [viewGranularity, setViewGranularity] = useState<'Weekly' | 'Monthly'>('Weekly');
   const [activeTableTab, setActiveTableTab] = useState<'all' | 'delayed'>('all');
 
-  const rawData = generateSCurveData(workItems);
+  const rawData = useMemo(
+    () => generateSCurveData(workItems, project?.startDate),
+    [workItems, project?.startDate]
+  );
 
-  // If monthly, aggregate weekly points into 9 months (Jan to Oct 2026)
-  const chartData =
-    viewGranularity === 'Monthly'
-      ? [
-          { date: 'Jan 26', targetCumulativePercent: 3.5, realizedCumulativePercent: 3.5, deviationPercent: 0 },
-          { date: 'Feb 26', targetCumulativePercent: 12.0, realizedCumulativePercent: 12.0, deviationPercent: 0 },
-          { date: 'Mar 26', targetCumulativePercent: 22.5, realizedCumulativePercent: 22.5, deviationPercent: 0 },
-          { date: 'Apr 26', targetCumulativePercent: 35.0, realizedCumulativePercent: 34.0, deviationPercent: -1.0 },
-          { date: 'Mei 26', targetCumulativePercent: 49.0, realizedCumulativePercent: 46.5, deviationPercent: -2.5 },
-          { date: 'Jun 26', targetCumulativePercent: 62.0, realizedCumulativePercent: 57.0, deviationPercent: -5.0 },
-          { date: 'Jul 26', targetCumulativePercent: 72.4, realizedCumulativePercent: 65.8, deviationPercent: -6.6 },
-          { date: 'Agu 26', targetCumulativePercent: 86.0, realizedCumulativePercent: undefined, deviationPercent: undefined },
-          { date: 'Sep 26', targetCumulativePercent: 96.0, realizedCumulativePercent: undefined, deviationPercent: undefined },
-          { date: 'Okt 26', targetCumulativePercent: 100.0, realizedCumulativePercent: undefined, deviationPercent: undefined },
-        ]
-      : rawData;
+  // If monthly, aggregate weekly points dynamically based on project startDate
+  const chartData = useMemo(() => {
+    if (viewGranularity !== 'Monthly') return rawData;
+    const monthlyPoints = [];
+    for (let i = 3; i < rawData.length; i += 4) {
+      monthlyPoints.push(rawData[i]);
+    }
+    if (
+      rawData.length > 0 &&
+      (monthlyPoints.length === 0 ||
+        monthlyPoints[monthlyPoints.length - 1] !== rawData[rawData.length - 1])
+    ) {
+      monthlyPoints.push(rawData[rawData.length - 1]);
+    }
+    return monthlyPoints;
+  }, [viewGranularity, rawData]);
 
   const currentRealized = calculatePhysicalProgress(workItems);
   const currentTarget = calculateTargetProgress(workItems);

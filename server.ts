@@ -41,18 +41,41 @@ try {
   console.warn('Error reading stored Supabase config:', err);
 }
 
+function cleanUrl(raw?: string): string {
+  if (!raw) return '';
+  let url = raw.trim();
+  url = url.replace(/\/+$/, '');
+  url = url.replace(/\/rest\/v1\/?$/, '');
+  url = url.replace(/\/auth\/v1\/?$/, '');
+  url = url.replace(/\/+$/, '');
+  return url;
+}
+
+if (process.env.SUPABASE_URL) {
+  process.env.SUPABASE_URL = cleanUrl(process.env.SUPABASE_URL);
+}
+if (process.env.VITE_SUPABASE_URL) {
+  process.env.VITE_SUPABASE_URL = cleanUrl(process.env.VITE_SUPABASE_URL);
+}
 if (process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL) {
   process.env.VITE_SUPABASE_URL = process.env.SUPABASE_URL;
 }
+if (process.env.VITE_SUPABASE_URL && !process.env.SUPABASE_URL) {
+  process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+}
 if (process.env.SUPABASE_ANON_KEY && !process.env.VITE_SUPABASE_ANON_KEY) {
   process.env.VITE_SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+}
+if (process.env.VITE_SUPABASE_ANON_KEY && !process.env.SUPABASE_ANON_KEY) {
+  process.env.SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
 }
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // Weather Search Grounding API Route
   let weatherCache: { data: any; sources: any[]; timestamp: number } | null = null;

@@ -17,9 +17,10 @@ import {
   Eye,
   EyeOff,
   Trash2,
+  Download,
 } from 'lucide-react';
 import { isSupabaseConnected, saveSupabaseConfig, getSupabaseConfigDetails } from '../../lib/supabase';
-import { testSupabaseConnection, getSupabaseSqlSchema } from '../../lib/supabaseService';
+import { testSupabaseConnection, getSupabaseSqlSchema, getUnintegratedTablesSqlSchema } from '../../lib/supabaseService';
 
 interface SupabaseModalProps {
   isOpen: boolean;
@@ -61,6 +62,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({
 
   const [isPulling, setIsPulling] = useState(false);
   const [pullStatus, setPullStatus] = useState<{ success: boolean; message: string } | null>(null);
+  const [schemaMode, setSchemaMode] = useState<'unintegrated' | 'all'>('unintegrated');
 
   useEffect(() => {
     if (isOpen) {
@@ -141,9 +143,24 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({
   };
 
   const handleCopySchema = () => {
-    navigator.clipboard.writeText(getSupabaseSqlSchema());
+    const sql = schemaMode === 'unintegrated' ? getUnintegratedTablesSqlSchema() : getSupabaseSqlSchema();
+    navigator.clipboard.writeText(sql);
     setCopiedSchema(true);
     setTimeout(() => setCopiedSchema(false), 2000);
+  };
+
+  const handleDownloadSchema = () => {
+    const sql = schemaMode === 'unintegrated' ? getUnintegratedTablesSqlSchema() : getSupabaseSqlSchema();
+    const filename = schemaMode === 'unintegrated' ? 'supabase_unintegrated_tables.sql' : 'supabase_full_schema.sql';
+    const blob = new Blob([sql], { type: 'text/sql;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -445,26 +462,93 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({
           {/* TAB 3: SKRIP SQL SKEMA */}
           {activeTab === 'schema' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                    Skrip Pembuatan Tabel & Kebijakan RLS
+                    Skrip Pembuatan Tabel & Kebijakan RLS Supabase
                   </h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Jalankan skrip ini satu kali di Supabase Dashboard untuk menyiapkan seluruh tabel proyek.
+                    Eksekusi skrip ini di SQL Editor Supabase untuk membuat tabel dan mengaktifkan RLS serta Realtime.
                   </p>
                 </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleDownloadSchema}
+                    className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 border border-slate-300 dark:border-slate-700 transition-colors"
+                    title="Unduh file .sql"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Unduh .SQL
+                  </button>
+                  <button
+                    onClick={handleCopySchema}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors"
+                  >
+                    {copiedSchema ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedSchema ? 'Tersalin!' : 'Salin Skrip SQL'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Toggle Mode */}
+              <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl gap-1">
                 <button
-                  onClick={handleCopySchema}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors"
+                  type="button"
+                  onClick={() => setSchemaMode('unintegrated')}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+                    schemaMode === 'unintegrated'
+                      ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
                 >
-                  {copiedSchema ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copiedSchema ? 'Tersalin!' : 'Salin Skrip SQL'}
+                  Tabel Baru / Belum Terintegrasi (15 Tabel)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSchemaMode('all')}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+                    schemaMode === 'all'
+                      ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Skema Lengkap (Semua 25 Tabel)
                 </button>
               </div>
 
+              {schemaMode === 'unintegrated' && (
+                <div className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-[11px] space-y-1.5">
+                  <div className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> 15 Tabel Baru yang Siap Dibuat:
+                  </div>
+                  <div className="flex flex-wrap gap-1 text-[10px]">
+                    {[
+                      'worker_allocations',
+                      'daily_attendances',
+                      'project_photos',
+                      'calendar_events',
+                      'notifications',
+                      'stakeholder_profiles',
+                      'contractor_profiles',
+                      'bast_submissions',
+                      'bast_punch_lists',
+                      'rab_sectors',
+                      'rab_items',
+                      'user_roles_pins',
+                      'material_approvals',
+                      'material_projections',
+                      'custom_categories'
+                    ].map((tbl) => (
+                      <span key={tbl} className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 font-mono">
+                        {tbl}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="bg-slate-950 text-slate-200 rounded-xl p-3 text-[11px] font-mono overflow-x-auto max-h-64 border border-slate-800">
-                <pre>{getSupabaseSqlSchema()}</pre>
+                <pre>{schemaMode === 'unintegrated' ? getUnintegratedTablesSqlSchema() : getSupabaseSqlSchema()}</pre>
               </div>
 
               <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-2">
@@ -472,19 +556,16 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({
                   Langkah Menjalankan di Supabase:
                 </span>
                 <ol className="list-decimal list-inside space-y-1 text-slate-600 dark:text-slate-400 text-[11px]">
-                  <li>Buka project Supabase Anda di browser.</li>
+                  <li>Buka project Supabase Anda di browser (<a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:underline">supabase.com/dashboard</a>).</li>
                   <li>
-                    Pilih menu <strong>SQL Editor</strong> pada bilah sisi kiri &rarr; klik <strong>New query</strong>.
+                    Pilih menu <strong>SQL Editor</strong> pada bilah navigasi kiri &rarr; klik <strong>New query</strong>.
                   </li>
                   <li>Klik tombol <strong>Salin Skrip SQL</strong> di atas, lalu tempel (Paste) ke dalam editor SQL.</li>
                   <li>
-                    Klik tombol <strong>Run</strong> untuk mengeksekusi skrip skema.
+                    Klik tombol <strong>Run</strong> (atau tekan Ctrl/Cmd + Enter) untuk mengeksekusi skrip SQL.
                   </li>
                   <li>
-                    Semua tabel (<code className="text-emerald-500">project_snapshots</code>,{' '}
-                    <code className="text-emerald-500">project_documents</code>,{' '}
-                    <code className="text-emerald-500">daily_reports</code>,{' '}
-                    <code className="text-emerald-500">field_issues</code>) dan Realtime akan aktif seketika!
+                    Tabel, kolom, indeks performa, RLS publik, dan publikasi Realtime akan aktif secara instan!
                   </li>
                 </ol>
               </div>

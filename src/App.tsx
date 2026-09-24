@@ -299,6 +299,12 @@ export default function App() {
   const saveSequenceRef =
     useRef(0);
 
+  const isSavingRef =
+    useRef(false);
+
+  const pendingSyncRef =
+    useRef(false);
+
   // ============================================================
   // MODALS
   // ============================================================
@@ -523,7 +529,7 @@ export default function App() {
       Kontraktor: 'ROHMAN PRIYAMBODO',
       Direktur: 'HASANUDIN',
       'Site Manager': 'EKO YULIANTO',
-      Admin: 'Siti Rahmawati, S.T.',
+      Admin: 'COKRO',
       Viewer: 'Tamu Pengawas',
     });
 
@@ -952,10 +958,42 @@ export default function App() {
            * /api/project/snapshot or localStorage.
            */
 
-          const remoteData =
+          let remoteData =
             await pullAllDataFromSupabase(
               PROJECT_ID
             );
+
+          if (!remoteData) {
+            console.warn(
+              `Snapshot ${PROJECT_ID} belum ada di Supabase. Melakukan inisialisasi awal ke Supabase...`
+            );
+            await pushAllDataToSupabase({
+              projectId: PROJECT_ID,
+              projectInfo: INITIAL_PROJECT_INFO,
+              documents: INITIAL_PROJECT_DOCUMENTS,
+              dailyLogs: INITIAL_DAILY_LOGS,
+              materials: INITIAL_MATERIALS,
+              workItems: INITIAL_WORK_ITEMS,
+              workers: INITIAL_WORKERS,
+              allocations: INITIAL_WORKER_ALLOCATIONS,
+              equipments: INITIAL_EQUIPMENT,
+              auditLogs: INITIAL_AUDIT_LOGS,
+              paymentTerms: INITIAL_PAYMENT_TERMS,
+              photos: INITIAL_PHOTOS,
+              calendarEvents: INITIAL_CALENDAR_EVENTS,
+              notifications: INITIAL_NOTIFICATIONS,
+              userNames: {
+                Owner: 'HASANUDIN',
+                Konsultan: 'SYAEFUL ANWAR',
+                Kontraktor: 'ROHMAN PRIYAMBODO',
+                Direktur: 'HASANUDIN',
+                'Site Manager': 'EKO YULIANTO',
+                Admin: 'COKRO',
+                Viewer: 'Tamu Pengawas',
+              },
+            });
+            remoteData = await pullAllDataFromSupabase(PROJECT_ID);
+          }
 
           if (!remoteData) {
             throw new Error(
@@ -1246,86 +1284,104 @@ export default function App() {
             return;
           }
 
-          try {
-            setIsSavingToCloud(
-              true
-            );
+          // Jika penyimpanan sebelumnya masih berjalan, antrekan untuk batch berikutnya
+          if (isSavingRef.current) {
+            pendingSyncRef.current = true;
+            return;
+          }
 
-            const payload =
-              buildCloudPayload();
-
-            const result =
-              await pushAllDataToSupabase(
-                payload
-              );
-
-            /*
-             * Ignore an old save result if a newer save has
-             * already started.
-             */
-            if (
-              saveSequence !==
-              saveSequenceRef.current
-            ) {
-              return;
-            }
-
-            if (
-              !result?.success
-            ) {
-              throw new Error(
-                result?.message ||
-                  'Gagal menyimpan data ke Supabase.'
-              );
-            }
-
-            const timeStr =
-              new Date().toLocaleTimeString(
-                'id-ID',
-                {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }
-              ) + ' WIB';
-
-            setLastSupabaseSync(
-              timeStr
-            );
+          const executeSave = async () => {
+            isSavingRef.current = true;
+            setIsSavingToCloud(true);
 
             try {
-              localStorage.setItem(
-                'FORESYNDO_LAST_SUPABASE_SYNC',
+              const payload =
+                buildCloudPayload();
+
+              const result =
+                await pushAllDataToSupabase(
+                  payload
+                );
+
+              /*
+               * Abaikan respons jika urutan penyimpanan sudah usang
+               * dan tidak ada antrean pending.
+               */
+              if (
+                saveSequence !==
+                saveSequenceRef.current &&
+                !pendingSyncRef.current
+              ) {
+                return;
+              }
+
+              if (
+                !result?.success
+              ) {
+                throw new Error(
+                  result?.message ||
+                    'Gagal menyimpan data ke Supabase.'
+                );
+              }
+
+              const timeStr =
+                new Date().toLocaleTimeString(
+                  'id-ID',
+                  {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }
+                ) + ' WIB';
+
+              setLastSupabaseSync(
                 timeStr
               );
-            } catch {
-              // Ignore.
-            }
 
-            setCloudError(
-              null
-            );
-          } catch (error: any) {
-            console.error(
-              'Auto Supabase save failed:',
-              error
-            );
+              try {
+                localStorage.setItem(
+                  'FORESYNDO_LAST_SUPABASE_SYNC',
+                  timeStr
+                );
+              } catch {
+                // Ignore.
+              }
 
-            setCloudError(
-              error?.message ||
-                'Perubahan belum berhasil disimpan ke Supabase.'
-            );
-          } finally {
-            if (
-              saveSequence ===
-              saveSequenceRef.current
-            ) {
-              setIsSavingToCloud(
-                false
+              setCloudError(
+                null
               );
+            } catch (error: any) {
+              console.warn(
+                'Auto Supabase save notice:',
+                error?.message || error
+              );
+
+              setCloudError(
+                error?.message ||
+                  'Perubahan belum berhasil disimpan ke Supabase.'
+              );
+            } finally {
+              isSavingRef.current = false;
+              setIsSavingToCloud(false);
+
+              // Jika ada perubahan selama proses simpan berlangsung, proses segera
+              if (pendingSyncRef.current) {
+                pendingSyncRef.current = false;
+                setTimeout(() => {
+                  if (
+                    cloudHydratedRef.current &&
+                    cloudStatus === 'ready' &&
+                    !isSavingRef.current
+                  ) {
+                    void executeSave();
+                  }
+                }, 400);
+              }
             }
-          }
+          };
+
+          await executeSave();
         },
-        800
+        1500
       );
 
     return () => {
@@ -1746,6 +1802,34 @@ export default function App() {
         'Mengubah urutan sekuensi tahapan pekerjaan (Drag & Drop / Re-sequence)'
       );
     };
+
+  const handleApplyStartDateSync = (syncResult: {
+    offsetDays: number;
+    updatedProject: ProjectInfo;
+    updatedWorkItems: WorkItem[];
+    updatedCalendarEvents: CalendarEvent[];
+    updatedPaymentTerms: PaymentTerm[];
+    updatedMaterials: MaterialItem[];
+    updatedAllocations: WorkerAllocation[];
+    updatedDailyLogs: DailyLog[];
+    summary: any;
+  }) => {
+    setProject(syncResult.updatedProject);
+    setWorkItems(syncResult.updatedWorkItems);
+    setCalendarEvents(syncResult.updatedCalendarEvents);
+    setPaymentTerms(syncResult.updatedPaymentTerms);
+    setMaterials(syncResult.updatedMaterials);
+    setAllocations(syncResult.updatedAllocations);
+    if (syncResult.updatedDailyLogs && syncResult.updatedDailyLogs.length > 0) {
+      setDailyLogs(syncResult.updatedDailyLogs);
+    }
+
+    const sign = syncResult.offsetDays > 0 ? '+' : '';
+    addAuditLog(
+      'Sinkronisasi Jadwal Tanggal Mulai Proyek',
+      `Tanggal mulai disesuaikan dari ${syncResult.summary.oldStartDate} menjadi ${syncResult.summary.newStartDate} (${sign}${syncResult.offsetDays} hari). Target selesai baru: ${syncResult.summary.newTargetEndDate}. Sebanyak ${syncResult.summary.workItemsShifted} item pekerjaan, ${syncResult.summary.eventsShifted} agenda kalender, dan ${syncResult.summary.paymentTermsShifted} termin pembayaran berhasil disinkronkan.`
+    );
+  };
 
   const handleApplyProgress25Percent =
     () => {
@@ -3098,7 +3182,10 @@ export default function App() {
             workItems,
             paymentTerms,
             dailyLogs,
-            materials
+            materials,
+            undefined,
+            undefined,
+            photos
           )
         }
         onResetProject={
@@ -3367,6 +3454,24 @@ export default function App() {
                   permissions={
                     currentPermissions
                   }
+                  project={
+                    project
+                  }
+                  calendarEvents={
+                    calendarEvents
+                  }
+                  paymentTerms={
+                    paymentTerms
+                  }
+                  materials={
+                    materials
+                  }
+                  allocations={
+                    allocations
+                  }
+                  dailyLogs={
+                    dailyLogs
+                  }
                   onUpdateWorkItem={
                     handleUpdateWorkItem
                   }
@@ -3378,6 +3483,9 @@ export default function App() {
                   }
                   onReorderWorkItems={
                     handleReorderWorkItems
+                  }
+                  onApplyStartDateSync={
+                    handleApplyStartDateSync
                   }
                 />
               )}
@@ -3438,6 +3546,9 @@ export default function App() {
                 <GanttChart
                   workItems={
                     workItems
+                  }
+                  project={
+                    project
                   }
                   onUpdateWorkItem={
                     handleUpdateWorkItem
@@ -3694,6 +3805,9 @@ export default function App() {
                   materials={
                     materials
                   }
+                  photos={
+                    photos
+                  }
                 />
               )}
             </>
@@ -3806,6 +3920,27 @@ export default function App() {
         }
         onAddAuditLog={
           addAuditLog
+        }
+        workItems={
+          workItems
+        }
+        calendarEvents={
+          calendarEvents
+        }
+        paymentTerms={
+          paymentTerms
+        }
+        materials={
+          materials
+        }
+        allocations={
+          allocations
+        }
+        dailyLogs={
+          dailyLogs
+        }
+        onApplyStartDateSync={
+          handleApplyStartDateSync
         }
       />
 

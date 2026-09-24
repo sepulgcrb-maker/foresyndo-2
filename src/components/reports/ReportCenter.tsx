@@ -1,9 +1,36 @@
 import React, { useState } from 'react';
-import { ProjectInfo, WorkItem, PaymentTerm, DailyLog, MaterialItem } from '../../types';
+import {
+  ProjectInfo,
+  WorkItem,
+  PaymentTerm,
+  DailyLog,
+  MaterialItem,
+  PhotoItem,
+  PDFCustomExportOptions,
+} from '../../types';
 import { OFFICIAL_RAB_DOCUMENT } from '../../data/initialData';
-import { FileSpreadsheet, FileText, Download, Printer, CheckCircle2, Building2 } from 'lucide-react';
+import {
+  FileSpreadsheet,
+  FileText,
+  Download,
+  Printer,
+  CheckCircle2,
+  Building2,
+  Sliders,
+  Calendar,
+  Camera,
+  Layers,
+  Sparkles,
+} from 'lucide-react';
 import { generatePDFReport, generateExcelReport } from '../../utils/exportEngine';
-import { formatIDR, calculatePhysicalProgress, calculateTargetProgress, calculateDeviation, generateSCurveData } from '../../utils/calculations';
+import {
+  formatIDR,
+  calculatePhysicalProgress,
+  calculateTargetProgress,
+  calculateDeviation,
+  generateSCurveData,
+} from '../../utils/calculations';
+import { PDFCustomizationModal } from './PDFCustomizationModal';
 
 interface ReportCenterProps {
   project: ProjectInfo;
@@ -11,9 +38,19 @@ interface ReportCenterProps {
   paymentTerms: PaymentTerm[];
   dailyLogs: DailyLog[];
   materials: MaterialItem[];
+  photos?: PhotoItem[];
 }
 
-type ReportType = 'Harian' | 'Mingguan' | 'Bulanan' | 'Progress' | 'Termin' | 'Material' | 'Keuangan' | 'RAB' | 'Kurva-S';
+type ReportType =
+  | 'Harian'
+  | 'Mingguan'
+  | 'Bulanan'
+  | 'Progress'
+  | 'Termin'
+  | 'Material'
+  | 'Keuangan'
+  | 'RAB'
+  | 'Kurva-S';
 
 export const ReportCenter: React.FC<ReportCenterProps> = ({
   project,
@@ -21,8 +58,10 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
   paymentTerms,
   dailyLogs,
   materials,
+  photos = [],
 }) => {
   const [selectedReport, setSelectedReport] = useState<ReportType>('Progress');
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
 
   const reportTypes: { id: ReportType; label: string; desc: string }[] = [
     { id: 'Kurva-S', label: 'Analisis Kurva-S', desc: 'Evaluasi jadwal S-Curve rencana vs realisasi & Schedule Variance' },
@@ -37,7 +76,7 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
   ];
 
   const handleExportPDF = () => {
-    generatePDFReport(selectedReport, project, workItems, paymentTerms, dailyLogs, materials);
+    generatePDFReport(selectedReport, project, workItems, paymentTerms, dailyLogs, materials, undefined, undefined, photos);
   };
 
   const handleExportExcel = () => {
@@ -46,6 +85,20 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleGenerateCustomizedPDF = async (options: PDFCustomExportOptions) => {
+    await generatePDFReport(
+      options.reportType || selectedReport,
+      project,
+      workItems,
+      paymentTerms,
+      dailyLogs,
+      materials,
+      undefined,
+      options,
+      photos
+    );
   };
 
   const realizedFisik = calculatePhysicalProgress(workItems);
@@ -61,7 +114,7 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
             <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
-            <h2 className="text-lg font-black text-slate-900 dark:text-white">Pusat Laporan & Export Dokumen</h2>
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">Pusat Laporan &amp; Export Dokumen</h2>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Generate otomatis Laporan PDF, Spreadsheet Excel, dan Cetak dengan Kop Resmi PT. FORESYNDO GLOBAL INDONESIA
@@ -69,26 +122,55 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
         </div>
 
         {/* Global Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setIsCustomModalOpen(true)}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-orange-600/20 transition-all cursor-pointer"
+          >
+            <Sliders className="w-4 h-4" /> Kustomisasi PDF
+          </button>
           <button
             onClick={handleExportPDF}
-            className="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-red-500/20 transition-all"
+            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
           >
-            <FileText className="w-4 h-4" /> Export PDF
+            <FileText className="w-4 h-4 text-red-400" /> Export Cepat
           </button>
           <button
             onClick={handleExportExcel}
-            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition-all"
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
           >
             <FileSpreadsheet className="w-4 h-4" /> Export Excel
           </button>
           <button
             onClick={handlePrint}
-            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all"
+            className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
           >
-            <Printer className="w-4 h-4 text-orange-400" /> Cetak
+            <Printer className="w-4 h-4 text-slate-500" /> Cetak
           </button>
         </div>
+      </div>
+
+      {/* Customization Callout Banner */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-red-500/10 border border-orange-300/40 dark:border-orange-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-orange-500 text-white shrink-0 shadow-md shadow-orange-500/30">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+              Opsi Kustomisasi Laporan PDF Tersedia
+            </h4>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400">
+              Pilih rentang tanggal spesifik (harian/mingguan/bulanan) dan sertakan ringkasan album foto dokumentasi site per kategori pekerjaan (Pondasi, Struktur, MEP, dll.).
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setIsCustomModalOpen(true)}
+          className="px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-orange-500/20 shrink-0 transition-all cursor-pointer"
+        >
+          <Sliders className="w-3.5 h-3.5" /> Buka Pengaturan Export
+        </button>
       </div>
 
       {/* Selector Cards Grid */}
@@ -120,6 +202,7 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
           );
         })}
       </div>
+
 
       {/* Live Report Preview Box (Paper Replica with Letterhead) */}
       <div className="p-8 bg-white text-slate-900 rounded-3xl shadow-2xl border border-slate-200 max-w-4xl mx-auto space-y-6 printable-area">
@@ -281,6 +364,20 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
           </div>
         </div>
       </div>
+
+      {/* PDF Customization Modal */}
+      <PDFCustomizationModal
+        isOpen={isCustomModalOpen}
+        onClose={() => setIsCustomModalOpen(false)}
+        reportType={selectedReport}
+        project={project}
+        workItems={workItems}
+        paymentTerms={paymentTerms}
+        dailyLogs={dailyLogs}
+        materials={materials}
+        photos={photos}
+        onGenerate={handleGenerateCustomizedPDF}
+      />
     </div>
   );
 };

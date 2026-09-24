@@ -402,6 +402,363 @@ VALUES (
   1
 )
 ON CONFLICT (id) DO NOTHING;
+
+${getUnintegratedTablesSqlSchema()}
+`;
+}
+
+/**
+ * Skrip SQL khusus untuk 15 tabel operasional yang belum terintegrasi ke Supabase.
+ */
+export function getUnintegratedTablesSqlSchema(): string {
+  return `-- ====================================================================
+-- SKEMA SQL TABEL OPERASIONAL BARU (BELUM TERINTEGRASI KE SUPABASE)
+-- FORESYNDO PROJECT 2
+-- ====================================================================
+
+CREATE TABLE IF NOT EXISTS public.worker_allocations (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  worker_id TEXT NOT NULL,
+  worker_name TEXT NOT NULL,
+  worker_role TEXT NOT NULL,
+  work_item_id TEXT NOT NULL,
+  work_item_name TEXT NOT NULL,
+  work_item_category TEXT,
+  allocated_hours NUMERIC DEFAULT 0,
+  assigned_date TEXT NOT NULL,
+  target_output NUMERIC DEFAULT 0,
+  actual_output NUMERIC DEFAULT 0,
+  unit TEXT,
+  status TEXT DEFAULT 'Dalam Pengerjaan',
+  notes TEXT,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_worker_allocations_project_id ON public.worker_allocations(project_id);
+CREATE INDEX IF NOT EXISTS idx_worker_allocations_assigned_date ON public.worker_allocations(assigned_date);
+
+CREATE TABLE IF NOT EXISTS public.daily_attendances (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  date TEXT NOT NULL,
+  worker_id TEXT NOT NULL,
+  worker_name TEXT NOT NULL,
+  role TEXT,
+  is_present BOOLEAN DEFAULT true,
+  overtime_hours NUMERIC DEFAULT 0,
+  notes TEXT,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_daily_attendances_date ON public.daily_attendances(date);
+
+CREATE TABLE IF NOT EXISTS public.project_photos (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  date TEXT NOT NULL,
+  category TEXT NOT NULL,
+  title TEXT NOT NULL,
+  url TEXT NOT NULL,
+  uploaded_by TEXT NOT NULL,
+  notes TEXT,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_photos_category ON public.project_photos(category);
+CREATE INDEX IF NOT EXISTS idx_project_photos_date ON public.project_photos(date);
+
+CREATE TABLE IF NOT EXISTS public.calendar_events (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  title TEXT NOT NULL,
+  date TEXT NOT NULL,
+  end_date TEXT,
+  type TEXT NOT NULL DEFAULT 'milestone',
+  status TEXT NOT NULL DEFAULT 'Mendatang',
+  description TEXT,
+  location TEXT,
+  assigned_role TEXT,
+  is_custom BOOLEAN DEFAULT false,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON public.calendar_events(date);
+
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  timestamp TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'info',
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  is_read BOOLEAN DEFAULT false,
+  category TEXT DEFAULT 'system',
+  document_id TEXT,
+  uploader_role TEXT,
+  uploader_name TEXT,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON public.notifications(is_read);
+
+CREATE TABLE IF NOT EXISTS public.stakeholder_profiles (
+  role TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  role_name TEXT NOT NULL,
+  company TEXT NOT NULL,
+  person_name TEXT NOT NULL,
+  position TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  sk_number TEXT,
+  digital_signature_active BOOLEAN DEFAULT false,
+  avatar_url TEXT,
+  permissions JSONB NOT NULL,
+  raw_data JSONB,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.contractor_profiles (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  company_name TEXT NOT NULL,
+  brand_name TEXT,
+  address TEXT NOT NULL,
+  city TEXT,
+  province TEXT,
+  postal_code TEXT,
+  phone TEXT,
+  whatsapp TEXT,
+  email TEXT,
+  website TEXT,
+  npwp TEXT NOT NULL,
+  nib TEXT NOT NULL,
+  iujk_number TEXT NOT NULL,
+  sbu_number TEXT,
+  classification TEXT,
+  logo_url TEXT,
+  bank_name TEXT,
+  bank_account_number TEXT,
+  bank_account_holder TEXT,
+  notes TEXT,
+  management JSONB,
+  raw_data JSONB,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.bast_submissions (
+  submission_id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  submission_number TEXT NOT NULL,
+  submission_date TEXT NOT NULL,
+  target_handover_date TEXT,
+  contractor_representative TEXT,
+  contractor_position TEXT,
+  contractor_notes TEXT,
+  stage TEXT NOT NULL DEFAULT 'draft',
+  attachments JSONB DEFAULT '[]'::jsonb,
+  punch_list JSONB DEFAULT '[]'::jsonb,
+  mk_recommendation_letter_no TEXT,
+  mk_recommendation_date TEXT,
+  mk_recommendation_notes TEXT,
+  mk_verified_by TEXT,
+  owner_approval_date TEXT,
+  owner_approval_notes TEXT,
+  owner_approved_by TEXT,
+  bast_number TEXT,
+  title TEXT,
+  scope_description TEXT,
+  contract_nominal NUMERIC DEFAULT 0,
+  handover_date TEXT,
+  maintenance_period_days INTEGER DEFAULT 180,
+  maintenance_end_date TEXT,
+  retention_percent NUMERIC DEFAULT 5,
+  retention_value NUMERIC DEFAULT 0,
+  contractor_signature JSONB,
+  mk_signature JSONB,
+  owner_signature JSONB,
+  is_completed BOOLEAN DEFAULT false,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bast_submissions_stage ON public.bast_submissions(stage);
+
+CREATE TABLE IF NOT EXISTS public.bast_punch_lists (
+  id TEXT PRIMARY KEY,
+  submission_id TEXT REFERENCES public.bast_submissions(submission_id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  sector_name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  severity TEXT DEFAULT 'Ringan',
+  deadline_date TEXT,
+  is_resolved BOOLEAN DEFAULT false,
+  resolved_date TEXT,
+  verified_by_mk BOOLEAN DEFAULT false,
+  photo_url TEXT,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bast_punch_lists_submission ON public.bast_punch_lists(submission_id);
+
+CREATE TABLE IF NOT EXISTS public.rab_sectors (
+  sector_number INTEGER PRIMARY KEY,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  name TEXT NOT NULL,
+  budget NUMERIC NOT NULL DEFAULT 0,
+  percentage NUMERIC NOT NULL DEFAULT 0,
+  raw_data JSONB,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.rab_items (
+  code TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  sector_number INTEGER NOT NULL REFERENCES public.rab_sectors(sector_number) ON DELETE CASCADE,
+  description TEXT NOT NULL,
+  volume NUMERIC NOT NULL DEFAULT 0,
+  unit TEXT NOT NULL,
+  unit_price NUMERIC NOT NULL DEFAULT 0,
+  total_price NUMERIC NOT NULL DEFAULT 0,
+  bobot_percent NUMERIC NOT NULL DEFAULT 0,
+  target_progress_25_percent NUMERIC DEFAULT 0,
+  raw_data JSONB,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_rab_items_sector_number ON public.rab_items(sector_number);
+
+CREATE TABLE IF NOT EXISTS public.user_roles_pins (
+  role TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  pin TEXT NOT NULL,
+  user_name TEXT,
+  last_login TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.material_approvals (
+  id TEXT PRIMARY KEY,
+  material_id TEXT NOT NULL REFERENCES public.material_inventory(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  status TEXT DEFAULT 'Menunggu Approval',
+  submitted_by TEXT,
+  submission_date TEXT,
+  approved_by TEXT,
+  approved_at TEXT,
+  approval_notes TEXT,
+  rejection_reason TEXT,
+  inspection_doc_ref TEXT,
+  barcode TEXT,
+  batch_number TEXT,
+  location_rack TEXT,
+  raw_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_material_approvals_material_id ON public.material_approvals(material_id);
+
+CREATE TABLE IF NOT EXISTS public.material_projections (
+  material_id TEXT PRIMARY KEY REFERENCES public.material_inventory(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  projected_total_demand NUMERIC DEFAULT 0,
+  projected_remaining_demand NUMERIC DEFAULT 0,
+  stock_difference NUMERIC DEFAULT 0,
+  is_deficit BOOLEAN DEFAULT false,
+  shortage_quantity NUMERIC DEFAULT 0,
+  shortage_cost_idr NUMERIC DEFAULT 0,
+  days_of_stock_remaining NUMERIC DEFAULT 0,
+  estimated_stockout_date TEXT,
+  recommended_order_date TEXT,
+  urgency_status TEXT DEFAULT 'Aman',
+  urgency_reason TEXT,
+  recommended_order_quantity NUMERIC DEFAULT 0,
+  speed_multiplier NUMERIC DEFAULT 1.0,
+  waste_contingency_percent NUMERIC DEFAULT 5.0,
+  alert_threshold_days INTEGER DEFAULT 14,
+  raw_data JSONB,
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.custom_categories (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL DEFAULT 'FORESYNDO-PROJECT-2',
+  category_name TEXT NOT NULL,
+  scope TEXT DEFAULT 'work_item',
+  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- RLS Policies
+ALTER TABLE public.worker_allocations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.daily_attendances ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_photos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.calendar_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stakeholder_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contractor_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bast_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bast_punch_lists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rab_sectors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rab_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles_pins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.material_approvals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.material_projections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.custom_categories ENABLE ROW LEVEL SECURITY;
+
+DO $$
+DECLARE
+  tbl text;
+  tables text[] := ARRAY[
+    'worker_allocations', 'daily_attendances', 'project_photos',
+    'calendar_events', 'notifications', 'stakeholder_profiles',
+    'contractor_profiles', 'bast_submissions', 'bast_punch_lists',
+    'rab_sectors', 'rab_items', 'user_roles_pins',
+    'material_approvals', 'material_projections', 'custom_categories'
+  ];
+BEGIN
+  FOREACH tbl IN ARRAY tables
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS "Akses publik %s" ON public.%I;', tbl, tbl);
+    EXECUTE format('CREATE POLICY "Akses publik %s" ON public.%I FOR ALL USING (true) WITH CHECK (true);', tbl, tbl);
+  END LOOP;
+END $$;
+
+-- Realtime Publications
+DO $$
+DECLARE
+  tbl text;
+  tables text[] := ARRAY[
+    'worker_allocations', 'daily_attendances', 'project_photos',
+    'calendar_events', 'notifications', 'stakeholder_profiles',
+    'contractor_profiles', 'bast_submissions', 'bast_punch_lists',
+    'rab_sectors', 'rab_items', 'user_roles_pins',
+    'material_approvals', 'material_projections', 'custom_categories'
+  ];
+BEGIN
+  FOREACH tbl IN ARRAY tables
+  LOOP
+    BEGIN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I;', tbl);
+    EXCEPTION
+      WHEN duplicate_object THEN NULL;
+      WHEN undefined_object THEN NULL;
+    END;
+  END LOOP;
+END $$;
 `;
 }
 
@@ -505,31 +862,98 @@ export async function pushAllDataToSupabase(
   try {
     /**
      * ================================================================
-     * 1. MASTER SNAPSHOT
+     * 1. MASTER SNAPSHOT (Dengan Retry Otomatis & Toleransi Jaringan)
      * ================================================================
      */
-    const { error: snapshotError } = await supabase
-      .from('project_snapshots')
-      .upsert(
-        {
-          id: payload.projectId || DEFAULT_PROJECT_ID,
-          project_id: payload.projectId || DEFAULT_PROJECT_ID,
-          data: {
-            ...payload,
-            syncedAt: timestamp,
-          },
-          synced_by: payload.syncedBy || 'System',
-          updated_at: timestamp,
-        },
-        {
-          onConflict: 'id',
+    let snapshotError: any = null;
+    const maxRetries = 2;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const { error } = await supabase
+          .from('project_snapshots')
+          .upsert(
+            {
+              id: payload.projectId || DEFAULT_PROJECT_ID,
+              project_id: payload.projectId || DEFAULT_PROJECT_ID,
+              data: {
+                ...payload,
+                syncedAt: timestamp,
+              },
+              synced_by: payload.syncedBy || 'System',
+              updated_at: timestamp,
+            },
+            {
+              onConflict: 'id',
+            }
+          );
+
+        snapshotError = error;
+        if (!snapshotError) {
+          break; // Sukses tersimpan!
         }
+        console.warn(
+          `Percobaan ${attempt + 1} simpan project_snapshots gagal:`,
+          snapshotError.message
+        );
+      } catch (err: any) {
+        snapshotError = err;
+        console.warn(
+          `Percobaan ${attempt + 1} simpan project_snapshots mengalami error jaringan:`,
+          err?.message || err
+        );
+      }
+
+      if (attempt < maxRetries) {
+        // Jeda backoff sebelum mencoba kembali (600ms, 1200ms)
+        await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
+      }
+    }
+
+    // Jika simpan langsung dari browser ke Supabase mengalami kendala (misal CORS/adblocker/jaringan/TypeError),
+    // gunakan server proxy backend yang memiliki koneksi langsung dan stabil ke Supabase Cloud
+    if (snapshotError) {
+      console.warn(
+        'Direct Supabase save encountered issue, attempting resilient server proxy save...',
+        snapshotError?.message || snapshotError
       );
+      try {
+        const proxyRes = await fetch('/api/project/snapshot', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ payload }),
+        });
+        if (proxyRes.ok) {
+          const proxyData = await proxyRes.json();
+          if (proxyData.success) {
+            snapshotError = null; // Berhasil tersimpan ke Supabase via server proxy!
+            console.log(
+              'Snapshot project_snapshots berhasil disimpan ke Supabase Cloud via server proxy fallback.'
+            );
+          } else {
+            snapshotError = new Error(
+              proxyData.message || 'Gagal menyimpan snapshot via server proxy.'
+            );
+          }
+        } else {
+          snapshotError = new Error(
+            `Server proxy mengembalikan status ${proxyRes.status}`
+          );
+        }
+      } catch (proxyErr: any) {
+        console.warn('Server proxy save also failed:', proxyErr);
+      }
+    }
 
     if (snapshotError) {
-      throw new Error(
-        `Gagal menyimpan project_snapshots: ${snapshotError.message}`
-      );
+      const errMsg =
+        snapshotError.message ||
+        (typeof snapshotError === 'string'
+          ? snapshotError
+          : 'Koneksi jaringan terputus saat menghubungi Supabase');
+      throw new Error(`Gagal menyimpan project_snapshots: ${errMsg}`);
     }
 
     /**
@@ -546,18 +970,18 @@ export async function pushAllDataToSupabase(
           {
             id: project.id || payload.projectId || DEFAULT_PROJECT_ID,
             name: project.name || '',
-            code: project.code || null,
+            code: (project as any).code || null,
             owner: project.owner || '',
             contractor: project.contractor || '',
-            consultant: project.consultant || '',
+            consultant: project.consultantMK || (project as any).consultant || '',
             location: project.location || '',
             contract_number: project.contractNumber || null,
             contract_value: Number(project.contractValue || 0),
             start_date: project.startDate || null,
-            end_date: project.endDate || null,
-            duration_weeks: Number(project.durationWeeks || 0),
+            end_date: project.targetEndDate || (project as any).endDate || null,
+            duration_weeks: Number((project as any).durationWeeks || 0),
             status: project.status || 'Berjalan',
-            current_week: Number(project.currentWeek || 1),
+            current_week: Number((project as any).currentWeek || 1),
             raw_data: project,
             updated_at: timestamp,
           },
@@ -577,37 +1001,51 @@ export async function pushAllDataToSupabase(
      * ================================================================
      */
     if (payload.documents?.length) {
-      const documentRows = payload.documents.map((d) => ({
-        id: d.id,
-        document_number: d.documentNumber,
-        title: d.title,
-        category: d.category,
-        file_type: d.fileType,
-        file_size: d.fileSize,
-        file_url: d.fileUrl || null,
-        status: d.status,
-        version: d.version,
-        upload_date: d.uploadDate,
-        uploaded_by: d.uploadedBy,
-        uploaded_by_role: d.uploadedByRole,
-        description: d.description,
-        confidentiality: d.confidentiality,
-        signatures: d.signatures || [],
-        review_notes: d.reviewNotes || [],
-        raw_data: d,
-        updated_at: timestamp,
-      }));
-
-      const { error } = await supabase
-        .from('project_documents')
-        .upsert(documentRows, {
-          onConflict: 'id',
+      try {
+        const documentRows = payload.documents.map((d: any) => {
+          const isLargeBase64 =
+            typeof d.fileUrl === 'string' &&
+            d.fileUrl.startsWith('data:') &&
+            d.fileUrl.length > 50000;
+          const cleanRaw = { ...d };
+          if (isLargeBase64) {
+            cleanRaw.fileUrl = '[STORED_IN_SNAPSHOT]';
+          }
+          return {
+            id: d.id,
+            document_number: d.documentNumber,
+            title: d.title,
+            category: d.category,
+            file_type: d.fileType,
+            file_size: d.fileSize,
+            file_url: isLargeBase64
+              ? '[INLINE_BASE64_ATTACHMENT_IN_SNAPSHOT]'
+              : (d.fileUrl || null),
+            status: d.status,
+            version: d.version,
+            upload_date: d.uploadDate,
+            uploaded_by: d.uploadedBy,
+            uploaded_by_role: d.uploadedByRole,
+            description: d.description,
+            confidentiality: d.confidentiality,
+            signatures: d.signatures || d.signatories || [],
+            review_notes: d.reviewNotes || [],
+            raw_data: cleanRaw,
+            updated_at: timestamp,
+          };
         });
 
-      if (error) {
-        throw new Error(
-          `Gagal menyimpan project_documents: ${error.message}`
-        );
+        const { error } = await supabase
+          .from('project_documents')
+          .upsert(documentRows, {
+            onConflict: 'id',
+          });
+
+        if (error) {
+          console.warn('Peringatan simpan project_documents:', error.message);
+        }
+      } catch (err: any) {
+        console.warn('Peringatan simpan project_documents:', err?.message);
       }
     }
 
@@ -617,29 +1055,36 @@ export async function pushAllDataToSupabase(
      * ================================================================
      */
     if (payload.dailyLogs?.length) {
-      const rows = payload.dailyLogs.map((r) => ({
-        id: r.id,
-        date: r.date,
-        weather: r.weather,
-        worker_count: r.workerCount,
-        mandor_name: r.mandorName,
-        activity_summary: r.activitySummary,
-        volume_done: r.volumeDone,
-        photos: r.photos || [],
-        notes: r.notes,
-        created_by: r.createdBy,
-        raw_data: r,
-        updated_at: timestamp,
-      }));
-
-      const { error } = await supabase
-        .from('daily_logs')
-        .upsert(rows, {
-          onConflict: 'id',
+      try {
+        const rows = payload.dailyLogs.map((r: any) => {
+          const cleanRaw = { ...r };
+          return {
+            id: r.id,
+            date: r.date,
+            weather: r.weather,
+            worker_count: r.workerCount,
+            mandor_name: r.mandorName,
+            activity_summary: r.activitySummary,
+            volume_done: r.volumeDone,
+            photos: r.photos || [],
+            notes: r.notes,
+            created_by: r.createdBy,
+            raw_data: cleanRaw,
+            updated_at: timestamp,
+          };
         });
 
-      if (error) {
-        throw new Error(`Gagal menyimpan daily_logs: ${error.message}`);
+        const { error } = await supabase
+          .from('daily_logs')
+          .upsert(rows, {
+            onConflict: 'id',
+          });
+
+        if (error) {
+          console.warn(`Peringatan simpan daily_logs: ${error.message}`);
+        }
+      } catch (err: any) {
+        console.warn(`Peringatan simpan daily_logs:`, err?.message);
       }
     }
 
@@ -649,31 +1094,35 @@ export async function pushAllDataToSupabase(
      * ================================================================
      */
     if (payload.workItems?.length) {
-      const rows = payload.workItems.map((w) => ({
-        id: w.id,
-        code: w.code,
-        name: w.name,
-        category: w.category,
-        weight: Number(w.weight || 0),
-        unit: w.unit,
-        volume: Number(w.volume || 0),
-        price_per_unit: Number(w.pricePerUnit || 0),
-        total_price: Number(w.totalPrice || 0),
-        weekly_plan: w.weeklyPlan || [],
-        weekly_actual: w.weeklyActual || [],
-        status: w.status,
-        raw_data: w,
-        updated_at: timestamp,
-      }));
+      try {
+        const rows = payload.workItems.map((w: any) => ({
+          id: w.id,
+          code: w.code || `W-${w.no}`,
+          name: w.name,
+          category: w.category,
+          weight: Number(w.weight ?? w.bobotPercent ?? 0),
+          unit: w.unit,
+          volume: Number(w.volume ?? w.volumeTarget ?? 0),
+          price_per_unit: Number(w.pricePerUnit || 0),
+          total_price: Number(w.totalPrice || 0),
+          weekly_plan: w.weeklyPlan || [],
+          weekly_actual: w.weeklyActual || [],
+          status: w.status,
+          raw_data: w,
+          updated_at: timestamp,
+        }));
 
-      const { error } = await supabase
-        .from('work_items')
-        .upsert(rows, {
-          onConflict: 'id',
-        });
+        const { error } = await supabase
+          .from('work_items')
+          .upsert(rows, {
+            onConflict: 'id',
+          });
 
-      if (error) {
-        throw new Error(`Gagal menyimpan work_items: ${error.message}`);
+        if (error) {
+          console.warn(`Peringatan simpan work_items: ${error.message}`);
+        }
+      } catch (err: any) {
+        console.warn(`Peringatan simpan work_items:`, err?.message);
       }
     }
 
@@ -683,34 +1132,36 @@ export async function pushAllDataToSupabase(
      * ================================================================
      */
     if (payload.materials?.length) {
-      const rows = payload.materials.map((m) => ({
-        id: m.id,
-        name: m.name,
-        category: m.category,
-        unit: m.unit,
-        total_rab: Number(m.totalRAB || 0),
-        ordered: Number(m.ordered || 0),
-        arrived: Number(m.arrived || 0),
-        used: Number(m.used || 0),
-        stock: Number(m.stock || 0),
-        status: m.status,
-        min_threshold: Number(m.minThreshold || 0),
-        supplier: m.supplier,
-        last_updated: m.lastUpdated,
-        raw_data: m,
-        updated_at: timestamp,
-      }));
+      try {
+        const rows = payload.materials.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          category: m.category,
+          unit: m.unit,
+          total_rab: Number(m.totalRAB ?? m.volumeTotal ?? 0),
+          ordered: Number(m.ordered || 0),
+          arrived: Number(m.arrived || 0),
+          used: Number(m.used ?? m.volumeUsed ?? 0),
+          stock: Number(m.stock ?? m.stockRemaining ?? 0),
+          status: m.status || m.approvalStatus || 'Tersedia',
+          min_threshold: Number(m.minThreshold ?? m.minAlertStock ?? 0),
+          supplier: m.supplier,
+          last_updated: m.lastUpdated || m.usageDate || m.arrivalDate,
+          raw_data: m,
+          updated_at: timestamp,
+        }));
 
-      const { error } = await supabase
-        .from('material_inventory')
-        .upsert(rows, {
-          onConflict: 'id',
-        });
+        const { error } = await supabase
+          .from('material_inventory')
+          .upsert(rows, {
+            onConflict: 'id',
+          });
 
-      if (error) {
-        throw new Error(
-          `Gagal menyimpan material_inventory: ${error.message}`
-        );
+        if (error) {
+          console.warn(`Peringatan simpan material_inventory: ${error.message}`);
+        }
+      } catch (err: any) {
+        console.warn(`Peringatan simpan material_inventory:`, err?.message);
       }
     }
 
@@ -720,27 +1171,31 @@ export async function pushAllDataToSupabase(
      * ================================================================
      */
     if (payload.workers?.length) {
-      const rows = payload.workers.map((w) => ({
-        id: w.id,
-        name: w.name,
-        trade: w.trade,
-        mandor: w.mandor,
-        phone: w.phone,
-        status: w.status,
-        daily_rate: Number(w.dailyRate || 0),
-        rating: Number(w.rating || 5),
-        raw_data: w,
-        updated_at: timestamp,
-      }));
+      try {
+        const rows = payload.workers.map((w: any) => ({
+          id: w.id,
+          name: w.name,
+          trade: w.trade || w.role,
+          mandor: w.mandor || '',
+          phone: w.phone || '',
+          status: w.status,
+          daily_rate: Number(w.dailyRate ?? w.dailyWage ?? 0),
+          rating: Number(w.rating || 5),
+          raw_data: w,
+          updated_at: timestamp,
+        }));
 
-      const { error } = await supabase
-        .from('workers')
-        .upsert(rows, {
-          onConflict: 'id',
-        });
+        const { error } = await supabase
+          .from('workers')
+          .upsert(rows, {
+            onConflict: 'id',
+          });
 
-      if (error) {
-        throw new Error(`Gagal menyimpan workers: ${error.message}`);
+        if (error) {
+          console.warn(`Peringatan simpan workers: ${error.message}`);
+        }
+      } catch (err: any) {
+        console.warn(`Peringatan simpan workers:`, err?.message);
       }
     }
 
@@ -750,31 +1205,35 @@ export async function pushAllDataToSupabase(
      * ================================================================
      */
     if (payload.equipments?.length) {
-      const rows = payload.equipments.map((e) => ({
-        id: e.id,
-        code: e.code,
-        name: e.name,
-        category: e.category,
-        capacity: e.capacity,
-        operator: e.operator,
-        daily_rent_cost: Number(e.dailyRentCost || 0),
-        condition: e.condition,
-        location: e.location,
-        working_hours_today: Number(e.workingHoursToday || 0),
-        total_working_hours: Number(e.totalWorkingHours || 0),
-        fuel_level: e.fuelLevel,
-        raw_data: e,
-        updated_at: timestamp,
-      }));
+      try {
+        const rows = payload.equipments.map((e: any) => ({
+          id: e.id,
+          code: e.code || e.id,
+          name: e.name,
+          category: e.category || 'Alat Berat',
+          capacity: e.capacity || '',
+          operator: e.operator,
+          daily_rent_cost: Number(e.dailyRentCost || 0),
+          condition: e.condition,
+          location: e.location || '',
+          working_hours_today: Number(e.workingHoursToday || 0),
+          total_working_hours: Number(e.totalWorkingHours ?? e.workHoursHM ?? 0),
+          fuel_level: e.fuelLevel || '100%',
+          raw_data: e,
+          updated_at: timestamp,
+        }));
 
-      const { error } = await supabase
-        .from('equipments')
-        .upsert(rows, {
-          onConflict: 'id',
-        });
+        const { error } = await supabase
+          .from('equipments')
+          .upsert(rows, {
+            onConflict: 'id',
+          });
 
-      if (error) {
-        throw new Error(`Gagal menyimpan equipments: ${error.message}`);
+        if (error) {
+          console.warn(`Peringatan simpan equipments: ${error.message}`);
+        }
+      } catch (err: any) {
+        console.warn(`Peringatan simpan equipments:`, err?.message);
       }
     }
 
@@ -784,30 +1243,34 @@ export async function pushAllDataToSupabase(
      * ================================================================
      */
     if (payload.paymentTerms?.length) {
-      const rows = payload.paymentTerms.map((p) => ({
-        term_number: Number(p.termNumber),
-        title: p.title,
-        percentage: Number(p.percentage || 0),
-        planned_amount: Number(p.plannedAmount || 0),
-        target_progress: Number(p.targetProgress || 0),
-        invoice_number: p.invoiceNumber,
-        status: p.status,
-        submission_date: p.submissionDate,
-        verification_date_mk: p.verificationDateMK,
-        approval_date_owner: p.approvalDateOwner,
-        notes: p.notes,
-        raw_data: p,
-        updated_at: timestamp,
-      }));
+      try {
+        const rows = payload.paymentTerms.map((p: any) => ({
+          term_number: Number(p.termNumber),
+          title: p.title,
+          percentage: Number(p.percentage ?? p.termValuePercent ?? 0),
+          planned_amount: Number(p.plannedAmount ?? p.grossValue ?? 0),
+          target_progress: Number(p.targetProgress ?? p.targetProgressPercent ?? 0),
+          invoice_number: p.invoiceNumber || `INV-TERM-${p.termNumber}`,
+          status: p.status,
+          submission_date: p.submissionDate || p.paymentDate,
+          verification_date_mk: p.verificationDateMK,
+          approval_date_owner: p.approvalDateOwner,
+          notes: p.notes,
+          raw_data: p,
+          updated_at: timestamp,
+        }));
 
-      const { error } = await supabase
-        .from('payment_terms')
-        .upsert(rows, {
-          onConflict: 'term_number',
-        });
+        const { error } = await supabase
+          .from('payment_terms')
+          .upsert(rows, {
+            onConflict: 'term_number',
+          });
 
-      if (error) {
-        throw new Error(`Gagal menyimpan payment_terms: ${error.message}`);
+        if (error) {
+          console.warn(`Peringatan simpan payment_terms: ${error.message}`);
+        }
+      } catch (err: any) {
+        console.warn(`Peringatan simpan payment_terms:`, err?.message);
       }
     }
 
@@ -817,24 +1280,28 @@ export async function pushAllDataToSupabase(
      * ================================================================
      */
     if (payload.auditLogs?.length) {
-      const rows = payload.auditLogs.map((a) => ({
-        id: a.id,
-        timestamp: a.timestamp,
-        action: a.action,
-        role: a.role,
-        user_name: a.userName,
-        details: a.details,
-        updated_at: timestamp,
-      }));
+      try {
+        const rows = payload.auditLogs.map((a: any) => ({
+          id: a.id,
+          timestamp: a.timestamp,
+          action: a.action,
+          role: a.role || a.userRole,
+          user_name: a.userName,
+          details: a.details,
+          updated_at: timestamp,
+        }));
 
-      const { error } = await supabase
-        .from('audit_logs')
-        .upsert(rows, {
-          onConflict: 'id',
-        });
+        const { error } = await supabase
+          .from('audit_logs')
+          .upsert(rows, {
+            onConflict: 'id',
+          });
 
-      if (error) {
-        throw new Error(`Gagal menyimpan audit_logs: ${error.message}`);
+        if (error) {
+          console.warn(`Peringatan simpan audit_logs: ${error.message}`);
+        }
+      } catch (err: any) {
+        console.warn(`Peringatan simpan audit_logs:`, err?.message);
       }
     }
 
@@ -896,40 +1363,122 @@ export async function pullAllDataFromSupabase(
   }
 
   try {
-    const { data, error } = await supabase
+    let snapshotRecord: { data: any; updated_at?: string; synced_by?: string } | null = null;
+
+    // 1. Direct match by id
+    const { data: directData, error: directError } = await supabase
       .from('project_snapshots')
       .select('data, updated_at, synced_by')
       .eq('id', projectId)
       .maybeSingle();
 
-    if (error) {
-      console.error(
-        'Gagal mengambil project_snapshots dari Supabase:',
-        error
-      );
-      return null;
+    if (directError) {
+      console.warn('Gagal mengambil project_snapshots direct by id:', directError);
+    } else if (directData?.data) {
+      snapshotRecord = directData;
     }
 
-    if (!data?.data) {
+    // 2. Match by project_id column if direct id did not find anything
+    if (!snapshotRecord) {
+      const { data: byProjIdData } = await supabase
+        .from('project_snapshots')
+        .select('data, updated_at, synced_by')
+        .eq('project_id', projectId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (byProjIdData?.data) {
+        snapshotRecord = byProjIdData;
+      }
+    }
+
+    // 3. Fallback: Check alternative standard IDs (FORESYNDO-PROJECT-2 <-> PROJ-FORESYNDO-02)
+    if (!snapshotRecord) {
+      const altId = projectId === 'FORESYNDO-PROJECT-2' ? 'PROJ-FORESYNDO-02' : 'FORESYNDO-PROJECT-2';
+      const { data: altData } = await supabase
+        .from('project_snapshots')
+        .select('data, updated_at, synced_by')
+        .or(`id.eq.${altId},project_id.eq.${altId}`)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (altData?.data) {
+        snapshotRecord = altData;
+      }
+    }
+
+    // 4. Fallback: Grab latest available snapshot in project_snapshots
+    if (!snapshotRecord) {
+      const { data: latestData } = await supabase
+        .from('project_snapshots')
+        .select('data, updated_at, synced_by')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestData?.data) {
+        snapshotRecord = latestData;
+      }
+    }
+
+    if (!snapshotRecord?.data) {
+      try {
+        const proxyRes = await fetch('/api/project/snapshot');
+        if (proxyRes.ok) {
+          const proxyData = await proxyRes.json();
+          if (proxyData.success && proxyData.data) {
+            snapshotRecord = {
+              data: proxyData.data,
+              updated_at: proxyData.updatedAt,
+              synced_by: proxyData.syncedBy,
+            };
+            console.log('Snapshot berhasil dimuat via server proxy fallback.');
+          }
+        }
+      } catch (proxyErr) {
+        console.warn('Server proxy snapshot fallback fetch error:', proxyErr);
+      }
+    }
+
+    if (!snapshotRecord?.data) {
       console.warn(
         `Snapshot proyek ${projectId} belum ditemukan di Supabase.`
       );
       return null;
     }
 
-    const payload = data.data as ProjectSyncPayload;
+    const payload = snapshotRecord.data as ProjectSyncPayload;
 
     return {
       ...payload,
       projectId: payload.projectId || projectId,
-      syncedAt: data.updated_at,
-      syncedBy: data.synced_by,
+      syncedAt: snapshotRecord.updated_at,
+      syncedBy: snapshotRecord.synced_by,
     };
   } catch (error) {
     console.error(
-      'Unexpected Supabase pull error:',
+      'Unexpected Supabase pull error, mencoba server proxy:',
       error
     );
+
+    try {
+      const proxyRes = await fetch('/api/project/snapshot');
+      if (proxyRes.ok) {
+        const proxyData = await proxyRes.json();
+        if (proxyData.success && proxyData.data) {
+          return {
+            ...proxyData.data,
+            projectId: proxyData.data.projectId || projectId,
+            syncedAt: proxyData.updatedAt,
+            syncedBy: proxyData.syncedBy,
+          };
+        }
+      }
+    } catch (proxyErr) {
+      console.error('Server proxy pull also failed:', proxyErr);
+    }
 
     return null;
   }

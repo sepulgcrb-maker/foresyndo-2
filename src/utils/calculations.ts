@@ -119,10 +119,23 @@ export function calculateFinancialSummary(contractValue: number, terms: PaymentT
 /**
  * Generate weekly S-Curve data points for Recharts (Week 1 to Week 39)
  */
-export function generateSCurveData(workItems: WorkItem[]): SCurveDataPoint[] {
+export function generateSCurveData(workItems: WorkItem[], projectStartDate?: string): SCurveDataPoint[] {
   const points: SCurveDataPoint[] = [];
 
-  const startDate = new Date('2026-09-01');
+  let startDate: Date;
+  if (projectStartDate && !isNaN(new Date(projectStartDate).getTime())) {
+    startDate = new Date(projectStartDate);
+  } else {
+    const validDates = workItems
+      .map((w) => w.startDate)
+      .filter(Boolean)
+      .sort();
+    startDate =
+      validDates.length > 0 && !isNaN(new Date(validDates[0]).getTime())
+        ? new Date(validDates[0])
+        : new Date('2026-09-01');
+  }
+
   const currentProgress = calculatePhysicalProgress(workItems);
   const isUnstarted = currentProgress === 0;
   const currentWeekIndex = isUnstarted ? 0 : 28;

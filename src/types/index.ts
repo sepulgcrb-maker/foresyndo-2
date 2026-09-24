@@ -157,6 +157,7 @@ export type PhotoCategory =
   | 'Struktur'
   | 'Lantai'
   | 'Atap'
+  | 'Arsitektur'
   | 'Finishing'
   | 'MEP'
   | 'Progress Hari Ini';
@@ -507,5 +508,30 @@ export interface BASTSubmissionData {
     signatureData: string;
   };
   isCompleted: boolean;
+}
+
+export type DateRangePreset = 'all' | 'custom' | 'this_month' | 'last_month' | 'this_week' | 'project_period';
+
+export interface PDFCustomExportOptions {
+  reportType?: 'Harian' | 'Mingguan' | 'Bulanan' | 'Progress' | 'Termin' | 'Material' | 'Keuangan' | 'RAB' | 'Kurva-S';
+  dateRangePreset?: DateRangePreset;
+  startDate?: string;
+  endDate?: string;
+  includePhotos?: boolean;
+  photoCategories?: PhotoCategory[];
+  maxPhotosPerCategory?: number;
+  includePhotoDetails?: boolean;
+  includeProjectInfo?: boolean;
+  includeDataTable?: boolean;
+  includeSummaryStats?: boolean;
+  includeSignatures?: boolean;
+  signatories?: {
+    siteManager?: boolean;
+    director?: boolean;
+    supervisoryMK?: boolean;
+  };
+  orientation?: 'portrait' | 'landscape';
+  customNotes?: string;
+  reportTitle?: string;
 }
 

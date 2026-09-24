@@ -14,33 +14,62 @@ import {
   MoveUp,
   MoveDown,
   ArrowUpDown,
+  Calendar,
+  Sliders,
 } from 'lucide-react';
-import { WorkItem, UserRole, CategoryPekerjaan, RolePermissions } from '../../types';
+import {
+  WorkItem,
+  UserRole,
+  CategoryPekerjaan,
+  RolePermissions,
+  ProjectInfo,
+  CalendarEvent,
+  PaymentTerm,
+  MaterialItem,
+  WorkerAllocation,
+  DailyLog,
+} from '../../types';
 import { calculatePhysicalProgress, calculateTargetProgress } from '../../utils/calculations';
+import { StartDateSyncModal } from './StartDateSyncModal';
 
 interface TimeScheduleTableProps {
   workItems: WorkItem[];
   userRole: UserRole;
   permissions?: RolePermissions;
+  project?: ProjectInfo;
+  calendarEvents?: CalendarEvent[];
+  paymentTerms?: PaymentTerm[];
+  materials?: MaterialItem[];
+  allocations?: WorkerAllocation[];
+  dailyLogs?: DailyLog[];
   onUpdateWorkItem: (item: WorkItem) => void;
   onAddWorkItem: (item: Omit<WorkItem, 'id'>) => void;
   onDeleteWorkItem: (id: string) => void;
   onReorderWorkItems?: (reorderedItems: WorkItem[]) => void;
+  onApplyStartDateSync?: (result: any) => void;
 }
 
 export const TimeScheduleTable: React.FC<TimeScheduleTableProps> = ({
   workItems,
   userRole,
   permissions,
+  project,
+  calendarEvents = [],
+  paymentTerms = [],
+  materials = [],
+  allocations = [],
+  dailyLogs = [],
   onUpdateWorkItem,
   onAddWorkItem,
   onDeleteWorkItem,
   onReorderWorkItems,
+  onApplyStartDateSync,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<WorkItem>>({});
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
 
   // Drag & Drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -51,8 +80,8 @@ export const TimeScheduleTable: React.FC<TimeScheduleTableProps> = ({
     no: workItems.length + 1,
     category: 'Struktur',
     name: '',
-    startDate: '2026-08-01',
-    endDate: '2026-09-01',
+    startDate: project?.startDate || '2026-09-01',
+    endDate: project?.targetEndDate || '2026-10-01',
     durationDays: 31,
     bobotPercent: 5.0,
     targetProgressPercent: 0,
@@ -244,12 +273,22 @@ export const TimeScheduleTable: React.FC<TimeScheduleTableProps> = ({
           </div>
 
           {canEdit && (
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-lg shadow-orange-500/20 transition-all"
-            >
-              <Plus className="w-4 h-4" /> Tambah Pekerjaan
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsSyncModalOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-orange-100 hover:bg-orange-200 dark:bg-orange-950/40 dark:hover:bg-orange-900/60 text-orange-700 dark:text-orange-300 text-xs font-bold flex items-center gap-1.5 shrink-0 border border-orange-300 dark:border-orange-800/60 transition-all shadow-sm"
+                title="Atur Tanggal Mulai Proyek & Sinkronisasikan Seluruh Jadwal"
+              >
+                <Calendar className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                <span>Atur Tanggal Mulai</span>
+              </button>
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-lg shadow-orange-500/20 transition-all"
+              >
+                <Plus className="w-4 h-4" /> Tambah Pekerjaan
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -648,6 +687,26 @@ export const TimeScheduleTable: React.FC<TimeScheduleTableProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Start Date Sync Modal */}
+      {project && (
+        <StartDateSyncModal
+          isOpen={isSyncModalOpen}
+          onClose={() => setIsSyncModalOpen(false)}
+          project={project}
+          workItems={workItems}
+          calendarEvents={calendarEvents}
+          paymentTerms={paymentTerms}
+          materials={materials}
+          allocations={allocations}
+          dailyLogs={dailyLogs}
+          onApplySync={(res) => {
+            if (onApplyStartDateSync) {
+              onApplyStartDateSync(res);
+            }
+          }}
+        />
       )}
     </div>
   );

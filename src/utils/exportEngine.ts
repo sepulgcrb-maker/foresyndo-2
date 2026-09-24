@@ -1,7 +1,18 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-import { ProjectInfo, WorkItem, PaymentTerm, DailyLog, MaterialItem, BASTSubmissionData, ProjectDocument } from '../types';
+import {
+  ProjectInfo,
+  WorkItem,
+  PaymentTerm,
+  DailyLog,
+  MaterialItem,
+  BASTSubmissionData,
+  ProjectDocument,
+  PhotoItem,
+  PhotoCategory,
+  PDFCustomExportOptions,
+} from '../types';
 import { OFFICIAL_RAB_DOCUMENT, OfficialRABDocument } from '../data/initialData';
 import {
   formatIDR,
@@ -844,39 +855,167 @@ export function generateOfficialRABPDF(
 }
 
 /**
- * Generate standard Multi-type PDF Report with official PT. FORESYNDO GLOBAL INDONESIA letterhead
+ * Helper to fetch image and convert to Data URL for safe embedding in jsPDF
  */
-export function generatePDFReport(
+async function fetchImageDataUrl(url: string): Promise<string | null> {
+  if (!url) return null;
+  if (url.startsWith('data:image')) return url;
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const maxW = 500;
+          const scale = img.width > maxW ? maxW / img.width : 1;
+          canvas.width = Math.round((img.naturalWidth || img.width || 400) * scale);
+          canvas.height = Math.round((img.naturalHeight || img.height || 300) * scale);
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+            return;
+          }
+        } catch {
+          // ignore canvas taint
+        }
+        resolve(null);
+      };
+      img.onerror = () => resolve(null);
+      setTimeout(() => resolve(null), 2500);
+      img.src = url;
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Generate standard Multi-type PDF Report with official PT. FORESYNDO GLOBAL INDONESIA letterhead,
+ * customizable date range filtering, and photo documentation summary by category
+ */
+export async function generatePDFReport(
   reportType: 'Harian' | 'Mingguan' | 'Bulanan' | 'Progress' | 'Termin' | 'Material' | 'Keuangan' | 'RAB' | 'Kurva-S',
   project: ProjectInfo,
   workItems: WorkItem[],
   terms: PaymentTerm[],
   dailyLogs: DailyLog[],
   materials: MaterialItem[],
-  rabDoc?: OfficialRABDocument
+  rabDoc?: OfficialRABDocument,
+  customOptions?: PDFCustomExportOptions,
+  photos?: PhotoItem[]
 ) {
-  if (reportType === 'Kurva-S') {
+  // If Kurva-S without custom options/photos, default to existing generator
+  if (reportType === 'Kurva-S' && !customOptions?.includePhotos && !customOptions?.startDate) {
     generateSCurvePDF(project, workItems, 'Weekly');
     return;
   }
 
-  if (reportType === 'Termin') {
+  // If Termin without custom options/photos, default to existing generator
+  if (reportType === 'Termin' && !customOptions?.includePhotos && !customOptions?.startDate) {
     generateTerminPDF(project, terms, workItems);
     return;
   }
 
-  if (reportType === 'RAB') {
+  // If RAB without custom options/photos, default to existing generator
+  if (reportType === 'RAB' && !customOptions?.includePhotos && !customOptions?.startDate) {
     generateOfficialRABPDF(rabDoc || OFFICIAL_RAB_DOCUMENT, project);
     return;
   }
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const orientation = customOptions?.orientation || 'portrait';
+  const doc = new jsPDF(orientation === 'landscape' ? 'l' : 'p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
   // Primary Colors (Navy & Dark Slate)
   const navyColor: [number, number, number] = [15, 23, 42]; // #0F172A
   const orangeColor: [number, number, number] = [249, 115, 22]; // #F97316
   const grayColor: [number, number, number] = [100, 116, 139];
+
+  // 1. Filter data based on custom Date Range
+  let filteredWorkItems = workItems;
+  let filteredDailyLogs = dailyLogs;
+  let filteredTerms = terms;
+  let filteredMaterials = materials;
+
+  const startDate = customOptions?.startDate;
+  const endDate = customOptions?.endDate;
+  const hasDateFilter = Boolean(startDate && endDate);
+
+  if (hasDateFilter && startDate && endDate) {
+    // Work items overlapping with date range
+    filteredWorkItems = workItems.filter(
+      (wi) => wi.startDate <= endDate && wi.endDate >= startDate
+    );
+    if (filteredWorkItems.length === 0) {
+      filteredWorkItems = workItems; // fallback if empty
+    }
+
+    // Daily logs strictly within date range
+    filteredDailyLogs = dailyLogs.filter(
+      (log) => log.date >= startDate && log.date <= endDate
+    );
+
+    // Terms within date range or all
+    const termsInRange = terms.filter(
+      (t) => t.paymentDate && t.paymentDate >= startDate && t.paymentDate <= endDate
+    );
+    if (termsInRange.length > 0) {
+      filteredTerms = termsInRange;
+    }
+
+    // Materials
+    const matsInRange = materials.filter(
+      (m) =>
+        (m.arrivalDate && m.arrivalDate >= startDate && m.arrivalDate <= endDate) ||
+        (m.usageDate && m.usageDate >= startDate && m.usageDate <= endDate)
+    );
+    if (matsInRange.length > 0) {
+      filteredMaterials = matsInRange;
+    }
+  }
+
+  // 2. Aggregate and filter photo documentation
+  let aggregatedPhotos: PhotoItem[] = photos ? [...photos] : [];
+
+  // Also include photos from daily logs if any
+  filteredDailyLogs.forEach((dl) => {
+    if (dl.photos && dl.photos.length > 0) {
+      dl.photos.forEach((photoUrl, pIdx) => {
+        if (!aggregatedPhotos.some((p) => p.url === photoUrl)) {
+          aggregatedPhotos.push({
+            id: `DL-${dl.id}-${pIdx}`,
+            date: dl.date,
+            category: 'Progress Hari Ini',
+            title: `Dokumentasi Harian (${dl.date})`,
+            url: photoUrl,
+            uploadedBy: dl.mandorName || dl.createdBy || 'Site Manager',
+            notes: dl.activitySummary || 'Kegiatan lapangan terverifikasi',
+          });
+        }
+      });
+    }
+  });
+
+  // Filter photos by date range
+  if (hasDateFilter && startDate && endDate) {
+    aggregatedPhotos = aggregatedPhotos.filter(
+      (p) => p.date >= startDate && p.date <= endDate
+    );
+  }
+
+  // Filter photos by category
+  if (
+    customOptions?.photoCategories &&
+    customOptions.photoCategories.length > 0 &&
+    !(customOptions.photoCategories as string[]).includes('Semua')
+  ) {
+    aggregatedPhotos = aggregatedPhotos.filter((p) =>
+      customOptions.photoCategories!.includes(p.category)
+    );
+  }
 
   // Letterhead Header
   doc.setFillColor(...navyColor);
@@ -888,23 +1027,23 @@ export function generatePDFReport(
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
+  doc.setFontSize(15);
   doc.text(project.owner || 'PT. FORESYNDO GLOBAL INDONESIA', 14, 12);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text(`Aplikasi Sistem Monitoring Pembangunan - ${project.name}`, 14, 18);
+  doc.setFontSize(8.5);
+  doc.text(`Sistem Manajemen & Monitoring Konstruksi - ${project.name}`, 14, 18);
   doc.text(`Lokasi: ${project.location}`, 14, 23);
 
   // Document Title & Timestamp
   doc.setTextColor(...navyColor);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  const titleText = `LAPORAN ${reportType.toUpperCase()} MONITORING PROYEK`;
-  doc.text(titleText, 14, 38);
+  doc.setFontSize(13);
+  const titleText = customOptions?.reportTitle || `LAPORAN ${reportType.toUpperCase()} MONITORING PROYEK`;
+  doc.text(titleText, 14, 37);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(...grayColor);
   const dateStr = new Date().toLocaleDateString('id-ID', {
     weekday: 'long',
@@ -912,171 +1051,499 @@ export function generatePDFReport(
     month: 'long',
     day: 'numeric',
   });
-  doc.text(`Dicetak pada: ${dateStr}`, pageWidth - 14, 38, { align: 'right' });
+  doc.text(`Dicetak: ${dateStr}`, pageWidth - 14, 37, { align: 'right' });
 
-  // Project Info Box
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(14, 44, pageWidth - 28, 28, 2, 2, 'F');
-  doc.setDrawColor(226, 232, 240);
-  doc.roundedRect(14, 44, pageWidth - 28, 28, 2, 2, 'D');
-
-  doc.setFontSize(9);
-  doc.setTextColor(...navyColor);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Informasi Proyek:', 18, 50);
-
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Nama Proyek: ${project.name}`, 18, 56);
-  doc.text(`Pemilik (Owner): ${project.owner}`, 18, 61);
-  doc.text(`Nilai Kontrak: ${formatIDR(project.contractValue)}`, 18, 66);
-
-  const realizedFisik = calculatePhysicalProgress(workItems);
-  const targetFisik = calculateTargetProgress(workItems);
-  const deviasi = calculateDeviation(realizedFisik, targetFisik);
-
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Progress Fisik: ${realizedFisik}%`, 110, 56);
-  doc.text(`Target Schedule: ${targetFisik}%`, 110, 61);
-  doc.setTextColor(deviasi < -5 ? 220 : 16, deviasi < -5 ? 38 : 185, deviasi < -5 ? 38 : 129);
-  doc.text(`Deviasi: ${deviasi > 0 ? '+' : ''}${deviasi}%`, 110, 66);
-
-  const startY = 80;
-
-  // Dynamic Content according to reportType
-  if (reportType === 'Progress' || reportType === 'Mingguan' || reportType === 'Bulanan') {
-    doc.setTextColor(...navyColor);
+  // Date Range Subtitle
+  let currentY = 43;
+  if (hasDateFilter && startDate && endDate) {
+    doc.setFillColor(254, 243, 199); // light amber
+    doc.roundedRect(14, currentY, pageWidth - 28, 7, 1.5, 1.5, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('Rincian Progress Item Pekerjaan (Time Schedule)', 14, startY);
-
-    const tableData = workItems.map((item) => [
-      item.no,
-      item.name,
-      item.startDate,
-      item.endDate,
-      `${item.bobotPercent}%`,
-      `${item.targetProgressPercent}%`,
-      `${item.realizedProgressPercent}%`,
-      item.status,
-    ]);
-
-    autoTable(doc, {
-      startY: startY + 4,
-      head: [['No', 'Item Pekerjaan', 'Mulai', 'Selesai', 'Bobot', 'Target', 'Progress', 'Status']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: navyColor, textColor: 255, fontSize: 8, fontStyle: 'bold' },
-      bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
-      columnStyles: {
-        0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 65 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 20 },
-        4: { cellWidth: 15, halign: 'right' },
-        5: { cellWidth: 15, halign: 'right' },
-        6: { cellWidth: 15, halign: 'right' },
-        7: { cellWidth: 20, halign: 'center' },
-      },
-    });
-  } else if (reportType === 'Keuangan') {
-    doc.setTextColor(...navyColor);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('Jadwal & Status Pembayaran Termin Proyek', 14, startY);
-
-    const tableData = terms.map((t) => [
-      t.title,
-      `${t.targetProgressPercent}%`,
-      formatIDR(t.grossValue),
-      formatIDR(t.retentionValue),
-      formatIDR(t.netPayableValue),
-      t.status,
-      t.paymentDate || '-',
-    ]);
-
-    autoTable(doc, {
-      startY: startY + 4,
-      head: [['Termin', 'Target Progress', 'Nilai Bruto', 'Retensi (5%)', 'Nilai Netto', 'Status', 'Tgl Bayar']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: navyColor, textColor: 255, fontSize: 8, fontStyle: 'bold' },
-      bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
-    });
-  } else if (reportType === 'Material') {
-    doc.setTextColor(...navyColor);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('Laporan Stok & Penggunaan Material Konstruksi', 14, startY);
-
-    const tableData = materials.map((m) => [
-      m.name,
-      `${m.volumeTotal} ${m.unit}`,
-      `${m.volumeUsed} ${m.unit}`,
-      `${m.stockRemaining} ${m.unit}`,
-      formatIDR(m.pricePerUnit),
-      m.supplier,
-    ]);
-
-    autoTable(doc, {
-      startY: startY + 4,
-      head: [['Material', 'Total Terima', 'Terpakai', 'Sisa Stok', 'Harga Satuan', 'Supplier']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: navyColor, textColor: 255, fontSize: 8, fontStyle: 'bold' },
-      bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
-    });
-  } else {
-    // Daily log summary
-    doc.setTextColor(...navyColor);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('Catatan Monitoring Harian Proyek (Terakhir)', 14, startY);
-
-    const tableData = dailyLogs.map((log) => [
-      log.date,
-      log.weather,
-      `${log.workerCount} Org`,
-      log.mandorName,
-      log.activitySummary,
-      log.volumeDone,
-    ]);
-
-    autoTable(doc, {
-      startY: startY + 4,
-      head: [['Tanggal', 'Cuaca', 'Pekerja', 'Mandor', 'Kegiatan Utama', 'Volume']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: navyColor, textColor: 255, fontSize: 8, fontStyle: 'bold' },
-      bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
-    });
+    doc.setFontSize(8);
+    doc.setTextColor(180, 83, 9); // amber-700
+    doc.text(
+      `Periode Filter Laporan: ${startDate} s/d ${endDate} | Status Data: Terfilter Berdasarkan Rentang Waktu`,
+      18,
+      currentY + 4.8
+    );
+    currentY += 10;
   }
 
-  // Signatures Section at bottom
+  // Project Info Box
+  if (customOptions?.includeProjectInfo !== false) {
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(14, currentY, pageWidth - 28, 28, 2, 2, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(14, currentY, pageWidth - 28, 28, 2, 2, 'D');
+
+    doc.setFontSize(8.5);
+    doc.setTextColor(...navyColor);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Informasi Proyek:', 18, currentY + 6);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Nama Proyek: ${project.name}`, 18, currentY + 12);
+    doc.text(`Pemilik (Owner): ${project.owner}`, 18, currentY + 17);
+    doc.text(`Nilai Kontrak: ${formatIDR(project.contractValue)}`, 18, currentY + 22);
+
+    const realizedFisik = calculatePhysicalProgress(workItems);
+    const targetFisik = calculateTargetProgress(workItems);
+    const deviasi = calculateDeviation(realizedFisik, targetFisik);
+
+    const infoColX = pageWidth > 220 ? 150 : 110;
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Progress Fisik: ${realizedFisik}%`, infoColX, currentY + 12);
+    doc.text(`Target Schedule: ${targetFisik}%`, infoColX, currentY + 17);
+    doc.setTextColor(deviasi < -5 ? 220 : 16, deviasi < -5 ? 38 : 185, deviasi < -5 ? 38 : 129);
+    doc.text(`Deviasi: ${deviasi > 0 ? '+' : ''}${deviasi}%`, infoColX, currentY + 22);
+
+    currentY += 34;
+  }
+
+  // Dynamic Content according to reportType
+  if (customOptions?.includeDataTable !== false) {
+    if (reportType === 'Progress' || reportType === 'Mingguan' || reportType === 'Bulanan') {
+      doc.setTextColor(...navyColor);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.text(
+        `Rincian Progress Item Pekerjaan (Time Schedule) - ${filteredWorkItems.length} Pekerjaan`,
+        14,
+        currentY
+      );
+
+      const tableData = filteredWorkItems.map((item) => [
+        item.no,
+        item.name,
+        item.startDate,
+        item.endDate,
+        `${item.bobotPercent}%`,
+        `${item.targetProgressPercent}%`,
+        `${item.realizedProgressPercent}%`,
+        item.status,
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        head: [['No', 'Item Pekerjaan', 'Mulai', 'Selesai', 'Bobot', 'Target', 'Progress', 'Status']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: navyColor, textColor: 255, fontSize: 8, fontStyle: 'bold' },
+        bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: orientation === 'landscape' ? 120 : 65 },
+          2: { cellWidth: 20 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 15, halign: 'right' },
+          5: { cellWidth: 15, halign: 'right' },
+          6: { cellWidth: 15, halign: 'right' },
+          7: { cellWidth: 22, halign: 'center' },
+        },
+      });
+    } else if (reportType === 'Keuangan' || reportType === 'Termin') {
+      doc.setTextColor(...navyColor);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.text('Jadwal & Status Pembayaran Termin Proyek', 14, currentY);
+
+      const tableData = filteredTerms.map((t) => [
+        t.title,
+        `${t.targetProgressPercent}%`,
+        formatIDR(t.grossValue),
+        formatIDR(t.retentionValue),
+        formatIDR(t.netPayableValue),
+        t.status,
+        t.paymentDate || '-',
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        head: [['Termin', 'Target Progress', 'Nilai Bruto', 'Retensi (5%)', 'Nilai Netto', 'Status', 'Tgl Bayar']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: navyColor, textColor: 255, fontSize: 8, fontStyle: 'bold' },
+        bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
+      });
+    } else if (reportType === 'Material') {
+      doc.setTextColor(...navyColor);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.text('Laporan Stok & Penggunaan Material Konstruksi', 14, currentY);
+
+      const tableData = filteredMaterials.map((m) => [
+        m.name,
+        `${m.volumeTotal} ${m.unit}`,
+        `${m.volumeUsed} ${m.unit}`,
+        `${m.stockRemaining} ${m.unit}`,
+        formatIDR(m.pricePerUnit),
+        m.supplier,
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        head: [['Material', 'Total Terima', 'Terpakai', 'Sisa Stok', 'Harga Satuan', 'Supplier']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: navyColor, textColor: 255, fontSize: 8, fontStyle: 'bold' },
+        bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
+      });
+    } else if (reportType === 'Kurva-S') {
+      doc.setTextColor(...navyColor);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.text('Analisis Progres Kurva-S Proyek Mingguan', 14, currentY);
+
+      const sData = generateSCurveData(workItems);
+      const tableData = sData.slice(0, 16).map((pt) => [
+        pt.weekLabel,
+        pt.date,
+        `${pt.targetCumulativePercent}%`,
+        pt.realizedCumulativePercent !== undefined ? `${pt.realizedCumulativePercent}%` : '-',
+        pt.deviationPercent !== undefined ? `${pt.deviationPercent > 0 ? '+' : ''}${pt.deviationPercent}%` : '-',
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        head: [['Minggu Ke', 'Tanggal Acuan', 'Target Kumulatif', 'Realisasi Kumulatif', 'Deviasi']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: navyColor, textColor: 255, fontSize: 8, fontStyle: 'bold' },
+        bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
+      });
+    } else if (reportType === 'RAB') {
+      doc.setTextColor(...navyColor);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.text('Rekapitulasi Rencana Anggaran Biaya (RAB) Proyek', 14, currentY);
+
+      const currentRab = rabDoc || OFFICIAL_RAB_DOCUMENT;
+      const tableData = currentRab.sectors.map((sec) => [
+        `Sektor ${sec.sectorNumber}`,
+        sec.name,
+        `${sec.percentage.toFixed(2)}%`,
+        formatIDR(sec.budget),
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        head: [['Kode', 'Uraian Sektor Pekerjaan', 'Bobot', 'Alokasi Anggaran']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: navyColor, textColor: 255, fontSize: 8, fontStyle: 'bold' },
+        bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
+      });
+    } else {
+      // Daily log summary
+      doc.setTextColor(...navyColor);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.text(`Catatan Monitoring Harian (${filteredDailyLogs.length} Laporan)`, 14, currentY);
+
+      const tableData = filteredDailyLogs.map((log) => [
+        log.date,
+        log.weather,
+        `${log.workerCount} Org`,
+        log.mandorName,
+        log.activitySummary,
+        log.volumeDone,
+      ]);
+
+      autoTable(doc, {
+        startY: currentY + 3,
+        head: [['Tanggal', 'Cuaca', 'Pekerja', 'Mandor', 'Kegiatan Utama', 'Volume']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: navyColor, textColor: 255, fontSize: 8, fontStyle: 'bold' },
+        bodyStyles: { fontSize: 7, textColor: [30, 41, 59] },
+      });
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const finalY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 15 : startY + 60;
-  const pageHeight = doc.internal.pageSize.getHeight();
+  let nextSectionY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : currentY + 50;
 
-  const sigY = finalY + 45 > pageHeight ? pageHeight - 40 : finalY;
+  // Custom Notes / Memo Disposisi
+  if (customOptions?.customNotes && customOptions.customNotes.trim().length > 0) {
+    if (nextSectionY + 30 > pageHeight - 30) {
+      doc.addPage();
+      nextSectionY = 20;
+    }
 
-  doc.setFontSize(9);
-  doc.setTextColor(...navyColor);
-  doc.setFont('helvetica', 'bold');
+    doc.setFillColor(255, 247, 237); // orange-50
+    doc.setDrawColor(253, 186, 116); // orange-300
+    doc.roundedRect(14, nextSectionY, pageWidth - 28, 22, 2, 2, 'FD');
 
-  // Left Signature - Site Manager
-  doc.text('Dibuat Oleh,', 25, sigY);
-  doc.text('Site Manager Proyek', 25, sigY + 5);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`( ${project.siteManager || 'Ir. Agus Pratama'} )`, 25, sigY + 25);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(194, 65, 12);
+    doc.text('CATATAN KHUSUS & DISPOSISI LAPANGAN:', 18, nextSectionY + 6);
 
-  // Right Signature - Direktur Owner
-  doc.setFont('helvetica', 'bold');
-  doc.text('Disetujui Oleh,', pageWidth - 65, sigY);
-  doc.text('Direktur PT. Foresyndo', pageWidth - 65, sigY + 5);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`( ${project.director || 'H. Bambang S., M.T.'} )`, pageWidth - 65, sigY + 25);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(51, 65, 85);
+    const splitNotes = doc.splitTextToSize(customOptions.customNotes, pageWidth - 36);
+    doc.text(splitNotes, 18, nextSectionY + 12);
 
-  doc.save(`Laporan_${reportType}_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+    nextSectionY += 26;
+  }
+
+  // =========================================================================
+  // SECTION: DOKUMENTASI FOTO LAPANGAN PER KATEGORI
+  // =========================================================================
+  if (customOptions?.includePhotos !== false && aggregatedPhotos.length > 0) {
+    // Group photos by category
+    const categoryGroups: { category: string; photos: PhotoItem[] }[] = [];
+    const knownCategories: PhotoCategory[] = [
+      'Pondasi',
+      'Struktur',
+      'Arsitektur',
+      'MEP',
+      'Finishing',
+      'Progress Hari Ini',
+    ];
+
+    knownCategories.forEach((cat) => {
+      const catPhotos = aggregatedPhotos.filter((p) => p.category === cat);
+      if (catPhotos.length > 0) {
+        const limit = customOptions?.maxPhotosPerCategory || 10;
+        categoryGroups.push({ category: cat, photos: catPhotos.slice(0, limit) });
+      }
+    });
+
+    // Any other category
+    const remainingPhotos = aggregatedPhotos.filter(
+      (p) => !knownCategories.includes(p.category)
+    );
+    if (remainingPhotos.length > 0) {
+      categoryGroups.push({ category: 'Dokumentasi Lainnya', photos: remainingPhotos });
+    }
+
+    if (categoryGroups.length > 0) {
+      // Start photo documentation section on fresh page
+      doc.addPage();
+
+      // Mini Header for Attachment Page
+      doc.setFillColor(...navyColor);
+      doc.rect(0, 0, pageWidth, 18, 'F');
+      doc.setFillColor(...orangeColor);
+      doc.rect(0, 18, pageWidth, 1.5, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('LAMPIRAN DOKUMENTASI FOTO LAPANGAN RESMI PER KATEGORI', 14, 11);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(
+        `Total: ${aggregatedPhotos.length} Foto Terverifikasi | Proyek: ${project.name}`,
+        pageWidth - 14,
+        11,
+        { align: 'right' }
+      );
+
+      let photoY = 26;
+
+      // Render Category Summary Pills
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(14, photoY, pageWidth - 28, 9, 1.5, 1.5, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...navyColor);
+      doc.text('Distribusi Foto:', 18, photoY + 6);
+
+      let pillX = 42;
+      categoryGroups.forEach((cg) => {
+        doc.setFillColor(234, 88, 12);
+        doc.roundedRect(pillX, photoY + 2, 22, 5, 1, 1, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(6.5);
+        doc.text(`${cg.category}: ${cg.photos.length}`, pillX + 11, photoY + 5.5, { align: 'center' });
+        pillX += 24;
+      });
+
+      photoY += 14;
+
+      // Columns Configuration: 2 columns in portrait, 3 in landscape
+      const cols = orientation === 'landscape' ? 3 : 2;
+      const totalWidth = pageWidth - 28;
+      const gap = 5;
+      const colWidth = (totalWidth - gap * (cols - 1)) / cols;
+      const cardHeight = 62; // photo height ~36mm + text info ~26mm
+
+      for (const group of categoryGroups) {
+        // Category Header Badge
+        if (photoY + 20 > pageHeight - 25) {
+          doc.addPage();
+          photoY = 20;
+        }
+
+        doc.setFillColor(241, 245, 249);
+        doc.roundedRect(14, photoY, pageWidth - 28, 7.5, 1.5, 1.5, 'F');
+        doc.setFillColor(...orangeColor);
+        doc.rect(14, photoY, 3, 7.5, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(...navyColor);
+        doc.text(
+          `KATEGORI: ${group.category.toUpperCase()} (${group.photos.length} Foto)`,
+          20,
+          photoY + 5.2
+        );
+        photoY += 11;
+
+        // Render photo cards in grid
+        for (let i = 0; i < group.photos.length; i++) {
+          const photo = group.photos[i];
+          const colIndex = i % cols;
+
+          if (colIndex === 0 && photoY + cardHeight > pageHeight - 25) {
+            doc.addPage();
+            photoY = 20;
+          }
+
+          const cardX = 14 + colIndex * (colWidth + gap);
+
+          // Card Outer Border
+          doc.setFillColor(255, 255, 255);
+          doc.setDrawColor(226, 232, 240);
+          doc.roundedRect(cardX, photoY, colWidth, cardHeight, 2, 2, 'FD');
+
+          // Photo Frame Container
+          const imgH = 34;
+          const imgW = colWidth - 4;
+          const imgX = cardX + 2;
+          const imgY = photoY + 2;
+
+          let imageDrawn = false;
+          try {
+            const dataUrl = await fetchImageDataUrl(photo.url);
+            if (dataUrl) {
+              doc.addImage(dataUrl, 'JPEG', imgX, imgY, imgW, imgH, undefined, 'FAST');
+              imageDrawn = true;
+            }
+          } catch {
+            imageDrawn = false;
+          }
+
+          if (!imageDrawn) {
+            // Placeholder box with blueprint look
+            doc.setFillColor(241, 245, 249);
+            doc.roundedRect(imgX, imgY, imgW, imgH, 1.5, 1.5, 'F');
+            doc.setTextColor(...grayColor);
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(7.5);
+            doc.text('[Dokumentasi Resmi Proyek]', imgX + imgW / 2, imgY + 16, { align: 'center' });
+            doc.setFontSize(6.5);
+            doc.text(photo.category, imgX + imgW / 2, imgY + 22, { align: 'center' });
+          }
+
+          // Inner border around image
+          doc.setDrawColor(203, 213, 225);
+          doc.rect(imgX, imgY, imgW, imgH, 'D');
+
+          // Caption & Info area
+          const textY = photoY + imgH + 5;
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.5);
+          doc.setTextColor(...navyColor);
+          const title = photo.title.length > 40 ? photo.title.substring(0, 38) + '...' : photo.title;
+          doc.text(title, cardX + 3, textY);
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(6.5);
+          doc.setTextColor(...grayColor);
+          doc.text(`Tgl: ${photo.date} | Oleh: ${photo.uploadedBy || 'Site Manager'}`, cardX + 3, textY + 4.5);
+
+          if (photo.notes) {
+            doc.setFontSize(6);
+            doc.setTextColor(71, 85, 105);
+            const notesText = photo.notes.length > 55 ? photo.notes.substring(0, 52) + '...' : photo.notes;
+            doc.text(notesText, cardX + 3, textY + 9);
+          }
+
+          // Advance row if last column or last item
+          if (colIndex === cols - 1 || i === group.photos.length - 1) {
+            photoY += cardHeight + 4;
+          }
+        }
+
+        photoY += 3;
+      }
+
+      nextSectionY = photoY + 5;
+    }
+  }
+
+  // =========================================================================
+  // SIGNATURES SECTION
+  // =========================================================================
+  if (customOptions?.includeSignatures !== false) {
+    if (nextSectionY + 40 > pageHeight - 15) {
+      doc.addPage();
+      nextSectionY = 25;
+    }
+
+    const sigY = nextSectionY + 10;
+    doc.setFontSize(8.5);
+    doc.setTextColor(...navyColor);
+
+    const includeSiteManager = customOptions?.signatories?.siteManager !== false;
+    const includeDirector = customOptions?.signatories?.director !== false;
+    const includeSupervisoryMK = customOptions?.signatories?.supervisoryMK === true;
+
+    if (includeSupervisoryMK) {
+      // 3 Signatures: Kontraktor, Konsultan Pengawas (MK), Owner/Direktur
+      const colW = (pageWidth - 28) / 3;
+
+      // Col 1 - Site Manager
+      doc.setFont('helvetica', 'bold');
+      doc.text('Dibuat Oleh,', 14 + colW * 0.1, sigY);
+      doc.text('Site Manager Proyek', 14 + colW * 0.1, sigY + 4.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`( ${project.siteManager || 'Ir. Agus Pratama'} )`, 14 + colW * 0.1, sigY + 23);
+
+      // Col 2 - Konsultan Pengawas / MK
+      doc.setFont('helvetica', 'bold');
+      doc.text('Diperiksa Oleh,', 14 + colW * 1.1, sigY);
+      doc.text('Konsultan Pengawas (MK)', 14 + colW * 1.1, sigY + 4.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text('( Ir. Budi Santoso, IAI )', 14 + colW * 1.1, sigY + 23);
+
+      // Col 3 - Direktur Owner
+      doc.setFont('helvetica', 'bold');
+      doc.text('Disetujui Oleh,', 14 + colW * 2.1, sigY);
+      doc.text('Direktur PT. Foresyndo', 14 + colW * 2.1, sigY + 4.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`( ${project.director || 'H. Bambang S., M.T.'} )`, 14 + colW * 2.1, sigY + 23);
+    } else {
+      // Standard 2 Signatures
+      if (includeSiteManager) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Dibuat Oleh,', 25, sigY);
+        doc.text('Site Manager Proyek', 25, sigY + 4.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`( ${project.siteManager || 'Ir. Agus Pratama'} )`, 25, sigY + 23);
+      }
+
+      if (includeDirector) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Disetujui Oleh,', pageWidth - 65, sigY);
+        doc.text('Direktur PT. Foresyndo', pageWidth - 65, sigY + 4.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`( ${project.director || 'H. Bambang S., M.T.'} )`, pageWidth - 65, sigY + 23);
+      }
+    }
+  }
+
+  // Generate clean filename
+  const dateSuffix = hasDateFilter && startDate && endDate ? `_${startDate}_sd_${endDate}` : `_${new Date().toISOString().split('T')[0]}`;
+  const fileName = `Laporan_${reportType}_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}${dateSuffix}.pdf`;
+  doc.save(fileName);
 }
+
 
 /**
  * Export Excel File (.xlsx)

@@ -330,14 +330,79 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
-      setUploadForm((prev) => ({
-        ...prev,
-        fileName: file.name,
-        title: prev.title || file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
-        fileType: type,
-        fileSize: sizeStr,
-        fileUrl: dataUrl,
-      }));
+
+      // Optimasi gambar besar via HTML5 canvas agar tidak membengkak di snapshot/Supabase
+      if (type === 'image' && dataUrl && dataUrl.length > 250000) {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1600;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const compressed = canvas.toDataURL('image/jpeg', 0.82);
+            const compSizeKb = Math.round((compressed.length * 0.75) / 1024);
+            setUploadForm((prev) => ({
+              ...prev,
+              fileName: file.name,
+              title:
+                prev.title ||
+                file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+              fileType: type,
+              fileSize: `${compSizeKb} KB`,
+              fileUrl: compressed,
+            }));
+            return;
+          }
+          setUploadForm((prev) => ({
+            ...prev,
+            fileName: file.name,
+            title:
+              prev.title ||
+              file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+            fileType: type,
+            fileSize: sizeStr,
+            fileUrl: dataUrl,
+          }));
+        };
+        img.onerror = () => {
+          setUploadForm((prev) => ({
+            ...prev,
+            fileName: file.name,
+            title:
+              prev.title ||
+              file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+            fileType: type,
+            fileSize: sizeStr,
+            fileUrl: dataUrl,
+          }));
+        };
+        img.src = dataUrl;
+      } else {
+        setUploadForm((prev) => ({
+          ...prev,
+          fileName: file.name,
+          title:
+            prev.title ||
+            file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+          fileType: type,
+          fileSize: sizeStr,
+          fileUrl: dataUrl,
+        }));
+      }
     };
     reader.readAsDataURL(file);
   };
