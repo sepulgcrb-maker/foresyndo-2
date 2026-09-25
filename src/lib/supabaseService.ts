@@ -1044,10 +1044,16 @@ export async function pushAllDataToSupabase(
         if (proxyRes.ok) {
           const proxyData = await proxyRes.json();
           if (proxyData.success) {
-            snapshotError = null; // Berhasil tersimpan ke Supabase via server proxy!
             console.log(
               'Snapshot project_snapshots berhasil disimpan ke Supabase Cloud via server proxy fallback.'
             );
+            return {
+              success: true,
+              message:
+                'Data berhasil disimpan ke Supabase Cloud melalui server proxy bridge.',
+              syncedAt: timestamp,
+              counts,
+            };
           } else {
             snapshotError = new Error(
               proxyData.message || 'Gagal menyimpan snapshot via server proxy.'
@@ -1446,6 +1452,31 @@ export async function pushAllDataToSupabase(
       second: '2-digit',
     });
 
+    // Fallback: If client direct fetch fails (e.g. CORS or adblocker), sync via server cloud bridge
+    try {
+      if (typeof window !== 'undefined') {
+        const resp = await fetch('/api/project/snapshot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payload }),
+        });
+        if (resp.ok) {
+          const resJson = await resp.json();
+          if (resJson.success) {
+            console.log('[SUPABASE] Saved project data via server cloud bridge');
+            return {
+              success: true,
+              message: 'Data berhasil disinkronkan ke Supabase Cloud melalui server bridge.',
+              syncedAt: timeStr,
+              counts,
+            };
+          }
+        }
+      }
+    } catch (bridgeErr) {
+      console.warn('Server cloud bridge save error:', bridgeErr);
+    }
+
     return {
       success: false,
       message:
@@ -1481,9 +1512,31 @@ export async function pullAllDataFromSupabase(
   const supabase = getSupabase();
 
   if (!supabase) {
-    console.error(
-      'Supabase client tidak tersedia. Operasi pull dibatalkan.'
+    console.warn(
+      'Supabase client tidak tersedia. Menggunakan cloud bridge snapshot.'
     );
+  }
+
+  // 0. Primary Resilient Cloud Bridge:
+  // Server-side bridge connects directly to Supabase Cloud, bypassing browser CORS / adblocker / sandbox issues
+  if (typeof window !== 'undefined') {
+    try {
+      const resp = await fetch('/api/project/snapshot');
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json.success && json.data) {
+          console.log(
+            `[SUPABASE] Berhasil memuat data proyek via cloud bridge (sumber: ${json.source || 'supabase'})`
+          );
+          return json.data as ProjectSyncPayload;
+        }
+      }
+    } catch (bridgeErr) {
+      console.warn('[SUPABASE] Notice: Server cloud bridge fetch attempt:', bridgeErr);
+    }
+  }
+
+  if (!supabase) {
     throw new Error('Supabase client tidak terkonfigurasi');
   }
 
@@ -1492,7 +1545,7 @@ export async function pullAllDataFromSupabase(
     const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
     console.log('[AUTH] session:', sessionData?.session ?? null);
     if (sessionErr) {
-      console.warn('[AUTH] getSession error:', sessionErr);
+      console.warn('[AUTH] getSession notice:', sessionErr);
     }
 
     // 1. Load project_info
@@ -1501,7 +1554,7 @@ export async function pullAllDataFromSupabase(
       .select('*');
 
     if (projectInfoErr) {
-      console.error('[SUPABASE] project_info error:', projectInfoErr);
+      console.warn('[SUPABASE] project_info fetch notice:', projectInfoErr?.message || projectInfoErr);
       throw projectInfoErr;
     }
     console.log('[SUPABASE] project_info loaded:', projectInfoRows?.length ?? 0);
@@ -1512,7 +1565,7 @@ export async function pullAllDataFromSupabase(
       .select('*');
 
     if (workItemsErr) {
-      console.error('[SUPABASE] work_items error:', workItemsErr);
+      console.warn('[SUPABASE] work_items fetch notice:', workItemsErr?.message || workItemsErr);
       throw workItemsErr;
     }
     console.log('[SUPABASE] work_items loaded:', workItemsRows?.length ?? 0);
@@ -1523,7 +1576,7 @@ export async function pullAllDataFromSupabase(
       .select('*');
 
     if (dailyLogsErr) {
-      console.error('[SUPABASE] daily_logs error:', dailyLogsErr);
+      console.warn('[SUPABASE] daily_logs fetch notice:', dailyLogsErr?.message || dailyLogsErr);
       throw dailyLogsErr;
     }
     console.log('[SUPABASE] daily_logs loaded:', dailyLogsRows?.length ?? 0);
@@ -1534,7 +1587,7 @@ export async function pullAllDataFromSupabase(
       .select('*');
 
     if (workersErr) {
-      console.error('[SUPABASE] workers error:', workersErr);
+      console.warn('[SUPABASE] workers fetch notice:', workersErr?.message || workersErr);
       throw workersErr;
     }
     console.log('[SUPABASE] workers loaded:', workersRows?.length ?? 0);
@@ -1545,7 +1598,7 @@ export async function pullAllDataFromSupabase(
       .select('*');
 
     if (equipmentsErr) {
-      console.error('[SUPABASE] equipments error:', equipmentsErr);
+      console.warn('[SUPABASE] equipments fetch notice:', equipmentsErr?.message || equipmentsErr);
       throw equipmentsErr;
     }
     console.log('[SUPABASE] equipments loaded:', equipmentsRows?.length ?? 0);
@@ -1556,7 +1609,7 @@ export async function pullAllDataFromSupabase(
       .select('*');
 
     if (materialsErr) {
-      console.error('[SUPABASE] material_inventory error:', materialsErr);
+      console.warn('[SUPABASE] material_inventory fetch notice:', materialsErr?.message || materialsErr);
       throw materialsErr;
     }
     console.log('[SUPABASE] material_inventory loaded:', materialsRows?.length ?? 0);
@@ -1567,7 +1620,7 @@ export async function pullAllDataFromSupabase(
       .select('*');
 
     if (paymentTermsErr) {
-      console.error('[SUPABASE] payment_terms error:', paymentTermsErr);
+      console.warn('[SUPABASE] payment_terms fetch notice:', paymentTermsErr?.message || paymentTermsErr);
       throw paymentTermsErr;
     }
     console.log('[SUPABASE] payment_terms loaded:', paymentTermsRows?.length ?? 0);
@@ -1578,7 +1631,7 @@ export async function pullAllDataFromSupabase(
       .select('*');
 
     if (documentsErr) {
-      console.error('[SUPABASE] project_documents error:', documentsErr);
+      console.warn('[SUPABASE] project_documents fetch notice:', documentsErr?.message || documentsErr);
       throw documentsErr;
     }
     console.log('[SUPABASE] project_documents loaded:', documentsRows?.length ?? 0);
@@ -1590,7 +1643,7 @@ export async function pullAllDataFromSupabase(
       .order('updated_at', { ascending: false });
 
     if (snapshotErr) {
-      console.error('[SUPABASE] project_snapshots error:', snapshotErr);
+      console.warn('[SUPABASE] project_snapshots fetch notice:', snapshotErr?.message || snapshotErr);
     } else {
       console.log('[SUPABASE] project_snapshots loaded:', snapshotRows?.length ?? 0);
     }
@@ -1625,9 +1678,19 @@ export async function pullAllDataFromSupabase(
       status: (rawProject.status || matchedProjectRow?.status || 'Belum Mulai') as any,
       logoUrl: String(rawProject.logoUrl || '/assets/logo.png'),
       contractNumber: String(rawProject.contractNumber || matchedProjectRow?.contract_number || 'PR-2026-FGI-004'),
-      contractor: String(rawProject.contractor || matchedProjectRow?.contractor || 'PT. GONG MBE LINK PAMUNGKAS'),
+      // Kontraktor Pelaksana: PT. GONG MBE LINK PAMUNGKAS (bukan Foresyndo yang merupakan Owner)
+      contractor: String(
+        rawProject.contractor && !rawProject.contractor.toLowerCase().includes('foresyndo')
+          ? rawProject.contractor
+          : matchedProjectRow?.contractor || 'PT. GONG MBE LINK PAMUNGKAS'
+      ),
       contractorProfile: rawProject.contractorProfile,
-      director: String(rawProject.director || 'HASANUDIN'),
+      // Direktur Utama Owner: HASANUDIN (bukan Rohman Priyambodo yang merupakan Direktur Kontraktor)
+      director: String(
+        rawProject.director && !rawProject.director.toLowerCase().includes('rohman')
+          ? rawProject.director
+          : 'HASANUDIN'
+      ),
       siteManager: String(rawProject.siteManager || 'EKO YULIANTO'),
       qcEngineer: String(rawProject.qcEngineer || 'KIKI'),
       financeAdmin: String(rawProject.financeAdmin || 'COKRO'),
@@ -1839,7 +1902,24 @@ export async function pullAllDataFromSupabase(
 
     return payload;
   } catch (error: any) {
-    console.error('Supabase pullAllDataFromSupabase error:', error);
+    console.warn('Supabase pullAllDataFromSupabase encountered direct fetch issue:', error?.message || error);
+
+    // Resilient fallback: Try fetching from /api/project/snapshot (which queries Supabase Cloud from the server)
+    try {
+      if (typeof window !== 'undefined') {
+        const resp = await fetch('/api/project/snapshot');
+        if (resp.ok) {
+          const json = await resp.json();
+          if (json.success && json.data) {
+            console.log('[SUPABASE] Successfully pulled project snapshot via server cloud bridge (source:', json.source, ')');
+            return json.data as ProjectSyncPayload;
+          }
+        }
+      }
+    } catch (fallbackErr) {
+      console.warn('Server cloud bridge fallback notice:', fallbackErr);
+    }
+
     throw error;
   }
 }
@@ -1853,13 +1933,13 @@ export async function deleteWorkItemFromSupabase(id: string): Promise<boolean> {
   try {
     const { error } = await supabase.from('work_items').delete().eq('id', id);
     if (error) {
-      console.error('[SUPABASE] work_items delete error:', error);
+      console.warn('[SUPABASE] work_items delete notice:', error);
       return false;
     }
     console.log('[SUPABASE] work_items deleted:', id);
     return true;
   } catch (err) {
-    console.error('[SUPABASE] work_items delete unexpected error:', err);
+    console.warn('[SUPABASE] work_items delete unexpected notice:', err);
     return false;
   }
 }
@@ -1873,13 +1953,13 @@ export async function deleteDocumentFromSupabase(id: string): Promise<boolean> {
   try {
     const { error } = await supabase.from('project_documents').delete().eq('id', id);
     if (error) {
-      console.error('[SUPABASE] project_documents delete error:', error);
+      console.warn('[SUPABASE] project_documents delete notice:', error);
       return false;
     }
     console.log('[SUPABASE] project_documents deleted:', id);
     return true;
   } catch (err) {
-    console.error('[SUPABASE] project_documents delete unexpected error:', err);
+    console.warn('[SUPABASE] project_documents delete unexpected notice:', err);
     return false;
   }
 }
@@ -1893,13 +1973,13 @@ export async function deleteDailyLogFromSupabase(id: string): Promise<boolean> {
   try {
     const { error } = await supabase.from('daily_logs').delete().eq('id', id);
     if (error) {
-      console.error('[SUPABASE] daily_logs delete error:', error);
+      console.warn('[SUPABASE] daily_logs delete notice:', error);
       return false;
     }
     console.log('[SUPABASE] daily_logs deleted:', id);
     return true;
   } catch (err) {
-    console.error('[SUPABASE] daily_logs delete unexpected error:', err);
+    console.warn('[SUPABASE] daily_logs delete unexpected notice:', err);
     return false;
   }
 }
@@ -1913,13 +1993,13 @@ export async function deleteMaterialFromSupabase(id: string): Promise<boolean> {
   try {
     const { error } = await supabase.from('material_inventory').delete().eq('id', id);
     if (error) {
-      console.error('[SUPABASE] material_inventory delete error:', error);
+      console.warn('[SUPABASE] material_inventory delete notice:', error);
       return false;
     }
     console.log('[SUPABASE] material_inventory deleted:', id);
     return true;
   } catch (err) {
-    console.error('[SUPABASE] material_inventory delete unexpected error:', err);
+    console.warn('[SUPABASE] material_inventory delete unexpected notice:', err);
     return false;
   }
 }

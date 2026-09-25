@@ -339,6 +339,7 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
         });
       } else if (editingRole === 'Konsultan') {
         onUpdateProjectSignatories({
+          consultantMK: formData.personName,
           inspector: formData.personName,
           qcEngineer: formData.personName,
         });

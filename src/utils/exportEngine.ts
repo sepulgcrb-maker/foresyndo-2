@@ -13,7 +13,7 @@ import {
   PhotoCategory,
   PDFCustomExportOptions,
 } from '../types';
-import { OFFICIAL_RAB_DOCUMENT, OfficialRABDocument } from '../data/initialData';
+import { OFFICIAL_RAB_DOCUMENT, OfficialRABDocument, INITIAL_PHOTOS } from '../data/initialData';
 import {
   formatIDR,
   calculatePhysicalProgress,
@@ -859,7 +859,7 @@ export function generateOfficialRABPDF(
  */
 async function fetchImageDataUrl(url: string): Promise<string | null> {
   if (!url) return null;
-  if (url.startsWith('data:image')) return url;
+  if (url.startsWith('data:image/jpeg') || url.startsWith('data:image/png')) return url;
   return new Promise((resolve) => {
     try {
       const img = new Image();
@@ -867,14 +867,16 @@ async function fetchImageDataUrl(url: string): Promise<string | null> {
       img.onload = () => {
         try {
           const canvas = document.createElement('canvas');
-          const maxW = 500;
+          const maxW = 600;
           const scale = img.width > maxW ? maxW / img.width : 1;
-          canvas.width = Math.round((img.naturalWidth || img.width || 400) * scale);
+          canvas.width = Math.round((img.naturalWidth || img.width || 450) * scale);
           canvas.height = Math.round((img.naturalHeight || img.height || 300) * scale);
           const ctx = canvas.getContext('2d');
           if (ctx) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL('image/jpeg', 0.8));
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
             return;
           }
         } catch {
@@ -883,7 +885,7 @@ async function fetchImageDataUrl(url: string): Promise<string | null> {
         resolve(null);
       };
       img.onerror = () => resolve(null);
-      setTimeout(() => resolve(null), 2500);
+      setTimeout(() => resolve(null), 3000);
       img.src = url;
     } catch {
       resolve(null);
@@ -978,7 +980,8 @@ export async function generatePDFReport(
   }
 
   // 2. Aggregate and filter photo documentation
-  let aggregatedPhotos: PhotoItem[] = photos ? [...photos] : [];
+  let aggregatedPhotos: PhotoItem[] =
+    photos && photos.length > 0 ? [...photos] : [...INITIAL_PHOTOS];
 
   // Also include photos from daily logs if any
   filteredDailyLogs.forEach((dl) => {
@@ -1016,6 +1019,9 @@ export async function generatePDFReport(
       customOptions.photoCategories!.includes(p.category)
     );
   }
+
+  // Ensure documentation photos are always sorted newest / latest first
+  aggregatedPhotos.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
   // Letterhead Header
   doc.setFillColor(...navyColor);
@@ -1289,29 +1295,32 @@ export async function generatePDFReport(
   }
 
   // =========================================================================
-  // SECTION: DOKUMENTASI FOTO LAPANGAN PER KATEGORI
+  // SECTION: DOKUMENTASI FOTO LAPANGAN PER KATEGORI (RINGKASAN & GRID RAPI)
   // =========================================================================
   if (customOptions?.includePhotos !== false && aggregatedPhotos.length > 0) {
-    // Group photos by category
-    const categoryGroups: { category: string; photos: PhotoItem[] }[] = [];
+    // Distinct known categories
     const knownCategories: PhotoCategory[] = [
       'Pondasi',
       'Struktur',
+      'Lantai',
+      'Atap',
       'Arsitektur',
-      'MEP',
       'Finishing',
+      'MEP',
       'Progress Hari Ini',
     ];
+
+    const categoryGroups: { category: string; photos: PhotoItem[] }[] = [];
 
     knownCategories.forEach((cat) => {
       const catPhotos = aggregatedPhotos.filter((p) => p.category === cat);
       if (catPhotos.length > 0) {
-        const limit = customOptions?.maxPhotosPerCategory || 10;
+        const limit = customOptions?.maxPhotosPerCategory || 12;
         categoryGroups.push({ category: cat, photos: catPhotos.slice(0, limit) });
       }
     });
 
-    // Any other category
+    // Any other category outside known list
     const remainingPhotos = aggregatedPhotos.filter(
       (p) => !knownCategories.includes(p.category)
     );
@@ -1323,62 +1332,148 @@ export async function generatePDFReport(
       // Start photo documentation section on fresh page
       doc.addPage();
 
-      // Mini Header for Attachment Page
+      // Top Header Bar for Photo Documentation Page
       doc.setFillColor(...navyColor);
-      doc.rect(0, 0, pageWidth, 18, 'F');
+      doc.rect(0, 0, pageWidth, 20, 'F');
       doc.setFillColor(...orangeColor);
-      doc.rect(0, 18, pageWidth, 1.5, 'F');
+      doc.rect(0, 20, pageWidth, 1.5, 'F');
 
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
-      doc.text('LAMPIRAN DOKUMENTASI FOTO LAPANGAN RESMI PER KATEGORI', 14, 11);
+      doc.text('LAMPIRAN DOKUMENTASI FOTO LAPANGAN RESMI (PROGRESS TERBARU)', 14, 11);
 
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
+      doc.setFontSize(7.5);
+      doc.setTextColor(203, 213, 225);
       doc.text(
-        `Total: ${aggregatedPhotos.length} Foto Terverifikasi | Proyek: ${project.name}`,
+        `Proyek: ${project.name} | Kontraktor: ${project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'} | MK: ${project.consultantMK || 'PT. BENNATIN SURYA CIPTA'}`,
+        14,
+        16.5
+      );
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(255, 255, 255);
+      doc.text(
+        `Total: ${aggregatedPhotos.length} Foto Terarsip`,
         pageWidth - 14,
-        11,
+        12,
         { align: 'right' }
       );
 
-      let photoY = 26;
+      let photoY = 27;
 
-      // Render Category Summary Pills
+      // 1. Executive Summary & Statistic Banner
+      const summaryBoxH = 22;
       doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, photoY, pageWidth - 28, 9, 1.5, 1.5, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.5);
-      doc.setTextColor(...navyColor);
-      doc.text('Distribusi Foto:', 18, photoY + 6);
+      doc.roundedRect(14, photoY, pageWidth - 28, summaryBoxH, 2, 2, 'F');
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(14, photoY, pageWidth - 28, summaryBoxH, 2, 2, 'D');
 
-      let pillX = 42;
+      // Left column: Info & Dates
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...navyColor);
+      doc.text('Ringkasan Dokumentasi Visual Lapangan Terkini:', 18, photoY + 6);
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+
+      const latestPhotoDate = aggregatedPhotos[0]?.date || '-';
+      const oldestPhotoDate = aggregatedPhotos[aggregatedPhotos.length - 1]?.date || '-';
+      doc.text(`Periode Pengambilan: ${oldestPhotoDate} s/d ${latestPhotoDate}`, 18, photoY + 12);
+      doc.text(
+        `Status Verifikasi: Seluruh foto terverifikasi opname fisik lapangan bersama Konsultan MK`,
+        18,
+        photoY + 17
+      );
+
+      // Right metrics badge
+      const badgeColX = pageWidth > 220 ? pageWidth - 80 : pageWidth - 65;
+      doc.setFillColor(16, 185, 129); // emerald
+      doc.roundedRect(badgeColX, photoY + 4, 50, 6, 1, 1, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(255, 255, 255);
+      doc.text('DOKUMENTASI VALID', badgeColX + 25, photoY + 8, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Kategori: ${categoryGroups.length} Sektor`, badgeColX + 25, photoY + 14, { align: 'center' });
+      doc.text(`Dicetak: ${new Date().toISOString().split('T')[0]}`, badgeColX + 25, photoY + 18, { align: 'center' });
+
+      photoY += summaryBoxH + 4;
+
+      // 2. Category Distribution Pills
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(14, photoY, pageWidth - 28, 8, 1.5, 1.5, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(...navyColor);
+      doc.text('Distribusi Kategori:', 18, photoY + 5.2);
+
+      let pillX = 46;
+      const categoryColors: Record<string, [number, number, number]> = {
+        Pondasi: [2, 132, 199], // sky-600
+        Struktur: [37, 99, 235], // blue-600
+        Lantai: [13, 148, 136], // teal-600
+        Atap: [79, 70, 229], // indigo-600
+        Arsitektur: [217, 119, 6], // amber-600
+        Finishing: [234, 88, 12], // orange-600
+        MEP: [124, 58, 237], // purple-600
+        'Progress Hari Ini': [5, 150, 105], // emerald-600
+      };
+
       categoryGroups.forEach((cg) => {
-        doc.setFillColor(234, 88, 12);
-        doc.roundedRect(pillX, photoY + 2, 22, 5, 1, 1, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(6.5);
-        doc.text(`${cg.category}: ${cg.photos.length}`, pillX + 11, photoY + 5.5, { align: 'center' });
-        pillX += 24;
+        if (pillX + 26 < pageWidth - 16) {
+          const color = categoryColors[cg.category] || [71, 85, 105];
+          doc.setFillColor(...color);
+          doc.roundedRect(pillX, photoY + 1.5, 24, 5, 1, 1, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(6);
+          doc.setFont('helvetica', 'bold');
+          const catName = cg.category.length > 10 ? cg.category.substring(0, 9) + '.' : cg.category;
+          doc.text(`${catName} (${cg.photos.length})`, pillX + 12, photoY + 4.8, { align: 'center' });
+          pillX += 26;
+        }
       });
 
-      photoY += 14;
+      photoY += 13;
 
       // Columns Configuration: 2 columns in portrait, 3 in landscape
       const cols = orientation === 'landscape' ? 3 : 2;
       const totalWidth = pageWidth - 28;
-      const gap = 5;
+      const gap = 6;
       const colWidth = (totalWidth - gap * (cols - 1)) / cols;
-      const cardHeight = 62; // photo height ~36mm + text info ~26mm
+      const cardHeight = 70; // 38mm photo + 32mm structured text
+      const imgH = 38;
+      const imgW = colWidth - 4;
 
       for (const group of categoryGroups) {
-        // Category Header Badge
-        if (photoY + 20 > pageHeight - 25) {
+        // Ensure category header does not collide with page boundary
+        if (photoY + 24 > pageHeight - 25) {
           doc.addPage();
+          doc.setFillColor(...navyColor);
+          doc.rect(0, 0, pageWidth, 14, 'F');
+          doc.setFillColor(...orangeColor);
+          doc.rect(0, 14, pageWidth, 1, 'F');
+
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9.5);
+          doc.text(`LAMPIRAN DOKUMENTASI FOTO LAPANGAN (Lanjutan) - ${project.name}`, 14, 9);
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7);
+          doc.setTextColor(203, 213, 225);
+          doc.text('Dokumentasi Resmi Proyek', pageWidth - 14, 9, { align: 'right' });
           photoY = 20;
         }
 
+        // Category Header Strip
         doc.setFillColor(241, 245, 249);
         doc.roundedRect(14, photoY, pageWidth - 28, 7.5, 1.5, 1.5, 'F');
         doc.setFillColor(...orangeColor);
@@ -1388,7 +1483,7 @@ export async function generatePDFReport(
         doc.setFontSize(8.5);
         doc.setTextColor(...navyColor);
         doc.text(
-          `KATEGORI: ${group.category.toUpperCase()} (${group.photos.length} Foto)`,
+          `KATEGORI: ${group.category.toUpperCase()} (${group.photos.length} Foto Dokumentasi Terbaru)`,
           20,
           photoY + 5.2
         );
@@ -1399,8 +1494,23 @@ export async function generatePDFReport(
           const photo = group.photos[i];
           const colIndex = i % cols;
 
-          if (colIndex === 0 && photoY + cardHeight > pageHeight - 25) {
+          // Check row overflow
+          if (colIndex === 0 && photoY + cardHeight > pageHeight - 22) {
             doc.addPage();
+            doc.setFillColor(...navyColor);
+            doc.rect(0, 0, pageWidth, 14, 'F');
+            doc.setFillColor(...orangeColor);
+            doc.rect(0, 14, pageWidth, 1, 'F');
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9.5);
+            doc.text(`LAMPIRAN DOKUMENTASI FOTO LAPANGAN (Lanjutan) - ${project.name}`, 14, 9);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor(203, 213, 225);
+            doc.text('Dokumentasi Resmi Proyek', pageWidth - 14, 9, { align: 'right' });
             photoY = 20;
           }
 
@@ -1412,8 +1522,6 @@ export async function generatePDFReport(
           doc.roundedRect(cardX, photoY, colWidth, cardHeight, 2, 2, 'FD');
 
           // Photo Frame Container
-          const imgH = 34;
-          const imgW = colWidth - 4;
           const imgX = cardX + 2;
           const imgY = photoY + 2;
 
@@ -1429,42 +1537,99 @@ export async function generatePDFReport(
           }
 
           if (!imageDrawn) {
-            // Placeholder box with blueprint look
-            doc.setFillColor(241, 245, 249);
+            // Elegant blueprint CAD illustration placeholder
+            doc.setFillColor(15, 23, 42); // slate-900
             doc.roundedRect(imgX, imgY, imgW, imgH, 1.5, 1.5, 'F');
-            doc.setTextColor(...grayColor);
-            doc.setFont('helvetica', 'italic');
+
+            // Draw technical grid lines
+            doc.setDrawColor(30, 41, 59);
+            doc.setLineWidth(0.2);
+            for (let gx = imgX + 8; gx < imgX + imgW; gx += 10) {
+              doc.line(gx, imgY, gx, imgY + imgH);
+            }
+            for (let gy = imgY + 6; gy < imgY + imgH; gy += 8) {
+              doc.line(imgX, gy, imgX + imgW, gy);
+            }
+
+            // Center crosshair / target box
+            const cx = imgX + imgW / 2;
+            const cy = imgY + imgH / 2;
+            doc.setDrawColor(249, 115, 22); // orange
+            doc.rect(cx - 8, cy - 6, 16, 12, 'D');
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
             doc.setFontSize(7.5);
-            doc.text('[Dokumentasi Resmi Proyek]', imgX + imgW / 2, imgY + 16, { align: 'center' });
+            doc.text('[DOKUMENTASI TEKNIS]', cx, cy - 1, { align: 'center' });
+
+            doc.setFont('helvetica', 'normal');
             doc.setFontSize(6.5);
-            doc.text(photo.category, imgX + imgW / 2, imgY + 22, { align: 'center' });
+            doc.setTextColor(148, 163, 184);
+            doc.text(photo.category, cx, cy + 3.5, { align: 'center' });
           }
 
           // Inner border around image
           doc.setDrawColor(203, 213, 225);
+          doc.setLineWidth(0.3);
           doc.rect(imgX, imgY, imgW, imgH, 'D');
 
-          // Caption & Info area
-          const textY = photoY + imgH + 5;
+          // Top-left Category Pill on photo
+          const catBadgeColor = categoryColors[photo.category] || [234, 88, 12];
+          doc.setFillColor(...catBadgeColor);
+          doc.roundedRect(imgX + 1.5, imgY + 1.5, 22, 4.5, 0.8, 0.8, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(5.5);
+          const catBadgeText = photo.category.length > 12 ? photo.category.substring(0, 11) : photo.category;
+          doc.text(catBadgeText, imgX + 12.5, imgY + 4.5, { align: 'center' });
+
+          // Top-right Date Stamp Pill on photo
+          doc.setFillColor(15, 23, 42); // dark navy
+          doc.roundedRect(imgX + imgW - 20, imgY + 1.5, 18.5, 4.5, 0.8, 0.8, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(5.5);
+          doc.text(photo.date, imgX + imgW - 10.75, imgY + 4.5, { align: 'center' });
+
+          // Structured text & info area below photo
+          const contentY = imgY + imgH + 2.5;
+
+          // Title
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(7.5);
           doc.setTextColor(...navyColor);
-          const title = photo.title.length > 40 ? photo.title.substring(0, 38) + '...' : photo.title;
-          doc.text(title, cardX + 3, textY);
+          const splitTitle = doc.splitTextToSize(photo.title, colWidth - 6);
+          const titleLine1 = splitTitle[0] || photo.title;
+          doc.text(titleLine1, cardX + 3, contentY + 2);
+
+          // Meta row: Uploader & Status
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(6);
+          doc.setTextColor(100, 116, 139);
+          const uploaderStr = `Oleh: ${photo.uploadedBy || 'Site Manager'}`;
+          const truncatedUploader = uploaderStr.length > 32 ? uploaderStr.substring(0, 30) + '..' : uploaderStr;
+          doc.text(truncatedUploader, cardX + 3, contentY + 6.5);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(5, 150, 105); // emerald
+          doc.text('✓ Validasi Lapangan', cardX + colWidth - 3, contentY + 6.5, { align: 'right' });
+
+          // Notes / Technical description box
+          const notesBoxY = contentY + 8.5;
+          const notesBoxH = 15;
+          doc.setFillColor(248, 250, 252);
+          doc.setDrawColor(241, 245, 249);
+          doc.roundedRect(cardX + 2.5, notesBoxY, colWidth - 5, notesBoxH, 1, 1, 'FD');
 
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(6.5);
-          doc.setTextColor(...grayColor);
-          doc.text(`Tgl: ${photo.date} | Oleh: ${photo.uploadedBy || 'Site Manager'}`, cardX + 3, textY + 4.5);
+          doc.setFontSize(5.5);
+          doc.setTextColor(51, 65, 85);
+          const noteText = photo.notes || 'Dokumentasi progress fisik terverifikasi tim pengawas teknis di lokasi proyek.';
+          const splitNotes = doc.splitTextToSize(noteText, colWidth - 8);
+          const displayNotes = splitNotes.slice(0, 2);
+          doc.text(displayNotes, cardX + 4.5, notesBoxY + 4);
 
-          if (photo.notes) {
-            doc.setFontSize(6);
-            doc.setTextColor(71, 85, 105);
-            const notesText = photo.notes.length > 55 ? photo.notes.substring(0, 52) + '...' : photo.notes;
-            doc.text(notesText, cardX + 3, textY + 9);
-          }
-
-          // Advance row if last column or last item
+          // Advance row if last column or last item in category
           if (colIndex === cols - 1 || i === group.photos.length - 1) {
             photoY += cardHeight + 4;
           }
@@ -1564,8 +1729,8 @@ export function generateExcelReport(
   const projectSummary = [
     ['RINGKASAN EKSEKUTIF PROYEK', ''],
     ['NAMA PROYEK', project.name],
-    ['PEMILIK (OWNER)', project.owner],
-    ['KONTRAKTOR PELAKSANA', project.contractor || 'PT FORESYNDO GLOBAL INDONESIA'],
+    ['PEMILIK (OWNER)', project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'],
+    ['KONTRAKTOR PELAKSANA', project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'],
     ['LOKASI PROYEK', project.location],
     ['NOMOR KONTRAK', project.contractNumber],
     ['NILAI KONTRAK (RP)', project.contractValue],

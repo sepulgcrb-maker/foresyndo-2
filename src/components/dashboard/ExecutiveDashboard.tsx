@@ -53,6 +53,7 @@ import { AutomatedStakeholderAlerts } from './AutomatedStakeholderAlerts';
 import { MilestonePredictorCard } from './MilestonePredictorCard';
 import { PaymentTermReminderAlert } from './PaymentTermReminderAlert';
 import { VelocityAnalyticsDashboard } from './VelocityAnalyticsDashboard';
+import { ProjectActivityTimeline } from './ProjectActivityTimeline';
 import { SupplierPOOverdueAlert } from '../contractor/SupplierPOOverdueAlert';
 import { DeviasiBadge } from '../common/DeviasiBadge';
 import {
@@ -280,48 +281,126 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
       </div>
 
-      {/* Contractor Role Quick Access Bar (Rekanan Supplier & Keuangan Proyek) */}
+      {/* Tripartit Stakeholders Card: Identitas Resmi Tiga Pihak Proyek */}
       <div
-        className={`p-4 sm:p-5 rounded-2xl border transition-all duration-200 ${
+        className={`p-5 rounded-3xl border transition-all duration-200 ${
           darkMode
-            ? 'bg-slate-900/90 border-amber-500/30 text-slate-200'
-            : 'bg-gradient-to-r from-amber-50/90 via-sky-50/70 to-blue-50/90 border-amber-200 text-slate-800 shadow-xs'
+            ? 'bg-slate-900/90 border-slate-800 text-slate-200'
+            : 'bg-white border-sky-200/90 text-slate-800 shadow-md shadow-sky-500/5'
         }`}
       >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-400/40">
-              <HardHat className="w-5 h-5" />
-            </div>
+        <div className="flex items-center justify-between mb-3 border-b pb-2.5 dark:border-slate-800 border-slate-100">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
+              <Users className="w-4 h-4" />
+            </span>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
-                  Peran Kontraktor
-                </span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white">
-                  {project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Direktur Utama: <strong>{project.contractorProfile?.management?.director || 'Rohman Priyambodo'}</strong> &bull; Site Manager: <strong>{project.siteManager || 'EKO YULIANTO'}</strong>
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                Struktur Tiga Pihak Utama Proyek (Tripartit)
+              </h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Hubungan kerja sama resmi antara Pemilik, Konsultan Manajemen Konstruksi, dan Kontraktor Pelaksana
               </p>
             </div>
+          </div>
+          <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-mono font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+            <span>KONTRAK: {project.contractNumber}</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* 1. PEMILIK PROYEK (OWNER) */}
+          <div className="p-3.5 rounded-2xl border bg-purple-50/60 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/40 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
+                1. Pemilik (Owner)
+              </span>
+              <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <div className="text-xs font-black text-slate-900 dark:text-white line-clamp-1">
+                {project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'}
+              </div>
+              <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
+                Direktur Utama: <strong className="text-purple-700 dark:text-purple-300">{project.director || 'HASANUDIN'}</strong>
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                Peran: Pemberi Tugas, Pemilik Anggaran, &amp; Pengesah Akhir BAST-1
+              </div>
+            </div>
+          </div>
+
+          {/* 2. KONSULTAN PENGAWAS (MK) */}
+          <div className="p-3.5 rounded-2xl border bg-blue-50/60 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/40 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
+                2. Pengawas MK
+              </span>
+              <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <div className="text-xs font-black text-slate-900 dark:text-white line-clamp-1">
+                PT. BENNATIN SURYA CIPTA
+              </div>
+              <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
+                Kuasa Direktur: <strong className="text-blue-700 dark:text-blue-300">{project.consultantMK || 'SAEPUL ANWAR'}</strong>
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                Peran: Manajemen Konstruksi, Verifikasi Opname Termin, &amp; QC Mutu
+              </div>
+            </div>
+          </div>
+
+          {/* 3. KONTRAKTOR PELAKSANA */}
+          <div className="p-3.5 rounded-2xl border bg-amber-50/60 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                3. Kontraktor Pelaksana
+              </span>
+              <HardHat className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <div className="text-xs font-black text-slate-900 dark:text-white line-clamp-1">
+                {project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}
+              </div>
+              <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
+                Site Manager: <strong className="text-amber-700 dark:text-amber-300">{project.siteManager || 'EKO YULIANTO'}</strong> &bull; Dir: {project.contractorProfile?.management?.director || 'Rohman Priyambodo'}
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                Peran: Pelaksana Fisik Lapangan, Logistik, Pekerja, &amp; Pengaju Termin
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Bar Navigasi Khusus Kontraktor & Dokumen */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-3 border-t dark:border-slate-800 border-slate-100">
+          <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Sistem sinkronisasi langsung dengan status dokumen dan BAST tripartit</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => onNavigateTab('suppliers')}
-              className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs cursor-pointer transition-all active:scale-95"
+              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
             >
-              <Building2 className="w-4 h-4" />
+              <Building2 className="w-3.5 h-3.5" />
               <span>Rekanan Supplier &amp; PO</span>
             </button>
             <button
               onClick={() => onNavigateTab('contractor-finance')}
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-xs cursor-pointer transition-all active:scale-95"
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
             >
-              <Wallet className="w-4 h-4" />
-              <span>Keuangan Proyek (Cash Flow)</span>
+              <Wallet className="w-3.5 h-3.5" />
+              <span>Keuangan Kontraktor</span>
+            </button>
+            <button
+              onClick={() => onNavigateTab('documents')}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5 border border-slate-700 shadow-xs cursor-pointer transition-all active:scale-95"
+            >
+              <FileText className="w-3.5 h-3.5 text-orange-400" />
+              <span>Arsip Dokumen Tripartit</span>
             </button>
           </div>
         </div>
@@ -1182,88 +1261,74 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       {/* ML Machine Learning Forecasting & Trend Analytics Section */}
       <MLForecastingModule project={project} workItems={workItems} />
 
-      {/* Grid Section: Time Schedule Overview & Recent Audit Log */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Summary of Work Schedule Items */}
-        <div className="lg:col-span-2 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg space-y-4">
-          <div className="flex items-center justify-between">
+      {/* Time Schedule Overview & Progress Status */}
+      <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500 border border-orange-500/20">
+              <TrendingUp className="w-4 h-4" />
+            </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Status Pekerjaan Time Schedule</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Ringkasan kemajuan item proyek utama</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Ringkasan capaian kemajuan item pekerjaan fisik utama</p>
             </div>
-            <button
-              onClick={() => onNavigateTab('schedule')}
-              className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1"
-            >
-              Lihat Detail Schedule <ArrowRight className="w-3.5 h-3.5" />
-            </button>
           </div>
+          <button
+            onClick={() => onNavigateTab('schedule')}
+            className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 cursor-pointer"
+          >
+            Lihat Detail Schedule <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
 
-          <div className="space-y-3">
-            {workItems.slice(0, 6).map((item) => (
-              <div
-                key={item.id}
-                className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-3 text-xs"
-              >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <div className="w-6 h-6 rounded-lg bg-orange-500/10 text-orange-500 font-bold flex items-center justify-center shrink-0">
-                    {item.no}
-                  </div>
-                  <div className="truncate">
-                    <span className="font-bold text-slate-900 dark:text-white block truncate">{item.name}</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                      Bobot: {item.bobotPercent}% &bull; Target: {item.targetProgressPercent}%
-                    </span>
-                  </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {workItems.slice(0, 6).map((item) => (
+            <div
+              key={item.id}
+              className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 flex flex-col justify-between gap-2.5 text-xs"
+            >
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className="w-6 h-6 rounded-lg bg-orange-500/10 text-orange-500 font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  {item.no}
                 </div>
+                <div className="min-w-0 flex-1">
+                  <span className="font-bold text-slate-900 dark:text-white block truncate">{item.name}</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                    Bobot: {item.bobotPercent}% &bull; Target: {item.targetProgressPercent}%
+                  </span>
+                </div>
+              </div>
 
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="w-24 bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${
-                        item.realizedProgressPercent >= item.targetProgressPercent
-                          ? 'bg-emerald-500'
-                          : 'bg-amber-500'
-                      }`}
-                      style={{ width: `${item.realizedProgressPercent}%` }}
-                    />
-                  </div>
-                  <span className="font-black text-slate-900 dark:text-white w-10 text-right">
+              <div className="space-y-1">
+                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      item.realizedProgressPercent >= item.targetProgressPercent
+                        ? 'bg-emerald-500'
+                        : 'bg-amber-500'
+                    }`}
+                    style={{ width: `${Math.min(100, item.realizedProgressPercent)}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="text-slate-400">Realisasi</span>
+                  <span className="font-black text-slate-900 dark:text-white">
                     {item.realizedProgressPercent}%
                   </span>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right Column: Audit Trail Log */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Riwayat Perubahan (Audit Trail)</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Log aktivitas update proyek</p>
             </div>
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          </div>
-
-          <div className="space-y-3">
-            {auditLogs.map((log) => (
-              <div
-                key={log.id}
-                className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-xs space-y-1"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 dark:text-white">{log.userName}</span>
-                  <span className="text-[10px] text-slate-400">{log.timestamp}</span>
-                </div>
-                <div className="text-orange-600 dark:text-orange-400 font-semibold">{log.action}</div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">{log.details}</p>
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
       </div>
+
+      {/* Project Activity Timeline Section: Visual Audit History with Category Icons */}
+      <ProjectActivityTimeline
+        auditLogs={auditLogs}
+        darkMode={darkMode}
+        onNavigateTab={onNavigateTab}
+        initialLimit={6}
+      />
     </div>
   );
 };

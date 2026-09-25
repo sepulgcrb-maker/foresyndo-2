@@ -112,14 +112,13 @@ export async function runSupabaseStartupDiagnostics(): Promise<SupabaseStartupDi
       .select('*');
 
     if (error) {
-      console.error('[SUPABASE STARTUP DIAGNOSTIC] FAILED: Connection or RLS issue detected!', {
+      console.warn('[SUPABASE STARTUP DIAGNOSTIC] Notice: Direct client query returned an error (fallback will handle):', {
         status,
         statusText,
         code: error.code,
         message: error.message,
         details: error.details,
         hint: error.hint,
-        fullError: error,
       });
       return {
         success: false,
@@ -147,7 +146,7 @@ export async function runSupabaseStartupDiagnostics(): Promise<SupabaseStartupDi
       timestamp,
     };
   } catch (err: any) {
-    console.error('[SUPABASE STARTUP DIAGNOSTIC] EXCEPTION: Unexpected error while executing query:', err);
+    console.warn('[SUPABASE STARTUP DIAGNOSTIC] Notice: Query attempt caught exception:', err?.message || err);
     return {
       success: false,
       table: 'project_info',
@@ -159,9 +158,3 @@ export async function runSupabaseStartupDiagnostics(): Promise<SupabaseStartupDi
   }
 }
 
-// Automatically trigger diagnostic utility on startup in browser environment
-if (typeof window !== 'undefined') {
-  setTimeout(() => {
-    void runSupabaseStartupDiagnostics();
-  }, 0);
-}

@@ -62,7 +62,7 @@ export const SyncStatusModal: React.FC<SyncStatusModalProps> = ({
     recordPrimaryStateUpdate(
       'Uji Coba Sinkronisasi (Simulasi Tab Lain)',
       'Kontraktor',
-      'Ir. Hendra (Sesi Pengawas Eksternal)'
+      'EKO YULIANTO (Site Manager Lapangan)'
     );
     setSimulationTriggered(true);
     setTimeout(() => {

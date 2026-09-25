@@ -84,13 +84,13 @@ export const ContractorSettingsModal: React.FC<ContractorSettingsModalProps> = (
   const [bankAccountHolder, setBankAccountHolder] = useState(initial.bankAccountHolder || '');
   const [notes, setNotes] = useState(initial.notes || '');
 
-  // Management Team
-  const [director, setDirector] = useState(initial.management?.director || project.director || 'ROHMAN PRIYAMBODO');
+  // Management Team (Kontraktor Pelaksana PT. GONG MBE LINK PAMUNGKAS)
+  const [director, setDirector] = useState(initial.management?.director || 'ROHMAN PRIYAMBODO');
   const [projectManager, setProjectManager] = useState(
     initial.management?.projectManager || project.projectManager || 'JAKA SEPTIANDANA'
   );
   const [siteManager, setSiteManager] = useState(
-    initial.management?.siteManager || project.siteManager || 'EKO YULIANTO '
+    initial.management?.siteManager || project.siteManager || 'EKO YULIANTO'
   );
   const [qcEngineer, setQcEngineer] = useState(
     initial.management?.qcEngineer || project.qcEngineer || 'KIKI'
@@ -300,7 +300,8 @@ export const ContractorSettingsModal: React.FC<ContractorSettingsModalProps> = (
       ...project,
       contractor: updatedProfile.companyName,
       contractorProfile: updatedProfile,
-      director: updatedProfile.management.director,
+      // PENTING: project.director adalah Direktur Utama Owner (HASANUDIN), tetap dipertahankan
+      director: project.director || 'HASANUDIN',
       siteManager: updatedProfile.management.siteManager,
       qcEngineer: updatedProfile.management.qcEngineer,
       projectManager: updatedProfile.management.projectManager,
@@ -317,7 +318,6 @@ export const ContractorSettingsModal: React.FC<ContractorSettingsModalProps> = (
       onUpdateUserNameMap({
         ...userNameMap,
         'Site Manager': updatedProfile.management.siteManager,
-        Direktur: updatedProfile.management.director,
         Admin: updatedProfile.management.financeAdmin,
       });
     }

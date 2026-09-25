@@ -66,7 +66,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   userNameMap = {
     Owner: 'HASANUDIN',
     Konsultan: 'SAEPUL ANWAR',
-    Kontraktor: 'Rohman Priyambodo',
+    Kontraktor: 'EKO YULIANTO',
     Direktur: 'HASANUDIN',
     'Site Manager': 'EKO YULIANTO',
     Admin: 'COKRO',
@@ -246,7 +246,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         Owner: director.trim() || 'HASANUDIN',
         Direktur: director.trim() || 'HASANUDIN',
         Konsultan: consultantMK.trim() || 'SAEPUL ANWAR',
-        Kontraktor: (project.contractorProfile?.management?.director || 'Rohman Priyambodo').trim(),
+        Kontraktor: siteManager.trim() || 'EKO YULIANTO',
         'Site Manager': siteManager.trim() || 'EKO YULIANTO',
         Admin: financeAdmin.trim() || 'COKRO',
         Viewer: inspector.trim() || 'Tamu Pengawas',

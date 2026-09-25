@@ -1239,10 +1239,10 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
                   </span>
                   <div className="flex flex-wrap gap-1 mt-1">
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold">
-                      NPWP: {project.contractorProfile?.npwp || '01.889.345.2-438.000'}
+                      NPWP: {project.contractorProfile?.npwp || '61.289.845.2-404.000'}
                     </span>
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
-                      NIB: {project.contractorProfile?.nib || '9120003481902'}
+                      NIB: {project.contractorProfile?.nib || '1410220080338'}
                     </span>
                   </div>
                 </div>
@@ -1251,11 +1251,11 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
               <div className="space-y-1.5 text-[11px]">
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500 dark:text-slate-400">Direktur Utama:</span>
-                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.director || project.director || 'HASANUDIN'}</strong>
+                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.director || 'Rohman Priyambodo'}</strong>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500 dark:text-slate-400">Project Manager (PM):</span>
-                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.projectManager || project.projectManager || 'Hendra Wijaya, ST'}</strong>
+                  <strong className="text-slate-800 dark:text-slate-200">{project.contractorProfile?.management?.projectManager || project.projectManager || 'JAKA SEPTIANDANA'}</strong>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500 dark:text-slate-400">Site Manager (SM):</span>
@@ -1751,16 +1751,16 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
                 </div>
                 <div>
                   <span className="text-sm font-black tracking-wider text-blue-950 uppercase block">
-                    {project.contractorProfile?.companyName || project.contractor || 'PT FORESYNDO GLOBAL INDONESIA'}
+                    {project.contractorProfile?.companyName || project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}
                   </span>
                   <span className="text-[10px] font-bold text-slate-700 block">
-                    {project.contractorProfile?.classification || 'DIVISI GENERAL CONTRACTOR & REKAYASA KONSTRUKSI'}
+                    {project.contractorProfile?.classification || 'Kualifikasi Menengah (M1) - BG004 & BG009'}
                   </span>
                   <span className="text-[10px] text-slate-600 block mt-0.5">
-                    {project.contractorProfile?.address || 'Jl. Raya Jatitujuh No. 88'}, {project.contractorProfile?.city || 'Majalengka'} | Telp: {project.contractorProfile?.phone || '(0233) 881900'} | Email: {project.contractorProfile?.email || 'konstruksi@foresyndo.co.id'}
+                    {project.contractorProfile?.address || 'Bukit Cimanggu City, Jl. Raya Baru Ruko No. 5'}, {project.contractorProfile?.city || 'Bogor'} | Telp: {project.contractorProfile?.whatsapp || '+62 812-8807-7097'} | Email: {project.contractorProfile?.email || 'pt.gmp12@gmail.com'}
                   </span>
                   <span className="text-[9px] font-mono text-slate-500 block">
-                    NPWP: {project.contractorProfile?.npwp || '01.889.345.2-438.000'} | NIB: {project.contractorProfile?.nib || '9120003481902'} | IUJK: {project.contractorProfile?.iujkNumber || '1-0233-2-0045-1-3210-998822'}
+                    NPWP: {project.contractorProfile?.npwp || '61.289.845.2-404.000'} | NIB: {project.contractorProfile?.nib || '1410220080338'} | IUJK: {project.contractorProfile?.iujkNumber || '141022008033803380001'}
                   </span>
                 </div>
               </div>
@@ -1835,7 +1835,7 @@ export const ContractorBASTWorkflow: React.FC<ContractorBASTWorkflowProps> = ({
                   Hormat kami,<br />KONTRAKTOR PELAKSANA
                 </span>
                 <span className="text-[10px] font-bold text-slate-900 block">
-                  {project.contractorProfile?.companyName || project.contractor || 'PT FORESYNDO GLOBAL INDONESIA'}
+                  {project.contractorProfile?.companyName || project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}
                 </span>
                 <div className="h-24 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 p-2">
                   <span className="text-[10px] font-mono font-bold text-blue-900">

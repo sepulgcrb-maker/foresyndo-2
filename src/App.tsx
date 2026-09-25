@@ -539,7 +539,7 @@ export default function App() {
     useState<Record<UserRole, string>>({
       Owner: 'HASANUDIN',
       Konsultan: 'SAEPUL ANWAR',
-      Kontraktor: 'Rohman Priyambodo',
+      Kontraktor: 'EKO YULIANTO',
       Direktur: 'HASANUDIN',
       'Site Manager': 'EKO YULIANTO',
       Admin: 'COKRO',
@@ -1128,9 +1128,9 @@ export default function App() {
 
           return true;
         } catch (error: any) {
-          console.error(
-            'FORESYNDO Supabase load failed:',
-            error
+          console.warn(
+            'FORESYNDO Supabase load notice (recovering gracefully):',
+            error?.message || error
           );
 
           /*
@@ -1560,7 +1560,16 @@ export default function App() {
           : currentRole ===
             'Site Manager'
           ? 'EKO YULIANTO'
-          : 'Dedi Kurniawan'
+          : currentRole ===
+            'Konsultan'
+          ? 'SAEPUL ANWAR'
+          : currentRole ===
+            'Kontraktor'
+          ? 'EKO YULIANTO'
+          : currentRole ===
+            'Owner'
+          ? 'HASANUDIN'
+          : 'Tamu Pengawas'
       );
 
     const newLog:
@@ -2948,8 +2957,8 @@ export default function App() {
               false
             );
           } catch (error) {
-            console.error(
-              'Realtime refresh failed:',
+            console.warn(
+              'Realtime refresh notice:',
               error
             );
           }
@@ -2961,8 +2970,8 @@ export default function App() {
       try {
         unsubscribe();
       } catch (error) {
-        console.error(
-          'Supabase realtime unsubscribe failed:',
+        console.warn(
+          'Supabase realtime unsubscribe notice:',
           error
         );
       }
