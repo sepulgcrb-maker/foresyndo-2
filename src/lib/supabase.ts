@@ -88,3 +88,80 @@ export async function saveSupabaseConfig(url: string, anonKey: string): Promise<
   }
   return true;
 }
+
+export interface SupabaseStartupDiagnosticResult {
+  success: boolean;
+  table: string;
+  count: number;
+  data: any[] | null;
+  error: any | null;
+  timestamp: string;
+}
+
+/**
+ * Diagnostic utility that attempts a 'SELECT * FROM project_info' query on application startup
+ * and logs the full result or full error object to help identify connection or RLS issues immediately.
+ */
+export async function runSupabaseStartupDiagnostics(): Promise<SupabaseStartupDiagnosticResult> {
+  const timestamp = new Date().toISOString();
+  console.log(`[SUPABASE STARTUP DIAGNOSTIC] Initiating 'SELECT * FROM project_info' query at ${timestamp}...`);
+
+  try {
+    const { data, error, status, statusText } = await supabase
+      .from('project_info')
+      .select('*');
+
+    if (error) {
+      console.error('[SUPABASE STARTUP DIAGNOSTIC] FAILED: Connection or RLS issue detected!', {
+        status,
+        statusText,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        fullError: error,
+      });
+      return {
+        success: false,
+        table: 'project_info',
+        count: 0,
+        data: null,
+        error,
+        timestamp,
+      };
+    }
+
+    console.log(`[SUPABASE STARTUP DIAGNOSTIC] SUCCESS: Table 'project_info' query resolved! Rows returned: ${data?.length ?? 0}`, {
+      status,
+      statusText,
+      rowCount: data?.length ?? 0,
+      rows: data,
+    });
+
+    return {
+      success: true,
+      table: 'project_info',
+      count: data?.length ?? 0,
+      data,
+      error: null,
+      timestamp,
+    };
+  } catch (err: any) {
+    console.error('[SUPABASE STARTUP DIAGNOSTIC] EXCEPTION: Unexpected error while executing query:', err);
+    return {
+      success: false,
+      table: 'project_info',
+      count: 0,
+      data: null,
+      error: err,
+      timestamp,
+    };
+  }
+}
+
+// Automatically trigger diagnostic utility on startup in browser environment
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    void runSupabaseStartupDiagnostics();
+  }, 0);
+}

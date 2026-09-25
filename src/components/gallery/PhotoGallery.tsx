@@ -1,9 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PhotoItem, PhotoCategory, UserRole, RolePermissions } from '../../types';
 import {
   Camera,
   Plus,
   ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Minimize2,
   Download,
   Maximize2,
   X,
@@ -18,9 +21,11 @@ import {
   Sparkles,
   Link as LinkIcon,
   FileImage,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { ProgressCameraModal } from '../monitoring/ProgressCameraModal';
-import { SafeImage } from '../common/SafeImage';
+import { SafeImage, ImageClarityMode } from '../common/SafeImage';
 
 interface PhotoGalleryProps {
   photos: PhotoItem[];
@@ -39,12 +44,86 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<PhotoCategory | 'Semua'>('Semua');
   const [lightboxPhoto, setLightboxPhoto] = useState<PhotoItem | null>(null);
+  const [lightboxZoom, setLightboxZoom] = useState<number>(100);
+  const [lightboxRotation, setLightboxRotation] = useState<number>(0);
+  const [lightboxFullscreen, setLightboxFullscreen] = useState<boolean>(false);
+  const [lightboxClarity, setLightboxClarity] = useState<ImageClarityMode>('sharp');
+  const [lightboxPan, setLightboxPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isLightboxDragging, setIsLightboxDragging] = useState<boolean>(false);
+  const lightboxDragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   const [photoSourceType, setPhotoSourceType] = useState<'camera' | 'gallery' | 'url' | null>(null);
   const [showUrlField, setShowUrlField] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const categories: (PhotoCategory | 'Semua')[] = [
+    'Semua',
+    'Pondasi',
+    'Struktur',
+    'Lantai',
+    'Atap',
+    'Finishing',
+    'MEP',
+    'Progress Hari Ini',
+  ];
+
+  const filteredPhotos =
+    selectedCategory === 'Semua'
+      ? photos
+      : photos.filter((p) => p.category === selectedCategory);
+
+  // Reset lightbox state when changing photo
+  useEffect(() => {
+    if (lightboxPhoto) {
+      setLightboxZoom(100);
+      setLightboxRotation(0);
+      setLightboxPan({ x: 0, y: 0 });
+    }
+  }, [lightboxPhoto?.id]);
+
+  // Keyboard navigation for Lightbox
+  useEffect(() => {
+    if (!lightboxPhoto) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (lightboxFullscreen) {
+          setLightboxFullscreen(false);
+        } else {
+          setLightboxPhoto(null);
+        }
+      } else if (e.key === 'ArrowLeft') {
+        const idx = filteredPhotos.findIndex((p) => p.id === lightboxPhoto.id);
+        if (idx > 0) {
+          setLightboxPhoto(filteredPhotos[idx - 1]);
+        } else if (filteredPhotos.length > 0) {
+          setLightboxPhoto(filteredPhotos[filteredPhotos.length - 1]);
+        }
+      } else if (e.key === 'ArrowRight') {
+        const idx = filteredPhotos.findIndex((p) => p.id === lightboxPhoto.id);
+        if (idx < filteredPhotos.length - 1) {
+          setLightboxPhoto(filteredPhotos[idx + 1]);
+        } else if (filteredPhotos.length > 0) {
+          setLightboxPhoto(filteredPhotos[0]);
+        }
+      } else if (e.key === '+' || e.key === '=') {
+        setLightboxZoom((prev) => Math.min(prev + 25, 400));
+      } else if (e.key === '-') {
+        setLightboxZoom((prev) => Math.max(prev - 25, 50));
+      } else if (e.key === '0') {
+        setLightboxZoom(100);
+        setLightboxPan({ x: 0, y: 0 });
+      } else if (e.key === 'r' || e.key === 'R') {
+        setLightboxRotation((prev) => (prev + 90) % 360);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxPhoto, lightboxFullscreen, filteredPhotos]);
 
   const defaultUploader =
     activeUserName ||
@@ -74,22 +153,6 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
       userRole === 'Site Manager' ||
       userRole === 'Direktur' ||
       userRole === 'Admin');
-
-  const categories: (PhotoCategory | 'Semua')[] = [
-    'Semua',
-    'Pondasi',
-    'Struktur',
-    'Lantai',
-    'Atap',
-    'Finishing',
-    'MEP',
-    'Progress Hari Ini',
-  ];
-
-  const filteredPhotos =
-    selectedCategory === 'Semua'
-      ? photos
-      : photos.filter((p) => p.category === selectedCategory);
 
   // Open camera directly from header
   const handleOpenDirectCamera = () => {
@@ -272,51 +335,268 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
         ))}
       </div>
 
-      {/* Lightbox Modal */}
-      {lightboxPhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
-            <button
-              onClick={() => setLightboxPhoto(null)}
-              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-slate-950/60 text-white hover:bg-slate-950 transition-colors"
+      {/* Enhanced Inspection Lightbox Modal */}
+      {lightboxPhoto && (() => {
+        const currentIdx = filteredPhotos.findIndex((p) => p.id === lightboxPhoto.id);
+        const totalPhotos = filteredPhotos.length;
+
+        const handlePrev = (e?: React.MouseEvent) => {
+          e?.stopPropagation();
+          if (currentIdx > 0) {
+            setLightboxPhoto(filteredPhotos[currentIdx - 1]);
+          } else if (totalPhotos > 0) {
+            setLightboxPhoto(filteredPhotos[totalPhotos - 1]);
+          }
+        };
+
+        const handleNext = (e?: React.MouseEvent) => {
+          e?.stopPropagation();
+          if (currentIdx < totalPhotos - 1) {
+            setLightboxPhoto(filteredPhotos[currentIdx + 1]);
+          } else if (totalPhotos > 0) {
+            setLightboxPhoto(filteredPhotos[0]);
+          }
+        };
+
+        const handleMouseDown = (e: React.MouseEvent) => {
+          if (lightboxZoom <= 100) return;
+          e.preventDefault();
+          setIsLightboxDragging(true);
+          lightboxDragStartRef.current = {
+            x: e.clientX - lightboxPan.x,
+            y: e.clientY - lightboxPan.y,
+          };
+        };
+
+        const handleMouseMove = (e: React.MouseEvent) => {
+          if (!isLightboxDragging || lightboxZoom <= 100) return;
+          e.preventDefault();
+          setLightboxPan({
+            x: e.clientX - lightboxDragStartRef.current.x,
+            y: e.clientY - lightboxDragStartRef.current.y,
+          });
+        };
+
+        const handleMouseUp = () => setIsLightboxDragging(false);
+
+        const handleWheel = (e: React.WheelEvent) => {
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+              setLightboxZoom((prev) => Math.min(prev + 15, 400));
+            } else {
+              setLightboxZoom((prev) => Math.max(prev - 15, 50));
+            }
+          }
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-md p-2 sm:p-4 overflow-y-auto">
+            <div
+              className={`bg-slate-900 border border-slate-800 rounded-3xl w-full overflow-hidden shadow-2xl relative flex flex-col transition-all duration-300 ${
+                lightboxFullscreen
+                  ? 'fixed inset-2 z-50 max-w-none max-h-none h-[calc(100vh-16px)] p-4'
+                  : 'max-w-5xl max-h-[92vh] my-auto'
+              }`}
             >
-              <X className="w-6 h-6" />
-            </button>
-
-            <div className="flex-1 bg-black flex items-center justify-center p-4 min-h-[350px]">
-              <SafeImage
-                src={lightboxPhoto.url}
-                alt={lightboxPhoto.title}
-                className="max-h-[60vh] w-auto object-contain rounded-xl"
-              />
-            </div>
-
-            <div className="p-5 bg-slate-900 border-t border-slate-800 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="px-2.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold border border-orange-500/30">
-                    {lightboxPhoto.category}
+              {/* Top Navigation & Control Bar */}
+              <div className="px-4 py-3 bg-slate-950/80 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 z-20">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400">
+                    <Camera className="w-4 h-4" />
                   </span>
-                  <span className="text-xs text-slate-400">{lightboxPhoto.date}</span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white line-clamp-1">{lightboxPhoto.title}</span>
+                      {totalPhotos > 1 && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-orange-400 font-bold border border-slate-700">
+                          {currentIdx + 1} / {totalPhotos}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-slate-400">
+                      {lightboxPhoto.category} &bull; {lightboxPhoto.date} &bull; Oleh: {lightboxPhoto.uploadedBy}
+                    </span>
+                  </div>
                 </div>
-                <h3 className="text-base font-black text-white">{lightboxPhoto.title}</h3>
-                {lightboxPhoto.notes && (
-                  <p className="text-xs text-slate-300 mt-1">{lightboxPhoto.notes}</p>
-                )}
+
+                {/* Inspection Controls: Clarity, Zoom, Rotate, Fullscreen, Close */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Clarity Mode Toggle */}
+                  <div className="hidden sm:flex items-center gap-1 bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs">
+                    <button
+                      onClick={() => setLightboxClarity('sharp')}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                        lightboxClarity === 'sharp' ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                      }`}
+                      title="Mode Tajam & Jernih (Enhanced HDR)"
+                    >
+                      <span className="flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" /> Tajam & Jernih
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setLightboxClarity('original')}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                        lightboxClarity === 'original' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
+                      }`}
+                      title="Warna Gambar Asli"
+                    >
+                      Asli
+                    </button>
+                    <button
+                      onClick={() => setLightboxClarity('high_contrast')}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                        lightboxClarity === 'high_contrast' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'
+                      }`}
+                      title="Kontras Tinggi (Perjelas Tekstur Fisik)"
+                    >
+                      Kontras
+                    </button>
+                  </div>
+
+                  {/* Zoom Controls */}
+                  <div className="flex items-center gap-1 bg-slate-800/90 p-1 rounded-xl border border-slate-700">
+                    <button
+                      onClick={() => setLightboxZoom((prev) => Math.max(prev - 25, 50))}
+                      className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                      title="Perkecil (-25%)"
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </button>
+                    <span className="text-xs font-mono font-bold text-white px-2 min-w-[50px] text-center">
+                      {lightboxZoom}%
+                    </span>
+                    <button
+                      onClick={() => setLightboxZoom((prev) => Math.min(prev + 25, 400))}
+                      className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                      title="Perbesar (+25%)"
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setLightboxZoom(100);
+                        setLightboxRotation(0);
+                        setLightboxPan({ x: 0, y: 0 });
+                      }}
+                      className="px-2 py-1 rounded-lg hover:bg-slate-700 text-[11px] font-bold text-slate-300 hover:text-white transition-colors cursor-pointer"
+                      title="Reset Ukuran (100%)"
+                    >
+                      Reset
+                    </button>
+                    <div className="w-[1px] h-4 bg-slate-700 mx-1" />
+                    <button
+                      onClick={() => setLightboxRotation((prev) => (prev + 90) % 360)}
+                      className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                      title="Putar 90 Derajat"
+                    >
+                      <RotateCw className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setLightboxFullscreen(!lightboxFullscreen)}
+                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                    title={lightboxFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
+                  >
+                    {lightboxFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                  </button>
+
+                  <button
+                    onClick={() => setLightboxPhoto(null)}
+                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    title="Tutup (Esc)"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => handleDownload(lightboxPhoto)}
-                  className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-orange-500/20 transition-all"
+              {/* Main Interactive Canvas with Prev/Next overlays */}
+              <div
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onWheel={handleWheel}
+                className={`flex-1 overflow-hidden relative flex items-center justify-center bg-black/90 p-4 select-none ${
+                  lightboxZoom > 100 ? (isLightboxDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+                } ${lightboxFullscreen ? 'min-h-[500px]' : 'min-h-[380px] max-h-[66vh]'}`}
+                style={{
+                  backgroundImage: `radial-gradient(#1e293b 1px, transparent 1px)`,
+                  backgroundSize: '24px 24px',
+                }}
+              >
+                {/* Previous Navigation Button */}
+                {totalPhotos > 1 && (
+                  <button
+                    onClick={handlePrev}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-2.5 rounded-full bg-slate-900/80 hover:bg-orange-500 text-white border border-slate-700/80 shadow-2xl backdrop-blur-md transition-all cursor-pointer hover:scale-110"
+                    title="Foto Sebelumnya (Panah Kiri)"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                )}
+
+                {/* Next Navigation Button */}
+                {totalPhotos > 1 && (
+                  <button
+                    onClick={handleNext}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-2.5 rounded-full bg-slate-900/80 hover:bg-orange-500 text-white border border-slate-700/80 shadow-2xl backdrop-blur-md transition-all cursor-pointer hover:scale-110"
+                    title="Foto Berikutnya (Panah Kanan)"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                )}
+
+                {/* Scaled/Panned Image Container */}
+                <div
+                  className="transition-transform duration-150 ease-out origin-center flex items-center justify-center pointer-events-none"
+                  style={{
+                    transform: `translate(${lightboxPan.x}px, ${lightboxPan.y}px) scale(${lightboxZoom / 100}) rotate(${lightboxRotation}deg)`,
+                  }}
                 >
-                  <Download className="w-4 h-4" /> Download Foto
-                </button>
+                  <SafeImage
+                    src={lightboxPhoto.url}
+                    alt={lightboxPhoto.title}
+                    clarityMode={lightboxClarity}
+                    className="max-h-[62vh] max-w-full w-auto object-contain rounded-xl shadow-2xl border border-slate-800 pointer-events-auto"
+                  />
+                </div>
+              </div>
+
+              {/* Bottom Info & Download Bar */}
+              <div className="p-4 sm:p-5 bg-slate-950 border-t border-slate-800 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 z-20">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold border border-orange-500/30">
+                      {lightboxPhoto.category}
+                    </span>
+                    <span className="text-xs text-slate-400">{lightboxPhoto.date}</span>
+                    <span className="text-slate-600">&bull;</span>
+                    <span className="text-xs text-slate-400">Oleh: <strong className="text-slate-200">{lightboxPhoto.uploadedBy}</strong></span>
+                  </div>
+                  <h3 className="text-sm sm:text-base font-black text-white truncate">{lightboxPhoto.title}</h3>
+                  {lightboxPhoto.notes && (
+                    <p className="text-xs text-slate-300 mt-1 line-clamp-2">{lightboxPhoto.notes}</p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => handleDownload(lightboxPhoto)}
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
+                    title="Unduh Berkas Foto Resolusi Penuh"
+                  >
+                    <Download className="w-4 h-4" /> Download Foto HD
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Upload Modal */}
       {isUploadModalOpen && (

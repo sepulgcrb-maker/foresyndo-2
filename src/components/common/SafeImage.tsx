@@ -2,9 +2,18 @@ import React, { useState, useEffect } from 'react';
 
 export const BROKEN_UNSPLASH_ID = 'photo-1541888946425-d0fbb186a5b3';
 
-// Valid construction replacement photo on Unsplash
+// Valid high-resolution construction replacement photo on Unsplash (1600px crisp)
 export const DEFAULT_CONSTRUCTION_IMAGE =
-  'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop&q=80';
+  'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b3?w=1600&auto=format&fit=crop&q=85';
+
+// Alternative high-res architectural & site construction photos
+export const HIGH_RES_CONSTRUCTION_PHOTOS = {
+  foundation: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1600&auto=format&fit=crop&q=85',
+  structure: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=1600&auto=format&fit=crop&q=85',
+  interior: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&auto=format&fit=crop&q=85',
+  architecture: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=85',
+  inspection: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1600&auto=format&fit=crop&q=85',
+};
 
 // High-quality SVG data URI fallback for construction / project photos
 export const FALLBACK_CONSTRUCTION_SVG =
@@ -107,21 +116,75 @@ export const FALLBACK_DOCUMENT_SVG =
 `);
 
 /**
- * Normalizes any image URL, preventing the known 404 photo from being requested.
+ * Normalizes any image URL, preventing invalid placeholders and known 404 photos.
+ * Ensures images render in high resolution and crisp clarity.
  */
 export function sanitizeImageUrl(url?: string | null, fallback = DEFAULT_CONSTRUCTION_IMAGE): string {
   if (!url || typeof url !== 'string' || !url.trim()) {
     return fallback;
   }
   const clean = url.trim();
-  if (clean.includes(BROKEN_UNSPLASH_ID)) {
+
+  // Handle database storage placeholders (e.g. [INLINE_BASE64_ATTACHMENT_IN_SNAPSHOT], [STORED_IN_SNAPSHOT])
+  if (clean.startsWith('[') && clean.endsWith(']')) {
     return fallback;
   }
+
+  // Handle invalid formats
+  if (
+    !clean.startsWith('http://') &&
+    !clean.startsWith('https://') &&
+    !clean.startsWith('data:image') &&
+    !clean.startsWith('blob:') &&
+    !clean.startsWith('/') &&
+    !clean.startsWith('./')
+  ) {
+    return fallback;
+  }
+
+  // Upgrade Unsplash image resolution for razor-sharp visual preview
+  if (clean.includes('images.unsplash.com')) {
+    // If it has small width parameter like w=400 or w=500 or w=800, upgrade to w=1600
+    if (/w=[1-8]\d\d(?!\d)/.test(clean)) {
+      return clean.replace(/w=[1-8]\d\d(?!\d)/, 'w=1600').replace(/q=\d+/, 'q=85');
+    }
+  }
+
   return clean;
+}
+
+export type ImageClarityMode = 'original' | 'sharp' | 'high_contrast' | 'blueprint_cad' | 'warm';
+
+export function getImageClarityStyle(mode: ImageClarityMode | string = 'original'): React.CSSProperties {
+  switch (mode) {
+    case 'sharp':
+      return {
+        filter: 'contrast(115%) brightness(105%) saturate(110%)',
+        imageRendering: 'auto',
+      };
+    case 'high_contrast':
+      return {
+        filter: 'contrast(140%) brightness(100%)',
+        imageRendering: 'crisp-edges',
+      };
+    case 'blueprint_cad':
+      return {
+        filter: 'contrast(150%) brightness(110%) hue-rotate(185deg)',
+      };
+    case 'warm':
+      return {
+        filter: 'contrast(105%) brightness(108%) sepia(20%)',
+      };
+    default:
+      return {
+        filter: 'none',
+      };
+  }
 }
 
 export interface SafeImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   fallbackSrc?: string;
+  clarityMode?: ImageClarityMode;
   onImageError?: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
 }
 
@@ -136,7 +199,9 @@ export const SafeImage: React.FC<SafeImageProps> = ({
   src,
   alt,
   fallbackSrc = FALLBACK_CONSTRUCTION_SVG,
+  clarityMode = 'original',
   className = '',
+  style,
   onError,
   ...restProps
 }) => {
@@ -170,11 +235,17 @@ export const SafeImage: React.FC<SafeImageProps> = ({
     }
   };
 
+  const clarityStyle = getImageClarityStyle(clarityMode);
+
   return (
     <img
       src={currentSrc}
       alt={alt || 'Foto Dokumentasi'}
       className={className}
+      style={{
+        ...clarityStyle,
+        ...style,
+      }}
       onError={handleError}
       referrerPolicy="no-referrer"
       loading="lazy"

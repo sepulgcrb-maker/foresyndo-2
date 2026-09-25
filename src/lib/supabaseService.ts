@@ -1774,6 +1774,18 @@ export async function pullAllDataFromSupabase(
     // 8. Project Documents (14 documents)
     const documents: ProjectDocument[] = (documentsRows || []).map((row: any) => {
       const raw = (row.raw_data || {}) as Partial<ProjectDocument>;
+      const docInSnapshot = snapshotAux.documents?.find((d) => d.id === row.id);
+      let resolvedFileUrl = row.file_url;
+      if (!resolvedFileUrl || (typeof resolvedFileUrl === 'string' && resolvedFileUrl.startsWith('['))) {
+        resolvedFileUrl = raw.fileUrl;
+      }
+      if (!resolvedFileUrl || (typeof resolvedFileUrl === 'string' && resolvedFileUrl.startsWith('['))) {
+        resolvedFileUrl = docInSnapshot?.fileUrl;
+      }
+      if (typeof resolvedFileUrl === 'string' && resolvedFileUrl.startsWith('[')) {
+        resolvedFileUrl = undefined;
+      }
+
       return {
         id: String(row.id || raw.id),
         title: String(raw.title || row.title || ''),
@@ -1782,7 +1794,7 @@ export async function pullAllDataFromSupabase(
         fileType: (raw.fileType || row.file_type || 'pdf') as any,
         fileSize: String(raw.fileSize || row.file_size || '1.0 MB'),
         fileName: String(raw.fileName || `${row.title || 'Dokumen'}.${row.file_type || 'pdf'}`),
-        fileUrl: (row.file_url && row.file_url !== '[STORED_IN_SNAPSHOT]') ? row.file_url : (raw.fileUrl || ''),
+        fileUrl: resolvedFileUrl || undefined,
         uploadDate: String(raw.uploadDate || row.upload_date || '2026-09-01'),
         uploadedBy: String(raw.uploadedBy || row.uploaded_by || 'Admin'),
         uploadedByRole: (raw.uploadedByRole || row.uploaded_by_role || 'Kontraktor') as any,

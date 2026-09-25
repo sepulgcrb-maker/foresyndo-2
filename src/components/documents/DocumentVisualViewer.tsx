@@ -1,4 +1,4 @@
-import React, { useState, useId } from 'react';
+import React, { useState, useId, useRef, useEffect } from 'react';
 import {
   ZoomIn,
   ZoomOut,
@@ -19,6 +19,29 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ProjectDocument } from '../../types';
+import { SafeImage, ImageClarityMode } from '../common/SafeImage';
+
+export type DrawingProfileType = 'toilet' | 'site_plant' | 'foundation' | 'rebar' | 'facade' | 'general';
+
+export function getDrawingProfile(doc: ProjectDocument): DrawingProfileType {
+  const t = (doc.title + ' ' + (doc.description || '') + ' ' + (doc.fileName || '')).toLowerCase();
+  if (t.includes('toilet') || t.includes('sanitair') || t.includes('wc') || t.includes('kamar mandi') || t.includes('3d toilet')) {
+    return 'toilet';
+  }
+  if (t.includes('site') || t.includes('plant') || t.includes('tapak') || t.includes('masterplan') || t.includes('kawasan')) {
+    return 'site_plant';
+  }
+  if (t.includes('pondasi') || t.includes('pile') || t.includes('tiang pancang') || t.includes('cap')) {
+    return 'foundation';
+  }
+  if (t.includes('kolom') || t.includes('balok') || t.includes('pembesian') || t.includes('rebar') || t.includes('tulangan') || t.includes('k1') || t.includes('b1')) {
+    return 'rebar';
+  }
+  if (t.includes('tampak') || t.includes('fasade') || t.includes('facade') || t.includes('arsitektur')) {
+    return 'facade';
+  }
+  return 'general';
+}
 
 interface DocumentVisualViewerProps {
   document: ProjectDocument;
@@ -36,6 +59,11 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
   const [zoom, setZoom] = useState<number>(100);
   const [rotation, setRotation] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [clarityMode, setClarityMode] = useState<ImageClarityMode>('sharp');
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [imageLoadFailed, setImageLoadFailed] = useState<boolean>(false);
+  const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // CAD Blueprint Viewer State
   const [cadTheme, setCadTheme] = useState<'blueprint' | 'dark' | 'paper'>('blueprint');
@@ -62,22 +90,107 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
     doc.title.toLowerCase().includes('ded') ||
     doc.title.toLowerCase().includes('shop drawing');
 
-  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 25, 300));
+  // Validates if doc has a real, readable image URL (not a snapshot placeholder)
+  const hasValidImageUrl = Boolean(
+    !imageLoadFailed &&
+    doc.fileUrl &&
+    typeof doc.fileUrl === 'string' &&
+    !doc.fileUrl.startsWith('[') &&
+    (doc.fileUrl.startsWith('data:image') ||
+      doc.fileUrl.startsWith('http://') ||
+      doc.fileUrl.startsWith('https://') ||
+      doc.fileUrl.startsWith('/') ||
+      doc.fileUrl.startsWith('blob:'))
+  );
+
+  // Validates if doc has a real, readable PDF URL
+  const hasValidPdfUrl = Boolean(
+    doc.fileUrl &&
+    typeof doc.fileUrl === 'string' &&
+    !doc.fileUrl.startsWith('[') &&
+    (doc.fileUrl.startsWith('data:application/pdf') ||
+      doc.fileUrl.startsWith('http://') ||
+      doc.fileUrl.startsWith('https://') ||
+      doc.fileUrl.startsWith('/') ||
+      doc.fileUrl.startsWith('blob:'))
+  );
+
+  // Reset pan/zoom on doc change
+  useEffect(() => {
+    setZoom(100);
+    setRotation(0);
+    setPan({ x: 0, y: 0 });
+    setImageLoadFailed(false);
+  }, [doc.id, doc.fileUrl]);
+
+  // Keyboard shortcut support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      } else if (e.key === '+' || e.key === '=') {
+        setZoom((prev) => Math.min(prev + 25, 400));
+      } else if (e.key === '-') {
+        setZoom((prev) => Math.max(prev - 25, 50));
+      } else if (e.key === '0') {
+        setZoom(100);
+        setPan({ x: 0, y: 0 });
+      } else if (e.key === 'r' || e.key === 'R') {
+        setRotation((prev) => (prev + 90) % 360);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
+
+  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 25, 400));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 25, 50));
   const handleResetZoom = () => {
     setZoom(100);
     setRotation(0);
+    setPan({ x: 0, y: 0 });
   };
   const handleRotate = () => setRotation((prev) => (prev + 90) % 360);
 
+  // Mouse pan & drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 100) return;
+    e.preventDefault();
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || zoom <= 100) return;
+    e.preventDefault();
+    setPan({
+      x: e.clientX - dragStartRef.current.x,
+      y: e.clientY - dragStartRef.current.y,
+    });
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        setZoom((prev) => Math.min(prev + 15, 400));
+      } else {
+        setZoom((prev) => Math.max(prev - 15, 50));
+      }
+    }
+  };
+
   // ---------------------------------------------------------------------------
-  // 1. RENDER UPLOADED IMAGE
+  // 1. RENDER UPLOADED IMAGE (High-definition Interactive Inspection Studio)
   // ---------------------------------------------------------------------------
-  if (doc.fileUrl && isImage) {
+  if (hasValidImageUrl && isImage) {
     return (
       <div
         className={`flex flex-col rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden shadow-2xl transition-all ${
-          isFullscreen ? 'fixed inset-4 z-50 bg-slate-950/98 backdrop-blur-md' : 'w-full'
+          isFullscreen ? 'fixed inset-3 z-50 bg-slate-950/98 backdrop-blur-md' : 'w-full'
         }`}
       >
         {/* Top Control Bar */}
@@ -88,7 +201,7 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-white line-clamp-1">{doc.fileName}</span>
+                <span className="text-xs font-bold text-white line-clamp-1">{doc.fileName || doc.title}</span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold">
                   GAMBAR ASLI TERUNGGAH
                 </span>
@@ -99,65 +212,118 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
             </div>
           </div>
 
-          {/* Controls: Zoom, Rotate, Fullscreen, Open in Tab */}
-          <div className="flex items-center gap-1.5 bg-slate-800/80 p-1 rounded-xl border border-slate-700">
-            <button
-              onClick={handleZoomOut}
-              className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
-              title="Perkecil (-25%)"
-            >
-              <ZoomOut className="w-4 h-4" />
-            </button>
-            <span className="text-xs font-mono font-bold text-white px-2 min-w-[50px] text-center">
-              {zoom}%
-            </span>
-            <button
-              onClick={handleZoomIn}
-              className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
-              title="Perbesar (+25%)"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleResetZoom}
-              className="px-2 py-1 rounded-lg hover:bg-slate-700 text-[11px] font-bold text-slate-300 hover:text-white transition-colors cursor-pointer"
-              title="Reset ke Ukuran Asli 100%"
-            >
-              Reset
-            </button>
-            <div className="w-[1px] h-4 bg-slate-700 mx-1" />
-            <button
-              onClick={handleRotate}
-              className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
-              title="Putar 90 Derajat"
-            >
-              <RotateCw className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
-              title={isFullscreen ? 'Keluar Layar Penuh' : 'Mode Layar Penuh'}
-            >
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            </button>
-            {doc.fileUrl && (
-              <a
-                href={doc.fileUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="p-1.5 rounded-lg hover:bg-slate-700 text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1 cursor-pointer"
-                title="Buka Gambar Asli di Tab Baru"
+          {/* Controls: Clarity Filter, Zoom, Rotate, Fullscreen, Open in Tab */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Clarity Filters for Architectural & Construction Drawings */}
+            <div className="hidden sm:flex items-center gap-1 bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs">
+              <button
+                onClick={() => setClarityMode('sharp')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                  clarityMode === 'sharp' ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                }`}
+                title="Mode Tajam & Jernih (Enhanced HDR)"
               >
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            )}
+                <span className="flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" /> Tajam & Jernih
+                </span>
+              </button>
+              <button
+                onClick={() => setClarityMode('original')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                  clarityMode === 'original' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+                title="Warna Gambar Asli"
+              >
+                Asli
+              </button>
+              <button
+                onClick={() => setClarityMode('high_contrast')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                  clarityMode === 'high_contrast' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+                title="Kontras Tinggi (Perjelas Garis Arsitektur & Denah)"
+              >
+                Kontras
+              </button>
+              <button
+                onClick={() => setClarityMode('blueprint_cad')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                  clarityMode === 'blueprint_cad' ? 'bg-blue-700 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+                title="Invert Mode Blueprint CAD"
+              >
+                Blueprint
+              </button>
+            </div>
+
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700">
+              <button
+                onClick={handleZoomOut}
+                className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                title="Perkecil (-25%)"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-mono font-bold text-white px-2 min-w-[50px] text-center">
+                {zoom}%
+              </span>
+              <button
+                onClick={handleZoomIn}
+                className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                title="Perbesar (+25%)"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleResetZoom}
+                className="px-2 py-1 rounded-lg hover:bg-slate-700 text-[11px] font-bold text-slate-300 hover:text-white transition-colors cursor-pointer"
+                title="Reset ke Ukuran Asli 100%"
+              >
+                Reset
+              </button>
+              <div className="w-[1px] h-4 bg-slate-700 mx-1" />
+              <button
+                onClick={handleRotate}
+                className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                title="Putar 90 Derajat"
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                title={isFullscreen ? 'Keluar Layar Penuh' : 'Mode Layar Penuh'}
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+              {hasValidImageUrl && doc.fileUrl && (
+                <a
+                  href={doc.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-1.5 rounded-lg hover:bg-slate-700 text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Buka Gambar Asli di Tab Baru"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Interactive Image Display Area */}
         <div
-          className={`relative overflow-auto flex items-center justify-center p-6 bg-radial from-slate-900 to-slate-950 ${
-            isFullscreen ? 'h-[calc(100%-60px)]' : 'min-h-[420px] max-h-[640px]'
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
+          onDoubleClick={handleResetZoom}
+          className={`relative overflow-hidden flex items-center justify-center p-6 bg-slate-950 select-none ${
+            zoom > 100 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+          } ${
+            isFullscreen ? 'h-[calc(100vh-140px)]' : 'min-h-[440px] max-h-[640px]'
           }`}
           style={{
             backgroundImage: `radial-gradient(#334155 1px, transparent 1px)`,
@@ -165,34 +331,39 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
           }}
         >
           <div
-            className="transition-transform duration-200 ease-out origin-center flex items-center justify-center"
+            className="transition-transform duration-150 ease-out origin-center flex items-center justify-center pointer-events-none"
             style={{
-              transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom / 100}) rotate(${rotation}deg)`,
             }}
           >
-            <img
+            <SafeImage
               src={doc.fileUrl}
               alt={doc.title}
-              className="max-w-full max-h-[580px] object-contain rounded-xl shadow-2xl border border-slate-700/60 select-none pointer-events-auto"
+              clarityMode={clarityMode}
+              className="max-w-full max-h-[580px] object-contain rounded-xl shadow-2xl border border-slate-700/60 pointer-events-auto"
+              onError={() => setImageLoadFailed(true)}
             />
           </div>
         </div>
 
         {/* Bottom Status & Info Bar */}
-        <div className="px-4 py-2 bg-slate-900/90 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+        <div className="px-4 py-2.5 bg-slate-900 border-t border-slate-800 flex flex-wrap items-center justify-between text-[11px] text-slate-400 gap-2">
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1 text-emerald-400 font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Berkas visual valid dan siap direview
+              <CheckCircle2 className="w-3.5 h-3.5" /> Berkas visual valid dan terverifikasi
             </span>
             <span className="text-slate-600">&bull;</span>
             <span>Diunggah oleh: <strong className="text-slate-200">{doc.uploadedBy}</strong> [{doc.uploadedByRole}]</span>
           </div>
 
           <div className="flex items-center gap-2">
+            <span className="hidden sm:inline text-slate-500">
+              Double-click gambar untuk reset zoom &bull; Drag untuk menggeser
+            </span>
             {onDownloadOriginal && (
               <button
                 onClick={onDownloadOriginal}
-                className="flex items-center gap-1 text-sky-400 hover:text-sky-300 hover:underline cursor-pointer font-medium"
+                className="flex items-center gap-1 text-sky-400 hover:text-sky-300 hover:underline cursor-pointer font-medium ml-2"
               >
                 <Download className="w-3 h-3" /> Unduh Berkas Asli
               </button>
@@ -206,7 +377,7 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
   // ---------------------------------------------------------------------------
   // 2. RENDER UPLOADED PDF DOCUMENT
   // ---------------------------------------------------------------------------
-  if (doc.fileUrl && isPdf) {
+  if (hasValidPdfUrl && isPdf) {
     return (
       <div className="flex flex-col rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden shadow-2xl w-full">
         {/* PDF Header Action Bar */}
