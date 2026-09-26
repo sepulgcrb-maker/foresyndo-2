@@ -237,7 +237,7 @@ export const PDFCustomizationModal: React.FC<PDFCustomizationModalProps> = ({
       await onGenerate(options);
       onClose();
     } catch (err) {
-      console.error('Failed to generate customized PDF', err);
+      console.warn('Failed to generate customized PDF notice:', err);
     } finally {
       setIsGenerating(false);
     }
@@ -253,7 +253,7 @@ export const PDFCustomizationModal: React.FC<PDFCustomizationModalProps> = ({
       });
       onClose();
     } catch (err) {
-      console.error('Failed quick export', err);
+      console.warn('Failed quick export notice:', err);
     } finally {
       setIsGenerating(false);
     }

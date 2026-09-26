@@ -21,6 +21,7 @@ import {
   RefreshCw,
   QrCode,
   WifiOff,
+  BookOpen,
 } from 'lucide-react';
 import { ProjectInfo, UserRole, NotificationItem } from '../../types';
 import { RoleBadge } from '../common/RoleBadge';
@@ -47,6 +48,7 @@ interface HeaderProps {
   syncStatus?: SyncStatusResult;
   onOpenSyncModal?: () => void;
   onOpenQrModal?: () => void;
+  onOpenRksModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -68,6 +70,7 @@ export const Header: React.FC<HeaderProps> = ({
   syncStatus,
   onOpenSyncModal,
   onOpenQrModal,
+  onOpenRksModal,
 }) => {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const unreadDocNotifications = notifications.filter(
@@ -202,6 +205,22 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <QrCode className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span className="hidden sm:inline">QR Proyek</span>
+            </button>
+          )}
+
+          {/* Buku RKS Resmi & Spesifikasi Teknis */}
+          {onOpenRksModal && (
+            <button
+              onClick={onOpenRksModal}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer border ${
+                darkMode
+                  ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/40'
+                  : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 shadow-xs'
+              }`}
+              title="Buku RKS & Spesifikasi Teknis Proyek Resmi (10 Bab & Standar SNI)"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span className="hidden sm:inline">Buku RKS</span>
             </button>
           )}
 

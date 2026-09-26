@@ -118,7 +118,7 @@ export const DailyMonitoring: React.FC<DailyMonitoringProps> = ({
       setNewLog((prev) => ({ ...prev, weather: mappedCondition }));
       setWeatherInfo({ temp, condition: mappedCondition });
     } catch (err) {
-      console.error('Weather fetch error:', err);
+      console.warn('Weather fetch notice:', err);
       setWeatherInfo({ error: 'Gagal memuat cuaca otomatis (Gunakan opsi manual)' });
     } finally {
       setIsFetchingWeather(false);

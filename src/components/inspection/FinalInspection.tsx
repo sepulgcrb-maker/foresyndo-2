@@ -286,7 +286,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
       try {
         return JSON.parse(saved);
       } catch (e) {
-        console.error('Failed to parse BAST submission state', e);
+        console.warn('Failed to parse BAST submission state:', e);
       }
     }
     return {
@@ -357,7 +357,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {
-        console.error('Failed to parse BAST list state', e);
+        console.warn('Failed to parse BAST list state:', e);
       }
     }
     return getInitialBastList(project, submission);

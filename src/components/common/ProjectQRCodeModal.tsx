@@ -308,7 +308,7 @@ export const ProjectQRCodeModal: React.FC<ProjectQRCodeModalProps> = ({
       downloadLink.href = pngFile;
       downloadLink.click();
     } catch (err) {
-      console.error('Error generating QR PNG:', err);
+      console.warn('QR PNG download notice:', err);
     } finally {
       setIsDownloading(false);
     }
@@ -466,7 +466,7 @@ export const ProjectQRCodeModal: React.FC<ProjectQRCodeModalProps> = ({
       downloadLink.href = pngFile;
       downloadLink.click();
     } catch (err) {
-      console.error('Error generating Card PNG:', err);
+      console.warn('Card PNG download notice:', err);
     } finally {
       setIsDownloading(false);
     }

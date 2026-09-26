@@ -120,7 +120,7 @@ export function unregisterServiceWorker() {
         registration.unregister();
       })
       .catch((error) => {
-        console.error(error.message);
+        console.warn('[SW] Unregister notice:', error?.message || error);
       });
   }
 }
@@ -231,7 +231,7 @@ export async function clearAppCaches(): Promise<boolean> {
     }
     return true;
   } catch (e) {
-    console.error('[SW] Clear cache error:', e);
+    console.warn('[SW] Clear cache notice:', e);
     return false;
   }
 }

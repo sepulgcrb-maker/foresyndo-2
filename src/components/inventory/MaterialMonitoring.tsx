@@ -159,7 +159,7 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
         localStorage.setItem('FORESYNDO_CUSTOM_MATERIAL_CATEGORIES', JSON.stringify(updated));
         window.dispatchEvent(new Event('foresyndo_categories_updated'));
       } catch (err) {
-        console.error(err);
+        console.warn('LocalStorage save notice:', err);
       }
     }
     if (onAddAuditLog) {
@@ -176,7 +176,7 @@ export const MaterialMonitoring: React.FC<MaterialMonitoringProps> = ({
       localStorage.setItem('FORESYNDO_CUSTOM_MATERIAL_CATEGORIES', JSON.stringify(updated));
       window.dispatchEvent(new Event('foresyndo_categories_updated'));
     } catch (err) {
-      console.error(err);
+      console.warn('LocalStorage remove notice:', err);
     }
     if (onAddAuditLog) {
       onAddAuditLog('Hapus Kategori Material', `Menghapus kategori kustom: ${catToDelete}`);

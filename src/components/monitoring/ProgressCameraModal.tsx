@@ -196,7 +196,7 @@ export const ProgressCameraModal: React.FC<ProgressCameraModalProps> = ({
       setCapturedImage(dataUrl);
       stopCameraStream();
     } catch (err) {
-      console.error('Error capturing snapshot:', err);
+      console.warn('Camera snapshot capture notice:', err);
     } finally {
       setIsProcessing(false);
     }

@@ -136,6 +136,11 @@ self.addEventListener('fetch', (event) => {
   // Ignore non-http protocols (e.g. chrome-extension, blob, etc.)
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
+  // Never intercept cross-origin third-party services like Supabase or APIs outside our origin (except fonts & weather)
+  if (url.origin !== self.location.origin && !url.hostname.includes('open-meteo.com') && !url.hostname.includes('fonts.')) {
+    return;
+  }
+
   const isApiRequest = url.pathname.startsWith('/api/') || url.hostname.includes('open-meteo.com');
   const isNavigation = !isApiRequest && (event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html'));
   const isStaticAsset =

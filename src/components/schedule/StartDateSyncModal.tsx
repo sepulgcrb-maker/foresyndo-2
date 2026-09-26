@@ -128,7 +128,7 @@ export const StartDateSyncModal: React.FC<StartDateSyncModalProps> = ({
       }, 1200);
     } catch (err) {
       setIsApplying(false);
-      console.error(err);
+      console.warn('Sync schedule start date notice:', err);
     }
   };
 

@@ -44,7 +44,7 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
     try {
       generateOfficialRABPDF(rab, project);
     } catch (err) {
-      console.error('Error exporting RAB PDF:', err);
+      console.warn('RAB PDF export notice:', err);
     } finally {
       setIsGeneratingPDF(false);
     }

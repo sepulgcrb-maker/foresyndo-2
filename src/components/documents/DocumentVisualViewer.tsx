@@ -77,11 +77,17 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
     doc.fileType === 'png' ||
     doc.fileType === 'jpg' ||
     doc.fileType === 'jpeg' ||
-    (doc.fileUrl && doc.fileUrl.startsWith('data:image'));
+    Boolean(
+      doc.fileUrl &&
+      typeof doc.fileUrl === 'string' &&
+      (doc.fileUrl.startsWith('data:image') ||
+        doc.fileUrl.startsWith('blob:') ||
+        /\.(png|jpe?g|webp|svg|gif|bmp)(\?.*)?$/i.test(doc.fileUrl))
+    );
 
   const isPdf =
     doc.fileType === 'pdf' ||
-    (doc.fileUrl && doc.fileUrl.startsWith('data:application/pdf'));
+    Boolean(doc.fileUrl && typeof doc.fileUrl === 'string' && (doc.fileUrl.startsWith('data:application/pdf') || doc.fileUrl.toLowerCase().endsWith('.pdf')));
 
   const isDrawingOrCad =
     doc.category === 'drawing' ||
@@ -97,10 +103,10 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
     typeof doc.fileUrl === 'string' &&
     !doc.fileUrl.startsWith('[') &&
     (doc.fileUrl.startsWith('data:image') ||
-      doc.fileUrl.startsWith('http://') ||
-      doc.fileUrl.startsWith('https://') ||
-      doc.fileUrl.startsWith('/') ||
-      doc.fileUrl.startsWith('blob:'))
+      doc.fileUrl.startsWith('blob:') ||
+      isImage ||
+      /\.(png|jpe?g|webp|svg|gif|bmp)(\?.*)?$/i.test(doc.fileUrl) ||
+      (!doc.fileUrl.startsWith('data:application/pdf') && !doc.fileUrl.toLowerCase().endsWith('.pdf') && (doc.fileUrl.startsWith('http://') || doc.fileUrl.startsWith('https://') || doc.fileUrl.startsWith('/'))))
   );
 
   // Validates if doc has a real, readable PDF URL
@@ -186,7 +192,7 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
   // ---------------------------------------------------------------------------
   // 1. RENDER UPLOADED IMAGE (High-definition Interactive Inspection Studio)
   // ---------------------------------------------------------------------------
-  if (hasValidImageUrl && isImage) {
+  if (hasValidImageUrl) {
     return (
       <div
         className={`flex flex-col rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden shadow-2xl transition-all ${

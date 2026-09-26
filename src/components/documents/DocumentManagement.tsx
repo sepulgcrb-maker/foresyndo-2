@@ -34,9 +34,12 @@ import {
   HardHat,
   PenTool,
   Bell,
+  BookOpen,
   Image as ImageIcon,
 } from 'lucide-react';
 import { DocumentVisualViewer } from './DocumentVisualViewer';
+import { OfficialRKSViewer } from './OfficialRKSViewer';
+import { TechnicalDrawingReviewModal } from './TechnicalDrawingReviewModal';
 import {
   ProjectDocument,
   DocumentCategory,
@@ -66,6 +69,7 @@ interface DocumentManagementProps {
 
 const CATEGORY_TABS: { id: DocumentCategory | 'all'; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'all', label: 'Semua Dokumen', icon: Files },
+  { id: 'rks', label: 'Buku RKS & Syarat Teknis', icon: BookOpen },
   { id: 'contract', label: 'Kontrak & SPK', icon: FileCheck },
   { id: 'drawing', label: 'Gambar Teknis (DED & Shop Drawing)', icon: PenTool },
   { id: 'meeting_minute', label: 'Notulen Rapat & SCM', icon: MessageSquare },
@@ -93,6 +97,7 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
 
   // Modals state
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isRKSViewerOpen, setIsRKSViewerOpen] = useState(false);
   const [selectedDocForPreview, setSelectedDocForPreview] = useState<ProjectDocument | null>(null);
   const [selectedDocForReview, setSelectedDocForReview] = useState<ProjectDocument | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -543,10 +548,13 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
   };
 
   // Submit Review Note & Approval
-  const handleSubmitReview = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitReview = (reviewData: {
+    status: DocumentStatus;
+    comment: string;
+    updatedFileUrl?: string;
+  }) => {
     if (!selectedDocForReview) return;
-    if (!reviewComment.trim()) {
+    if (!reviewData.comment.trim()) {
       alert('Mohon tuliskan catatan review teknis.');
       return;
     }
@@ -556,13 +564,14 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
       authorName: activeUserName,
       authorRole: userRole,
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      comment: reviewComment.trim(),
-      statusChange: reviewStatusChoice,
+      comment: reviewData.comment.trim(),
+      statusChange: reviewData.status,
     };
 
     const updatedDoc: ProjectDocument = {
       ...selectedDocForReview,
-      status: reviewStatusChoice,
+      status: reviewData.status,
+      fileUrl: reviewData.updatedFileUrl || selectedDocForReview.fileUrl,
       reviewNotes: [...(selectedDocForReview.reviewNotes || []), newNote],
     };
 
@@ -570,12 +579,12 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
     if (isKontraktor) {
       onAddAuditLog?.(
         'Review Gambar Kerja oleh Kontraktor',
-        `Kontraktor Pelaksana (${activeUserName}) memberikan review teknis pada gambar ${updatedDoc.documentNumber} (${updatedDoc.title}) status: "${reviewStatusChoice}": "${reviewComment}"`
+        `Kontraktor Pelaksana (${activeUserName}) memberikan review teknis pada gambar ${updatedDoc.documentNumber} (${updatedDoc.title}) status: "${reviewData.status}": "${reviewData.comment}"`
       );
     } else {
       onAddAuditLog?.(
         'Review & Verifikasi Dokumen',
-        `Memperbarui status ${updatedDoc.documentNumber} menjadi "${reviewStatusChoice}": "${reviewComment}"`
+        `Memperbarui status ${updatedDoc.documentNumber} menjadi "${reviewData.status}": "${reviewData.comment}"`
       );
     }
 
@@ -620,7 +629,7 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
       generateProjectDocumentPDF(doc, project);
       onAddAuditLog?.('Unduh Dokumen PDF Resmi', `Mengunduh arsip PDF resmi ${doc.documentNumber} (${doc.title})`);
     } catch (err) {
-      console.error('Gagal generate PDF:', err);
+      console.warn('Gagal generate PDF notice:', err);
       alert('Gagal menghasilkan dokumen PDF. Silakan periksa kembali.');
     }
   };
@@ -697,6 +706,8 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
 
   const getCategoryLabel = (cat: DocumentCategory) => {
     switch (cat) {
+      case 'rks':
+        return 'Buku RKS & Syarat Teknis';
       case 'contract':
         return 'Kontrak & SPK';
       case 'drawing':
@@ -771,6 +782,19 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
               )}
             </div>
           )}
+
+          {/* Tombol Pembaca Buku RKS Resmi */}
+          <button
+            onClick={() => setIsRKSViewerOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all cursor-pointer"
+            title="Buka Buku RKS & Spesifikasi Teknis Resmi (10 Bab Standar SNI)"
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>Buku RKS Resmi</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-800/80 text-indigo-200">
+              10 Bab
+            </span>
+          </button>
 
           {canUpload ? (
             <button
@@ -1491,130 +1515,20 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* REVIEW & APPROVAL MODAL */}
+      {/* REVIEW & APPROVAL MODAL (WITH INTERACTIVE TECHNICAL DRAWING INSPECTION) */}
       {/* ========================================================================= */}
       {selectedDocForReview && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 bg-slate-800/80 border-b border-slate-700/80 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {isKontraktor ? (
-                  <HardHat className="w-5 h-5 text-amber-400" />
-                ) : (
-                  <CheckCircle2 className="w-5 h-5 text-amber-400" />
-                )}
-                <div>
-                  <h3 className="font-bold text-white text-sm">
-                    {isKontraktor
-                      ? 'Review Gambar Kerja (Owner & MK)'
-                      : 'Verifikasi & Approval Dokumen'}
-                  </h3>
-                  <p className="text-[10px] text-slate-400">
-                    {isKontraktor
-                      ? 'Tinjauan teknis lapangan oleh Kontraktor terhadap gambar terbitan Owner/Konsultan MK'
-                      : 'Audit dan pengesahan dokumen proyek konstruksi'}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedDocForReview(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitReview} className="p-6 space-y-4">
-              <div className="p-3.5 rounded-2xl bg-slate-800/50 border border-slate-700 space-y-1">
-                <div className="text-[11px] text-slate-400">Dokumen yang ditinjau:</div>
-                <div className="font-bold text-white text-xs">{selectedDocForReview.title}</div>
-                <div className="flex items-center gap-2 flex-wrap text-[10px]">
-                  <span className="font-mono text-orange-400">{selectedDocForReview.documentNumber} ({selectedDocForReview.version})</span>
-                  <span className="text-slate-500">&bull;</span>
-                  <span className="text-slate-300">Diupload oleh: <strong>{selectedDocForReview.uploadedBy}</strong> ({selectedDocForReview.uploadedByRole})</span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-300 block">
-                  {isKontraktor ? 'Hasil Review Gambar Lapangan' : 'Keputusan Status Dokumen'}
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setReviewStatusChoice('Approved')}
-                    className={`p-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                      reviewStatusChoice === 'Approved'
-                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500'
-                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
-                    }`}
-                  >
-                    {isKontraktor ? 'Disetujui Kontraktor' : 'Setujui (Approved)'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setReviewStatusChoice('Revision')}
-                    className={`p-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                      reviewStatusChoice === 'Revision'
-                        ? 'bg-rose-500/20 text-rose-400 border-rose-500'
-                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
-                    }`}
-                  >
-                    {isKontraktor ? 'Usul Revisi Lapangan' : 'Minta Revisi'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setReviewStatusChoice('Review')}
-                    className={`p-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                      reviewStatusChoice === 'Review'
-                        ? 'bg-amber-500/20 text-amber-400 border-amber-500'
-                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
-                    }`}
-                  >
-                    Tinjau Kembali
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-300 block">
-                  {isKontraktor
-                    ? 'Catatan Teknis Lapangan / Respon Kontraktor'
-                    : 'Catatan Review Teknis / Arahan Lapangan'}{' '}
-                  <span className="text-rose-400">*</span>
-                </label>
-                <textarea
-                  required
-                  rows={4}
-                  value={reviewComment}
-                  onChange={(e) => setReviewComment(e.target.value)}
-                  placeholder={
-                    isKontraktor
-                      ? 'Tuliskan hasil pengecekan dimensi gambar kerja, kesiapan material/bekisting di lapangan, atau catatan khusus sebelum eksekusi pekerjaan...'
-                      : 'Tuliskan catatan teknis, instruksi revisi, atau konfirmasi persetujuan dokumen ini...'
-                  }
-                  className="w-full p-3 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedDocForReview(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md shadow-orange-500/25 transition-all cursor-pointer"
-                >
-                  {isKontraktor ? 'Kirim Review Gambar' : 'Simpan Keputusan Review'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <TechnicalDrawingReviewModal
+          document={selectedDocForReview}
+          isOpen={Boolean(selectedDocForReview)}
+          onClose={() => setSelectedDocForReview(null)}
+          onSubmitReview={handleSubmitReview}
+          userRole={userRole}
+          activeUserName={activeUserName}
+          isKontraktor={isKontraktor}
+          onDownloadOriginal={(d) => handleDownloadDocument(d, 'original')}
+          onDownloadPdf={(d) => handleDownloadDocument(d, 'pdf')}
+        />
       )}
 
       {/* ========================================================================= */}
@@ -1751,6 +1665,7 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
                     className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white font-semibold focus:outline-none focus:border-orange-500"
                   >
                     <option value="drawing">Gambar Teknis (DED & Shop Drawing)</option>
+                    <option value="rks">Buku RKS &amp; Spesifikasi Teknis</option>
                     <option value="contract">Kontrak & SPK / Addendum</option>
                     <option value="meeting_minute">Notulen Rapat PCM & SCM</option>
                     {!isKontraktor && <option value="legal_permit">Legalitas & PBG/IMB</option>}
@@ -1906,6 +1821,16 @@ export const DocumentManagement: React.FC<DocumentManagementProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Official RKS Viewer Modal */}
+      {isRKSViewerOpen && (
+        <OfficialRKSViewer
+          onClose={() => setIsRKSViewerOpen(false)}
+          project={project}
+          userRole={userRole}
+          onAddAuditLog={onAddAuditLog}
+        />
       )}
     </div>
   );

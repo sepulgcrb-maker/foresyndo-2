@@ -60,7 +60,7 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
     try {
       generateTerminPDF(project, paymentTerms, workItems);
     } catch (err) {
-      console.error('Error generating Termin PDF:', err);
+      console.warn('Termin PDF generation notice:', err);
     } finally {
       setIsExportingPDF(false);
     }
@@ -70,7 +70,7 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
     try {
       generateTerminVoucherPDF(term, project);
     } catch (err) {
-      console.error('Error generating Voucher PDF:', err);
+      console.warn('Voucher PDF generation notice:', err);
     }
   };
 

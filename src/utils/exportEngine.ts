@@ -12,8 +12,10 @@ import {
   PhotoItem,
   PhotoCategory,
   PDFCustomExportOptions,
+  RKSChapter,
 } from '../types';
 import { OFFICIAL_RAB_DOCUMENT, OfficialRABDocument, INITIAL_PHOTOS } from '../data/initialData';
+import { OFFICIAL_RKS_CHAPTERS, RKS_META_INFO, RKSMetaInfo } from '../data/rksData';
 import {
   formatIDR,
   calculatePhysicalProgress,
@@ -2583,6 +2585,249 @@ export function generateProjectDocumentPDF(
   const safeFileName = docItem.documentNumber.replace(/[^a-zA-Z0-9_-]/g, '_');
   doc.save(`Dokumen_${safeFileName}_${docItem.version.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`);
 }
+
+/**
+ * Generate official multi-page comprehensive RKS (Rencana Kerja dan Syarat-Syarat) PDF
+ */
+export function generateOfficialRKSPDF(
+  project?: Partial<ProjectInfo>,
+  chapters: RKSChapter[] = OFFICIAL_RKS_CHAPTERS,
+  meta: RKSMetaInfo = RKS_META_INFO
+) {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  const navyColor: [number, number, number] = [15, 23, 42]; // #0F172A
+  const orangeColor: [number, number, number] = [249, 115, 22]; // #F97316
+  const grayColor: [number, number, number] = [100, 116, 139];
+  const darkTextColor: [number, number, number] = [30, 41, 59];
+
+  // Helper for official header
+  const renderHeader = (pageNumber: number, totalPages?: number) => {
+    doc.setFillColor(...navyColor);
+    doc.rect(0, 0, pageWidth, 24, 'F');
+    doc.setFillColor(...orangeColor);
+    doc.rect(0, 24, pageWidth, 2, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text(project?.owner || meta.ownerName, 14, 10.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.text(
+      `RENCANA KERJA DAN SYARAT-SYARAT (RKS) & SPESIFIKASI TEKNIS - ${project?.name || meta.projectTitle}`,
+      14,
+      15.5
+    );
+    doc.text(
+      `No. Dokumen: ${meta.documentNumber} | Durasi: ${meta.durationDays} Hari Kalender | Status: ${meta.revision}`,
+      14,
+      20.5
+    );
+
+    // Page Number
+    doc.setFontSize(8);
+    doc.text(`Hal ${pageNumber}`, pageWidth - 14, 20.5, { align: 'right' });
+  };
+
+  // Helper for official footer
+  const renderFooter = () => {
+    const footerY = pageHeight - 12;
+    doc.setFillColor(248, 250, 252);
+    doc.rect(0, footerY, pageWidth, 12, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.line(0, footerY, pageWidth, footerY);
+
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...navyColor);
+    doc.text('DOKUMEN RESMI TRIPARTIT:', 14, footerY + 4.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6);
+    doc.setTextColor(...grayColor);
+    doc.text(
+      `Dokumen RKS ini mengikat secara hukum antara Pemberi Tugas, Konsultan MK, dan Kontraktor Pelaksana. Kode Verifikasi: RKS-AUTH-2026-FGI`,
+      14,
+      footerY + 8.5
+    );
+    doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID')} WIB`, pageWidth - 14, footerY + 8.5, {
+      align: 'right',
+    });
+  };
+
+  // --- PAGE 1: COVER & METADATA TABLE ---
+  renderHeader(1);
+
+  // Document Title Banner
+  doc.setTextColor(...navyColor);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('BUKU SPESIFIKASI TEKNIS & RKS RESMI', 14, 34);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(...grayColor);
+  doc.text(
+    `Pedoman Standar Teknis Konstruksi, Metode Kerja SNI, Pengawasan Mutu & Administrasi Proyek`,
+    14,
+    39.5
+  );
+
+  // Metadata Table
+  autoTable(doc, {
+    startY: 44,
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2.2 },
+    headStyles: { fillColor: navyColor, textColor: 255, fontStyle: 'bold' },
+    head: [['Parameter Proyek', 'Keterangan Rinci']],
+    body: [
+      ['Nama Proyek', project?.name || meta.projectTitle],
+      ['Nomor Kontrak Induk', project?.contractNumber || 'PR-2026-FGI-004'],
+      ['Nomor Dokumen RKS', meta.documentNumber],
+      ['Pemberi Tugas (Owner)', `${meta.ownerName} (${meta.ownerRepresentative})`],
+      ['Konsultan MK / Pengawas', meta.consultantMK],
+      ['Kontraktor Pelaksana', `${meta.contractorName} (${meta.contractorSiteManager})`],
+      ['Nilai Kontrak Pelaksanaan', formatIDR(project?.contractValue || meta.contractValueIDR)],
+      ['Waktu Pelaksanaan', `${meta.durationDays} Hari Kalender (${project?.startDate || '2026-09-01'} s/d ${project?.targetEndDate || '2027-05-28'})`],
+      ['Masa Pemeliharaan / Retensi', '180 Hari Kalender (Retensi 5% senilai Rp 723.088.049)'],
+      ['Cakupan Pekerjaan Fisik', '14 Sektor Pekerjaan (Struktur, Arsitektur, Mekanikal, Elektrikal, Plumbing & Finishing)'],
+    ],
+  });
+
+  // Table of Chapters Overview
+  // @ts-ignore
+  let nextY = (doc as any).lastAutoTable.finalY + 6;
+
+  doc.setTextColor(...navyColor);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  doc.text('DAFTAR BAB RENCANA KERJA DAN SYARAT-SYARAT (RKS)', 14, nextY);
+
+  const chapterRows = chapters.map((ch) => [
+    ch.chapterNumber,
+    ch.title,
+    ch.category,
+    `${ch.clauses.length} Pasal`,
+    ch.description.substring(0, 65) + '...',
+  ]);
+
+  autoTable(doc, {
+    startY: nextY + 3,
+    theme: 'striped',
+    styles: { fontSize: 7.5, cellPadding: 2 },
+    headStyles: { fillColor: orangeColor, textColor: 255, fontStyle: 'bold' },
+    head: [['Bab', 'Judul Bab RKS', 'Kategori', 'Jumlah Pasal', 'Ringkasan Ruang Lingkup']],
+    body: chapterRows,
+  });
+
+  // Tripartite Signatures on Page 1
+  // @ts-ignore
+  const sigY = Math.min(pageHeight - 48, Math.max((doc as any).lastAutoTable.finalY + 6, pageHeight - 55));
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(14, sigY, pageWidth - 28, 32, 2, 2, 'F');
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(14, sigY, pageWidth - 28, 32, 2, 2, 'D');
+
+  doc.setFontSize(7.5);
+  doc.setTextColor(...navyColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PERSETUJUAN & PENGESAHAN DOKUMEN RKS TRIPARTIT:', 18, sigY + 5.5);
+
+  const colWidth = (pageWidth - 36) / 3;
+  meta.tripartiteSignatories.forEach((sig, idx) => {
+    const colX = 18 + idx * colWidth;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(...navyColor);
+    doc.text(sig.role, colX, sigY + 11);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6);
+    doc.setTextColor(...grayColor);
+    doc.text(sig.organization, colX, sigY + 14.5);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(16, 185, 129);
+    doc.text('[TERVERIFIKASI & DITANDATANGANI]', colX, sigY + 21);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...darkTextColor);
+    doc.text(sig.name, colX, sigY + 26);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6);
+    doc.setTextColor(...grayColor);
+    doc.text(`Tanggal: ${sig.date}`, colX, sigY + 29.5);
+  });
+
+  renderFooter();
+
+  // --- SUBSEQUENT PAGES: CHAPTER DETAILS & CLAUSES ---
+  let pageIdx = 2;
+  chapters.forEach((chapter) => {
+    doc.addPage();
+    renderHeader(pageIdx);
+    pageIdx++;
+
+    doc.setTextColor(...navyColor);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text(`${chapter.chapterNumber}: ${chapter.title}`, 14, 34);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...grayColor);
+    doc.text(`Kategori: ${chapter.category} | ${chapter.description}`, 14, 39, {
+      maxWidth: pageWidth - 28,
+    });
+
+    const clauseBodyRows: any[] = [];
+    chapter.clauses.forEach((cl) => {
+      clauseBodyRows.push([
+        {
+          content: `${cl.number}\n${cl.title}`,
+          styles: { fontStyle: 'bold', fillColor: [241, 245, 249] as [number, number, number] },
+        },
+        {
+          content: `${cl.content}\n${
+            cl.standards && cl.standards.length > 0 ? `\nStandar Acuan: ${cl.standards.join(', ')}` : ''
+          }${
+            cl.subClauses && cl.subClauses.length > 0
+              ? `\n\nKetentuan Khusus:\n` +
+                cl.subClauses
+                  .map((sub) => `• (${sub.code}) ${sub.text}${sub.requirement ? ` [Syarat: ${sub.requirement}]` : ''}`)
+                  .join('\n')
+              : ''
+          }`,
+        },
+      ]);
+    });
+
+    autoTable(doc, {
+      startY: 44,
+      theme: 'grid',
+      styles: { fontSize: 7.5, cellPadding: 2.5 },
+      headStyles: { fillColor: navyColor, textColor: 255, fontStyle: 'bold' },
+      head: [['Pasal / Butir Spesifikasi', 'Uraian Persyaratan Teknis & Standar Acuan']],
+      body: clauseBodyRows,
+      columnStyles: {
+        0: { cellWidth: 50 },
+        1: { cellWidth: 'auto' },
+      },
+    });
+
+    renderFooter();
+  });
+
+  const safeFileName = (project?.name || 'FORESYNDO_2').replace(/[^a-zA-Z0-9_-]/g, '_');
+  doc.save(`Buku_RKS_Resmi_${safeFileName}_Rev01.pdf`);
+}
+
 
 
 

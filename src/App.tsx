@@ -86,6 +86,7 @@ import { SyncAlertBanner } from './components/common/SyncAlertBanner';
 import { OfflineStatusBanner } from './components/common/OfflineStatusBanner';
 import { SyncStatusModal } from './components/common/SyncStatusModal';
 import { ProjectQRCodeModal } from './components/common/ProjectQRCodeModal';
+import { OfficialRKSViewer } from './components/documents/OfficialRKSViewer';
 import { LoginPage } from './components/auth/LoginPage';
 
 import { generatePDFReport } from './utils/exportEngine';
@@ -355,6 +356,11 @@ export default function App() {
   const [
     isQrModalOpen,
     setIsQrModalOpen,
+  ] = useState(false);
+
+  const [
+    isRKSModalOpen,
+    setIsRKSModalOpen,
   ] = useState(false);
 
   const [
@@ -3377,6 +3383,11 @@ export default function App() {
             true
           )
         }
+        onOpenRksModal={() =>
+          setIsRKSModalOpen(
+            true
+          )
+        }
       />
 
       {cloudError && (
@@ -4318,6 +4329,29 @@ export default function App() {
           project
         }
       />
+
+      {/* ========================================================
+          BUKU RKS RESMI & SPESIFIKASI TEKNIS
+      ======================================================== */}
+
+      {isRKSModalOpen && (
+        <OfficialRKSViewer
+          onClose={() =>
+            setIsRKSModalOpen(
+              false
+            )
+          }
+          project={
+            project
+          }
+          userRole={
+            currentRole
+          }
+          onAddAuditLog={
+            addAuditLog
+          }
+        />
+      )}
     </div>
   );
 }

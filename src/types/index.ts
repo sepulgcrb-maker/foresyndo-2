@@ -373,9 +373,31 @@ export interface CalendarEvent {
 
 export type DocumentCategory =
   | 'contract' // Kontrak, SPK, Addendum, Syarat Teknis
+  | 'rks' // Rencana Kerja dan Syarat-Syarat (RKS) & Spesifikasi Teknis
   | 'drawing' // Gambar DED, Shop Drawing, As-Built Drawing
   | 'meeting_minute' // Notulen Rapat PCM, SCM, Site Coordination
   | 'legal_permit'; // IMB/PBG, Amdal, Legalitas, SK
+
+export interface RKSClause {
+  number: string;
+  title: string;
+  standards?: string[]; // e.g. ["SNI 2847:2019", "ASTM C39"]
+  content: string;
+  subClauses?: {
+    code: string;
+    text: string;
+    requirement?: string;
+  }[];
+}
+
+export interface RKSChapter {
+  id: string;
+  chapterNumber: string; // e.g. "BAB I"
+  title: string;
+  category: 'Administrasi' | 'K3' | 'Struktur' | 'Arsitektur' | 'MEP' | 'Mutu & Serah Terima';
+  description: string;
+  clauses: RKSClause[];
+}
 
 export type DocumentStatus = 'Approved' | 'Review' | 'Draft' | 'Revision';
 

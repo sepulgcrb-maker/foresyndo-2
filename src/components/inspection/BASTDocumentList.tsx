@@ -72,7 +72,7 @@ export const BASTDocumentList: React.FC<BASTDocumentListProps> = ({
         setToastMessage(null);
       }, 4000);
     } catch (err) {
-      console.error('Gagal membuat PDF BAST:', err);
+      console.warn('Gagal membuat PDF BAST notice:', err);
       setToastMessage('Gagal membuat file PDF. Silakan coba lagi.');
     } finally {
       setTimeout(() => {
