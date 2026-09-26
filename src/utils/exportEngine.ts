@@ -2143,7 +2143,7 @@ export function generateBASTPDF(
     {
       title: 'PIHAK KEDUA (OWNER / DIREKTUR)',
       name: ownerName,
-      position: 'Direktur Utama PT. Foresyndo',
+      position: 'Direktur Utama PT. FORESYNDO GLOBAL INDONESIA',
       signed: bast.ownerSignature.signed,
       signedAt: bast.ownerSignature.signedAt || '2026-05-20 09:00 WIB',
       signatureData: bast.ownerSignature.signatureData,

@@ -22,8 +22,10 @@ import {
   Award,
   ArrowUpRight,
   Sparkles,
+  Flame,
 } from 'lucide-react';
 import { formatIDR } from '../../utils/calculations';
+import { WorkforceHeatmap } from './WorkforceHeatmap';
 
 interface WorkforceMonitoringProps {
   workers: WorkerItem[];
@@ -48,11 +50,11 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
   onUpdateAllocation,
   onDeleteAllocation,
 }) => {
-  // Main Sub-Tab State: 'roster' (Daftar & Absensi) | 'allocation' (Alokasi Sumber Daya)
-  const [activeSubTab, setActiveSubTab] = useState<'roster' | 'allocation'>('allocation');
+  // Main Sub-Tab State: 'allocation' | 'heatmap' | 'roster'
+  const [activeSubTab, setActiveSubTab] = useState<'roster' | 'allocation' | 'heatmap'>('allocation');
 
-  // Allocation View Mode: 'table' | 'matrix'
-  const [allocationViewMode, setAllocationViewMode] = useState<'table' | 'matrix'>('table');
+  // Allocation View Mode: 'table' | 'matrix' | 'heatmap'
+  const [allocationViewMode, setAllocationViewMode] = useState<'table' | 'matrix' | 'heatmap'>('table');
 
   // Search & Filters for Allocation
   const [searchQuery, setSearchQuery] = useState('');
@@ -151,10 +153,12 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
     });
   };
 
-  const handleOpenAllocModal = () => {
+  const handleOpenAllocModal = (preselectedWorkItemId?: string, preselectedDate?: string) => {
     if (workers.length > 0 && workItems.length > 0) {
       const selectedWorker = workers[0];
-      const selectedItem = workItems[0];
+      const selectedItem = preselectedWorkItemId
+        ? workItems.find((w) => w.id === preselectedWorkItemId) || workItems[0]
+        : workItems[0];
       setNewAlloc({
         workerId: selectedWorker.id,
         workerName: selectedWorker.name,
@@ -163,7 +167,7 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
         workItemName: selectedItem.name,
         workItemCategory: selectedItem.category,
         allocatedHours: 8,
-        assignedDate: new Date().toISOString().split('T')[0],
+        assignedDate: preselectedDate || new Date().toISOString().split('T')[0],
         targetOutput: 20,
         actualOutput: 18,
         unit: selectedItem.unit === 'Rp' ? 'm²' : selectedItem.unit || 'm²',
@@ -279,25 +283,40 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
         </div>
 
         {/* Top Sub-Tab Navigation */}
-        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 shrink-0">
+        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 shrink-0 flex-wrap sm:flex-nowrap">
           <button
             onClick={() => setActiveSubTab('allocation')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activeSubTab === 'allocation'
                 ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Target className="w-4 h-4" />
-            <span>Alokasi Pekerjaan &amp; Produktivitas</span>
+            <span>Alokasi &amp; Produktivitas</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-white/20 text-white">
               {allocations.length}
             </span>
           </button>
 
           <button
+            onClick={() => setActiveSubTab('heatmap')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeSubTab === 'heatmap'
+                ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Flame className="w-4 h-4 text-amber-300" />
+            <span>Heatmap Kepadatan (30 Hari)</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              Bottlenecks
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveSubTab('roster')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activeSubTab === 'roster'
                 ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -436,7 +455,7 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
               <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
                 <button
                   onClick={() => setAllocationViewMode('table')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     allocationViewMode === 'table'
                       ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
                       : 'text-slate-400 hover:text-slate-200'
@@ -447,7 +466,7 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
                 </button>
                 <button
                   onClick={() => setAllocationViewMode('matrix')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     allocationViewMode === 'matrix'
                       ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
                       : 'text-slate-400 hover:text-slate-200'
@@ -455,6 +474,17 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
                   title="Tampilan Kelompok Matriks Pekerjaan"
                 >
                   <Briefcase className="w-3.5 h-3.5" /> Matriks Sektor
+                </button>
+                <button
+                  onClick={() => setAllocationViewMode('heatmap')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    allocationViewMode === 'heatmap'
+                      ? 'bg-white dark:bg-slate-900 text-orange-500 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Tampilan Visual Heatmap Kepadatan 30 Hari & Analisis Hambatan"
+                >
+                  <Flame className="w-3.5 h-3.5 text-orange-500" /> Heatmap 30 Hari
                 </button>
               </div>
 

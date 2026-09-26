@@ -132,7 +132,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
       : userRole === 'Kontraktor'
       ? 'EKO YULIANTO (Kontraktor Pelaksana)'
       : userRole === 'Owner' || userRole === 'Direktur'
-      ? 'HASANUDIN (Owner)'
+      ? 'HASANUDIN (Direktur Utama PT. Foresyndo Global Indonesia)'
       : 'EKO YULIANTO');
 
   // New photo state
