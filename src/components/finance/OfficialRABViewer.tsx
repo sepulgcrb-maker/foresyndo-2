@@ -105,7 +105,7 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Rencana Anggaran Biaya Definitif PT Foresyndo Global Indonesia - {rab.contractNumber}
+              Rencana Anggaran Biaya Definitif PT. FORESYNDO GLOBAL INDONESIA - {rab.contractNumber}
             </p>
           </div>
         </div>
@@ -439,7 +439,7 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
             <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col items-center text-center space-y-2">
               <span className="text-[10px] font-bold text-slate-500 uppercase">DIBUAT &amp; DIHITUNG OLEH:</span>
               <span className="font-bold text-slate-900 text-sm">Tim Lead Estimator / QS Proyek</span>
-              <span className="text-xs text-slate-600">PT. Foresyndo Global Indonesia</span>
+              <span className="text-xs text-slate-600">PT. GONG MBE LINK PAMUNGKAS</span>
               <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-sm my-1">
                 <QRCodeSVG value={`FORESYNDO-RAB-SIGN:${rab.contractNumber}:${rab.estimatorSignatureId}`} size={64} level="M" />
               </div>
@@ -451,8 +451,8 @@ export const OfficialRABViewer: React.FC<OfficialRABViewerProps> = ({ onClose, o
 
             <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col items-center text-center space-y-2">
               <span className="text-[10px] font-bold text-slate-500 uppercase">DIPERIKSA &amp; DISETUJUI OLEH:</span>
-              <span className="font-bold text-slate-900 text-sm">Project Manager / Direktur Utama</span>
-              <span className="text-xs text-slate-600">PT. Foresyndo Global Indonesia</span>
+              <span className="font-bold text-slate-900 text-sm">HASANUDIN (Direktur Utama)</span>
+              <span className="text-xs text-slate-600">PT. FORESYNDO GLOBAL INDONESIA</span>
               <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-sm my-1">
                 <QRCodeSVG value={`FORESYNDO-RAB-SIGN:${rab.contractNumber}:${rab.pmSignatureId}`} size={64} level="M" />
               </div>

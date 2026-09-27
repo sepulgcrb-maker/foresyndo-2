@@ -1005,17 +1005,17 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
               >
                 <div className="border-r border-current pr-2">
                   <div className="text-[9px] uppercase font-bold opacity-75">Pemilik Proyek (Owner):</div>
-                  <div className="font-bold">PT FORESYNDO GLOBAL INDONESIA</div>
-                  <div className="text-[10px] opacity-80">Direktur: HASANUDIN</div>
+                  <div className="font-bold">PT. FORESYNDO GLOBAL INDONESIA</div>
+                  <div className="text-[10px] opacity-80">Direktur Utama: HASANUDIN</div>
                 </div>
                 <div className="border-r border-current pr-2">
                   <div className="text-[9px] uppercase font-bold opacity-75">Konsultan Manajemen Konstruksi:</div>
-                  <div className="font-bold">PT BINA MANDIRI KONSULTAN</div>
-                  <div className="text-[10px] opacity-80">Team Leader: SAEPUL ANWAR</div>
+                  <div className="font-bold">PT. BENNATIN SURYA CIPTA</div>
+                  <div className="text-[10px] opacity-80">Team Leader MK: SAEPUL ANWAR</div>
                 </div>
                 <div className="border-r border-current pr-2">
                   <div className="text-[9px] uppercase font-bold opacity-75">Kontraktor Pelaksana:</div>
-                  <div className="font-bold">PT FORESYNDO CIPTA UTAMA</div>
+                  <div className="font-bold">PT. GONG MBE LINK PAMUNGKAS</div>
                   <div className="text-[10px] opacity-80">Site Manager: EKO YULIANTO</div>
                 </div>
                 <div className="text-right flex flex-col justify-center">
@@ -1149,7 +1149,7 @@ export const DocumentVisualViewer: React.FC<DocumentVisualViewerProps> = ({
                   </div>
                 </div>
                 <div className="font-bold text-white text-xs">HASANUDIN</div>
-                <div className="text-[10px] text-slate-500">Direktur Utama PT FGI</div>
+                <div className="text-[10px] text-slate-500">Direktur Utama PT. FORESYNDO GLOBAL INDONESIA</div>
               </div>
 
               <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5 text-center">

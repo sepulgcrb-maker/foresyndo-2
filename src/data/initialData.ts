@@ -89,7 +89,7 @@ export const OFFICIAL_RAB_DOCUMENT: OfficialRABDocument = {
   projectName: 'Pembangunan Gedung 7 Lantai (Foresyndo 2)',
   contractNumber: 'PR-2026-FGI-004',
   auditLocation: 'Jatitujuh, Majalengka, Jawa Barat',
-  developer: 'PT Foresyndo Global Indonesia',
+  developer: 'PT. FORESYNDO GLOBAL INDONESIA',
   issueDate: '19/6/2026',
   tolerance: '± 5.0% RAB Sektoral',
   npwp: '61.491.199.8-445.000',
@@ -1889,7 +1889,7 @@ export const INITIAL_PROJECT_DOCUMENTS: ProjectDocument[] = [
     uploadedByRole: 'Owner',
     version: 'v1.0 (Final Teraudit)',
     status: 'Approved',
-    description: 'Surat Perjanjian Kerja Pelaksanaan Konstruksi Proyek Pembangunan Gedung PT. Foresyndo Global Indonesia senilai Rp 14.461.760.981 (14 Sektor Utama, Durasi 270 Hari Kalender).',
+    description: 'Surat Perjanjian Kerja Pelaksanaan Konstruksi Proyek Pembangunan Gedung PT. FORESYNDO GLOBAL INDONESIA senilai Rp 14.461.760.981 (14 Sektor Utama, Durasi 270 Hari Kalender).',
     tags: ['Kontrak', 'RAB Resmi', 'SPK', 'Tripartit'],
     confidentiality: 'Khusus Tripartit (Owner-MK-Kontraktor)',
     reviewNotes: [

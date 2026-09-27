@@ -1493,7 +1493,7 @@ export const OFFICIAL_RAB_DOCUMENT: OfficialRABDocument = {
   projectName: 'Pembangunan Gedung 7 Lantai (Foresyndo 2)',
   contractNumber: 'PR-2026-FGI-004',
   auditLocation: 'Jatitujuh, Majalengka, Jawa Barat',
-  developer: 'PT Foresyndo Global Indonesia',
+  developer: 'PT. FORESYNDO GLOBAL INDONESIA',
   issueDate: '19/06/2026',
   tolerance: '± 5.0% APBD/RAB Sektoral',
   npwp: '03.111.442.1-411.000',

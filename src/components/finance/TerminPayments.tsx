@@ -453,7 +453,7 @@ export const TerminPayments: React.FC<TerminPaymentsProps> = ({
 
               <div className="text-center">
                 <span className="text-[11px] text-slate-400 font-medium block">
-                  Disetujui Oleh: {selectedVoucherTerm.approvedBy || 'HASANUDIN (Direktur Utama PT. Foresyndo Global Indonesia)'}
+                  Disetujui Oleh: {selectedVoucherTerm.approvedBy || 'HASANUDIN (Direktur Utama PT. FORESYNDO GLOBAL INDONESIA)'}
                 </span>
               </div>
             </div>

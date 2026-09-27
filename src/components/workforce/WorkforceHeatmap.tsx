@@ -24,6 +24,10 @@ import {
   Target,
   X,
   HelpCircle,
+  Download,
+  ChevronDown,
+  FileSpreadsheet,
+  Check,
 } from 'lucide-react';
 import { formatIDR } from '../../utils/calculations';
 
@@ -63,6 +67,11 @@ export const WorkforceHeatmap: React.FC<WorkforceHeatmapProps> = ({
 
   // Time Window Offset in days (0 = last 30 days ending today, -30 = prev 30 days)
   const [dayOffset, setDayOffset] = useState<number>(0);
+
+  // Export States
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
+  const [exportNotification, setExportNotification] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
 
   // Reference "Today" date for the project (2026-09-26)
   const referenceDate = useMemo(() => {
@@ -370,6 +379,282 @@ export const WorkforceHeatmap: React.FC<WorkforceHeatmapProps> = ({
     };
   }, [selectedCell, workItems, allocationMap]);
 
+  // Helper to escape CSV values
+  const escapeCSV = (val: string | number | null | undefined): string => {
+    if (val === null || val === undefined) return '""';
+    const str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  // CSV Export Engine for Workforce Allocation Density
+  const handleExportCSV = (exportFormat: 'matrix' | 'detailed' | 'comprehensive' = 'matrix') => {
+    setIsExporting(true);
+    try {
+      const now = new Date();
+      const timestampStr = now.toLocaleString('id-ID', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+      const startDateStr = dateWindow[0]?.dateStr || '';
+      const endDateStr = dateWindow[dateWindow.length - 1]?.dateStr || '';
+
+      const csvLines: string[] = [];
+
+      // 1. Metadata Block
+      csvLines.push('# =========================================================================================');
+      csvLines.push('# LAPORAN ANALISIS KEPADATAN ALOKASI TENAGA KERJA (WORKFORCE DENSITY HEATMAP REPORT)');
+      csvLines.push('# PROYEK: PEMBANGUNAN RUMAH TINGGAL 2 LANTAI - KEBON JERUK');
+      csvLines.push('# PERUSAHAAN OWNER: PT. FORESYNDO GLOBAL INDONESIA');
+      csvLines.push('# DIREKTUR UTAMA: HASANUDIN');
+      csvLines.push(`# TANGGAL GENERATE: ${timestampStr}`);
+      csvLines.push(`# RENTANG ANALISIS: ${startDateStr} s/d ${endDateStr} (30 Hari)`);
+      csvLines.push(
+        `# METRIK DATA: ${
+          metricMode === 'headcount'
+            ? 'Jumlah Personel Pekerja (HOK / Hari-Orang Kerja)'
+            : 'Total Jam Kerja (Man-Hours)'
+        }`
+      );
+      csvLines.push(
+        `# FILTER KATEGORI SEKTOR: ${selectedCategory === 'ALL' ? 'Semua Sektor Pekerjaan' : selectedCategory}`
+      );
+      csvLines.push(
+        `# FILTER STATUS BOTTLENECK: ${
+          showBottlenecksOnly ? 'Hanya Sektor Hambatan (Bottlenecks)' : 'Semua Status Sektor'
+        }`
+      );
+      csvLines.push(`# TOTAL MAN-DAYS (30 HARI): ${summaryMetrics.totalManDays} HOK`);
+      csvLines.push(`# TOTAL MAN-HOURS (30 HARI): ${summaryMetrics.totalManHours} Jam`);
+      csvLines.push(
+        `# PUNCAK KEPADATAN SITE: ${summaryMetrics.peakSiteDay.workers} Pekerja (${summaryMetrics.peakSiteDay.dateStr})`
+      );
+      csvLines.push(
+        `# INSIDEN OVERLOAD (>=8 PEKERJA): ${summaryMetrics.totalOverloadIncidents} Insiden Penumpukan`
+      );
+      csvLines.push(
+        `# HARI DEFISIT JADWAL (0 PEKERJA): ${summaryMetrics.totalDeficitIncidents} Hari Kosong Jadwal Aktif`
+      );
+      csvLines.push('# =========================================================================================');
+      csvLines.push('');
+
+      // 2. Matrix Table
+      if (exportFormat === 'matrix' || exportFormat === 'comprehensive') {
+        csvLines.push('# -----------------------------------------------------------------------------------------');
+        csvLines.push('# TABEL MATRIKS KEPADATAN HARIAN PEKERJA (30 HARI TERAKHIR)');
+        csvLines.push('# -----------------------------------------------------------------------------------------');
+
+        const matrixHeaders: string[] = [
+          'No',
+          'Kode Sektor',
+          'Kategori',
+          'Nama Item Pekerjaan',
+          'Tgl Mulai S-Curve',
+          'Tgl Selesai S-Curve',
+          'Durasi (Hari)',
+          'Bobot (%)',
+          'Progress Realisasi (%)',
+          ...dateWindow.map((d) => `${d.dateStr} (${d.dayOfWeek})`),
+          `Total 30 Hari (${metricMode === 'headcount' ? 'HOK' : 'Jam'})`,
+          'Satuan',
+          'Rata-rata/Hari Aktif',
+          'Puncak Kepadatan Sektor',
+          'Tanggal Puncak Sektor',
+          'Hari Overload (>=8 Org)',
+          'Hari Defisit (Kosong)',
+          'Tingkat Risiko Hambatan',
+        ];
+        csvLines.push(matrixHeaders.map(escapeCSV).join(','));
+
+        filteredWorkItems.forEach(
+          (
+            {
+              item,
+              totalHeadcount,
+              totalHours,
+              activeDaysCount,
+              peakDailyWorkers,
+              peakDate,
+              overloadDaysCount,
+              deficitDaysCount,
+              severity,
+              dailyMetrics,
+            },
+            idx
+          ) => {
+            const avgVal = activeDaysCount > 0 ? (totalHeadcount / activeDaysCount).toFixed(1) : '0';
+            const rowValues: (string | number)[] = [
+              idx + 1,
+              item.id,
+              item.category,
+              item.name,
+              item.startDate || '-',
+              item.endDate || '-',
+              item.durationDays || 0,
+              item.weight || 0,
+              item.progress || 0,
+              ...dateWindow.map((d) => {
+                const metric = dailyMetrics[d.dateStr];
+                return metricMode === 'headcount'
+                  ? (metric?.workersCount || 0)
+                  : (metric?.totalHours || 0);
+              }),
+              metricMode === 'headcount' ? totalHeadcount : totalHours,
+              metricMode === 'headcount' ? 'HOK' : 'Jam',
+              avgVal,
+              peakDailyWorkers,
+              peakDate || '-',
+              overloadDaysCount,
+              deficitDaysCount,
+              severity === 'critical'
+                ? 'Kritis (Overload)'
+                : severity === 'warning'
+                ? 'Waspada'
+                : 'Optimal Terkendali',
+            ];
+            csvLines.push(rowValues.map(escapeCSV).join(','));
+          }
+        );
+
+        // Site-wide Summary Row
+        const summaryRow: (string | number)[] = [
+          '',
+          'TOTAL_SITE',
+          'AKUMULASI SITE',
+          'TOTAL BEBAN KERJA SELURUH SEKTOR',
+          startDateStr,
+          endDateStr,
+          30,
+          100,
+          '-',
+          ...dailyTotals.map((dt) => (metricMode === 'headcount' ? dt.totalWorkers : dt.totalHours)),
+          metricMode === 'headcount' ? summaryMetrics.totalManDays : summaryMetrics.totalManHours,
+          metricMode === 'headcount' ? 'HOK' : 'Jam',
+          summaryMetrics.avgDailyWorkers,
+          summaryMetrics.peakSiteDay.workers,
+          summaryMetrics.peakSiteDay.dateStr,
+          summaryMetrics.totalOverloadIncidents,
+          summaryMetrics.totalDeficitIncidents,
+          summaryMetrics.totalOverloadIncidents > 5 ? 'Site Overload Kritis' : 'Site Terkendali Optimal',
+        ];
+        csvLines.push(summaryRow.map(escapeCSV).join(','));
+        csvLines.push('');
+      }
+
+      // 3. Worker-Level Detailed Allocation Log
+      if (exportFormat === 'detailed' || exportFormat === 'comprehensive') {
+        csvLines.push('# -----------------------------------------------------------------------------------------');
+        csvLines.push('# LOG RINCIAN PENUGASAN PERSONEL PEKERJA LAPANGAN (TIMESHEET)');
+        csvLines.push('# -----------------------------------------------------------------------------------------');
+
+        const detailHeaders = [
+          'No',
+          'ID Penugasan',
+          'Tanggal Penugasan',
+          'Kode Sektor',
+          'Nama Item Pekerjaan',
+          'Kategori Sektor',
+          'ID Pekerja',
+          'Nama Tenaga Kerja',
+          'Jabatan / Keahlian',
+          'Upah Harian Standar (Rp)',
+          'Alokasi Jam Kerja',
+          'Target Output',
+          'Realisasi Output',
+          'Satuan Output',
+          'Persentase Capaian (%)',
+          'Estimasi Upah Proporsional (Rp)',
+          'Status Penugasan',
+          'Catatan / Kendala Lapangan',
+        ];
+        csvLines.push(detailHeaders.map(escapeCSV).join(','));
+
+        const filteredWorkItemIds = new Set(filteredWorkItems.map((w) => w.item.id));
+        const matchedAllocations = allocations.filter((a) => {
+          const withinDates = a.assignedDate >= startDateStr && a.assignedDate <= endDateStr;
+          const withinItems = filteredWorkItemIds.has(a.workItemId);
+          return withinDates && withinItems;
+        });
+
+        matchedAllocations.sort((a, b) => b.assignedDate.localeCompare(a.assignedDate));
+
+        matchedAllocations.forEach((alloc, idx) => {
+          const matchedWorker = workers.find((w) => w.id === alloc.workerId);
+          const dailyWage = matchedWorker?.dailyWage || 170000;
+          const ratio =
+            alloc.targetOutput > 0 ? Math.round((alloc.actualOutput / alloc.targetOutput) * 100) : 100;
+          const estimatedCost = Math.round((dailyWage * (alloc.allocatedHours || 8)) / 8);
+
+          const detailRow: (string | number)[] = [
+            idx + 1,
+            alloc.id,
+            alloc.assignedDate,
+            alloc.workItemId,
+            alloc.workItemName,
+            alloc.workItemCategory,
+            alloc.workerId,
+            alloc.workerName,
+            alloc.workerRole,
+            dailyWage,
+            alloc.allocatedHours || 8,
+            alloc.targetOutput,
+            alloc.actualOutput,
+            alloc.unit,
+            `${ratio}%`,
+            estimatedCost,
+            alloc.status,
+            alloc.notes || '-',
+          ];
+          csvLines.push(detailRow.map(escapeCSV).join(','));
+        });
+        csvLines.push('');
+      }
+
+      // Generate Blob with UTF-8 BOM so Excel opens it with perfect encoding
+      const csvContent = '\uFEFF' + csvLines.join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const fileSuffix =
+        exportFormat === 'detailed'
+          ? 'worker-detail-timesheet'
+          : exportFormat === 'comprehensive'
+          ? 'density-comprehensive-report'
+          : 'allocation-density-matrix';
+      const fileName = `workforce-${fileSuffix}-${startDateStr}-to-${endDateStr}.csv`;
+      link.setAttribute('href', url);
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setIsExportMenuOpen(false);
+      setExportNotification(
+        `Berhasil mengunduh file CSV: ${fileName} (${
+          exportFormat === 'detailed'
+            ? 'Log Penugasan Pekerja'
+            : exportFormat === 'comprehensive'
+            ? 'Laporan Komprehensif'
+            : 'Matriks Kepadatan 30 Hari'
+        })`
+      );
+      setTimeout(() => {
+        setExportNotification(null);
+      }, 5000);
+    } catch (err) {
+      console.error('Failed to export CSV:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* ========================================================================= */}
@@ -455,6 +740,101 @@ export const WorkforceHeatmap: React.FC<WorkforceHeatmapProps> = ({
               </button>
             </div>
 
+            {/* Export Data Button */}
+            <div className="relative">
+              <div className="inline-flex rounded-xl shadow-md shadow-emerald-600/20">
+                <button
+                  type="button"
+                  onClick={() => handleExportCSV('matrix')}
+                  disabled={isExporting}
+                  className="px-3.5 py-2 rounded-l-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Unduh Matriks Kepadatan Alokasi Tenaga Kerja (CSV) untuk Pelaporan Eksternal"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>{isExporting ? 'Mengekspor...' : 'Export Data'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                  className="px-2 py-2 rounded-r-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs border-l border-emerald-500/40 transition-all cursor-pointer"
+                  title="Pilihan Format Ekspor CSV"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Export Dropdown Options */}
+              {isExportMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsExportMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-3 py-1.5 border-b border-slate-100 dark:border-slate-800">
+                      <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                        Ekspor Data Alokasi Tenaga Kerja
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        Format CSV kompatibel dengan Excel, Google Sheets, &amp; Primavera
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleExportCSV('matrix')}
+                      className="w-full text-left p-2.5 rounded-xl hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15 text-slate-700 dark:text-slate-200 transition-colors flex items-start gap-2.5 cursor-pointer group"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="font-bold flex items-center gap-1.5 text-xs text-slate-900 dark:text-white">
+                          <span>Matriks Kepadatan 30 Hari (CSV)</span>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-500 font-extrabold">
+                            Rekomendasi
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Tabel kepadatan per sektor pekerjaan per tanggal (30 hari aktif).
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleExportCSV('detailed')}
+                      className="w-full text-left p-2.5 rounded-xl hover:bg-blue-500/10 dark:hover:bg-blue-500/15 text-slate-700 dark:text-slate-200 transition-colors flex items-start gap-2.5 cursor-pointer group"
+                    >
+                      <Users className="w-4 h-4 text-blue-500 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="font-bold text-xs text-slate-900 dark:text-white">
+                          Log Rincian Penugasan Pekerja (CSV)
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Data per individu tukang, upah harian, target vs realisasi, dan catatan.
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleExportCSV('comprehensive')}
+                      className="w-full text-left p-2.5 rounded-xl hover:bg-purple-500/10 dark:hover:bg-purple-500/15 text-slate-700 dark:text-slate-200 transition-colors flex items-start gap-2.5 cursor-pointer group"
+                    >
+                      <Layers className="w-4 h-4 text-purple-500 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="font-bold text-xs text-slate-900 dark:text-white">
+                          Laporan Komprehensif Lengkap (CSV)
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Gabungan metadata proyek, matriks kepadatan, dan timesheet pekerja.
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             {canEdit && onOpenAllocModal && (
               <button
                 type="button"
@@ -467,6 +847,25 @@ export const WorkforceHeatmap: React.FC<WorkforceHeatmapProps> = ({
             )}
           </div>
         </div>
+
+        {/* Export Notification Toast */}
+        {exportNotification && (
+          <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 rounded-2xl flex items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-2.5">
+              <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
+                <Check className="w-3.5 h-3.5" />
+              </div>
+              <span className="font-semibold">{exportNotification}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setExportNotification(null)}
+              className="p-1 rounded-lg hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* ======================================================================= */}
         {/* 2. ANALYTICS KPI STRIP */}
@@ -575,6 +974,17 @@ export const WorkforceHeatmap: React.FC<WorkforceHeatmapProps> = ({
                 <AlertTriangle className="w-3 h-3" /> Hanya Tampilkan Bottleneck
               </span>
             </label>
+
+            <button
+              type="button"
+              onClick={() => handleExportCSV('matrix')}
+              disabled={isExporting}
+              className="px-3 py-1.5 rounded-xl bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30 flex items-center gap-1.5 transition-all cursor-pointer text-xs"
+              title="Unduh data alokasi saat ini sebagai file CSV"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+            </button>
           </div>
 
           {/* Color Scale Legend */}

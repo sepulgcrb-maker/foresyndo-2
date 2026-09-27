@@ -287,6 +287,8 @@ export interface WorkerAllocation {
   unit: string;
   status: 'Dalam Pengerjaan' | 'Selesai' | 'Di Bawah Target' | 'Tertunda';
   notes?: string;
+  isValidatedByQR?: boolean;
+  qrValidatedAt?: string;
 }
 
 export interface WorkerItem {
@@ -296,6 +298,8 @@ export interface WorkerItem {
   dailyWage: number;
   daysWorked: number;
   status: 'Aktif' | 'Cuti' | 'Non-Aktif';
+  phone?: string;
+  qrCode?: string;
 }
 
 export interface DailyAttendance {
@@ -306,6 +310,12 @@ export interface DailyAttendance {
   role: string;
   isPresent: boolean;
   overtimeHours: number;
+  checkInTime?: string;
+  checkOutTime?: string;
+  scanMethod?: 'qr_scanner' | 'manual' | 'nfc';
+  validatedAllocationId?: string;
+  validatedWorkItemName?: string;
+  notes?: string;
 }
 
 export interface EquipmentItem {

@@ -52,12 +52,12 @@ export function generateSCurvePDF(
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14.5);
-  doc.text(project.owner || 'PT. FORESYNDO GLOBAL INDONESIA', 14, 11.5);
+  doc.text(project.contractor || 'PT. GONG MBE LINK PAMUNGKAS', 14, 11.5);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.text(`Aplikasi Sistem Monitoring Pembangunan ${project.name}`, 14, 17);
-  doc.text(`Lokasi: ${project.location} | Kontrak: ${project.contractNumber || 'PR-2026-FGI-004'}`, 14, 22);
+  doc.setFontSize(8);
+  doc.text(`Kontraktor Pelaksana Konstruksi Gedung | Proyek: ${project.name}`, 14, 17);
+  doc.text(`Pemberi Tugas (Owner): ${project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'} | Kontrak: ${project.contractNumber || 'PR-2026-FGI-004'}`, 14, 22);
 
   // Title
   doc.setTextColor(...navyColor);
@@ -287,19 +287,19 @@ export function generateSCurvePDF(
     doc.setFont('helvetica', 'bold');
 
     doc.text('Dibuat Oleh,', 20, sigY);
-    doc.text('Site Manager Proyek', 20, sigY + 4);
+    doc.text('Kontraktor Pelaksana', 20, sigY + 4);
     doc.setFont('helvetica', 'normal');
     doc.text(`( ${project.siteManager || 'EKO YULIANTO'} )`, 20, sigY + 19);
 
     doc.setFont('helvetica', 'bold');
     doc.text('Diperiksa Oleh,', pageWidth / 2 - 15, sigY);
-    doc.text('Lead Project Engineer / QC', pageWidth / 2 - 15, sigY + 4);
+    doc.text('Konsultan Pengawas (MK)', pageWidth / 2 - 15, sigY + 4);
     doc.setFont('helvetica', 'normal');
-    doc.text(`( ${project.qcEngineer || 'KIKI'} )`, pageWidth / 2 - 15, sigY + 19);
+    doc.text(`( ${project.consultantMK || 'SAEPUL ANWAR'} )`, pageWidth / 2 - 15, sigY + 19);
 
     doc.setFont('helvetica', 'bold');
     doc.text('Disetujui Oleh,', pageWidth - 60, sigY);
-    doc.text(`Direktur Utama (Owner)`, pageWidth - 60, sigY + 4);
+    doc.text(`Pemberi Tugas (Owner)`, pageWidth - 60, sigY + 4);
     doc.setFont('helvetica', 'normal');
     doc.text(`( ${project.director || 'HASANUDIN'} )`, pageWidth - 60, sigY + 19);
   }
@@ -332,13 +332,13 @@ export function generateTerminPDF(
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(15);
-  doc.text(project.owner || 'PT. FORESYNDO GLOBAL INDONESIA', 14, 11);
+  doc.setFontSize(14.5);
+  doc.text(project.contractor || 'PT. GONG MBE LINK PAMUNGKAS', 14, 11);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.text(`Aplikasi Sistem Monitoring Pembangunan ${project.name}`, 14, 17);
-  doc.text(`Lokasi: ${project.location} | Kontrak: ${project.contractNumber || 'PR-2026-FGI-004'}`, 14, 22);
+  doc.setFontSize(8);
+  doc.text(`Pengajuan Pembayaran Termin Konstruksi | Proyek: ${project.name}`, 14, 16.5);
+  doc.text(`Pemberi Tugas (Owner): ${project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'} | Lokasi: ${project.location}`, 14, 21.5);
 
   // Document Title & Timestamp
   doc.setTextColor(...navyColor);
@@ -377,8 +377,8 @@ export function generateTerminPDF(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.text(`Nama Proyek: ${project.name}`, 18, 55);
-  doc.text(`Pemilik (Owner): ${project.owner}`, 18, 60);
-  doc.text(`Nilai Kontrak: ${formatIDR(project.contractValue)}`, 18, 65);
+  doc.text(`Kontraktor Pelaksana: ${project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}`, 18, 60);
+  doc.text(`Pemilik (Owner): ${project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'}`, 18, 65);
   doc.text(`Skema Termin: Setiap 25% Progres + Retensi 5% (Masa Pemeliharaan)`, 18, 70);
   doc.text(`Sisa Pembayaran: ${formatIDR(summary.remainingContractValue)}`, 18, 75);
 
@@ -470,7 +470,7 @@ export function generateTerminPDF(
   doc.setFontSize(7.5);
   doc.setTextColor(146, 64, 14);
   doc.setFont('helvetica', 'bold');
-  doc.text('Ketentuan & Regulasi Pencairan Termin (PT. Foresyndo Global Indonesia):', 18, lastTableY + 5);
+  doc.text(`Ketentuan & Regulasi Pencairan Termin (${project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'}):`, 18, lastTableY + 5);
   doc.setFont('helvetica', 'normal');
   doc.text(
     '1. Setiap pengajuan termin wajib melampirkan Berita Acara Opname Fisik & Laporan Prestasi Pekerjaan lapangan.',
@@ -496,25 +496,25 @@ export function generateTerminPDF(
   doc.setFont('helvetica', 'bold');
 
   // Left Signature - Site Manager & Finance
-  doc.text('Dibuat & Diverifikasi Oleh,', 25, sigY);
-  doc.text('Site Manager Proyek', 25, sigY + 4);
+  doc.text('Dibuat & Diajukan Oleh,', 25, sigY);
+  doc.text('Kontraktor Pelaksana (Site Manager)', 25, sigY + 4);
   doc.setFont('helvetica', 'normal');
   doc.text(project.siteManager || 'EKO YULIANTO', 25, sigY + 22);
   doc.setFontSize(6.5);
   doc.setTextColor(...grayColor);
-  doc.text('Site Engineer & Cost Control', 25, sigY + 25);
+  doc.text(project.contractor || 'PT. GONG MBE LINK PAMUNGKAS', 25, sigY + 25);
 
   // Right Signature - Direktur Owner
   doc.setFontSize(8);
   doc.setTextColor(...navyColor);
   doc.setFont('helvetica', 'bold');
   doc.text('Disetujui Oleh,', pageWidth - 65, sigY);
-  doc.text(`Direktur Utama (Owner)`, pageWidth - 65, sigY + 4);
+  doc.text(`Pemberi Tugas (Owner)`, pageWidth - 65, sigY + 4);
   doc.setFont('helvetica', 'normal');
   doc.text(project.director || 'HASANUDIN', pageWidth - 65, sigY + 22);
   doc.setFontSize(6.5);
   doc.setTextColor(...grayColor);
-  doc.text('Direktur Utama & Pengembang', pageWidth - 65, sigY + 25);
+  doc.text(project.owner || 'PT. FORESYNDO GLOBAL INDONESIA', pageWidth - 65, sigY + 25);
 
   // Digital Verification Stamp
   doc.setDrawColor(...emeraldColor);
@@ -589,7 +589,7 @@ export function generateTerminVoucherPDF(term: PaymentTerm, project: ProjectInfo
   doc.setFontSize(8.5);
   doc.text(`Nama Proyek : ${project.name}`, 18, 66);
   doc.text(`Nomor Kontrak : ${project.contractNumber || 'PR-2026-FGI-004'}`, 18, 72);
-  doc.text(`Penerima Dana : PT. Foresyndo Global Indonesia`, 18, 78);
+  doc.text(`Pemberi Tugas (Owner) : ${project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'}`, 18, 78);
   doc.text(`Bank / Rekening : PT Bank Mandiri (Persero) Tbk - Rek. 131-00-982341-9`, 18, 84);
   doc.text(`Keterangan Termin : ${term.title} (Target Progres Fisik: ${term.targetProgressPercent}%)`, 18, 90);
   doc.text(`Status Verifikasi : ${term.status} (Disetujui: ${term.approvedBy || 'Direktur'})`, 18, 96);
@@ -669,12 +669,12 @@ export function generateOfficialRABPDF(
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.text(project?.owner || rabDoc.developer || 'PT. FORESYNDO GLOBAL INDONESIA', 14, 11);
+  doc.text(project?.contractor || 'PT. GONG MBE LINK PAMUNGKAS', 14, 11);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text(`DOKUMEN RENCANA ANGGARAN BIAYA (RAB) RESMI TERVERIFIKASI - ${project?.name || rabDoc.projectName}`, 14, 16.5);
-  doc.text(`NIB: ${rabDoc.nib} | NPWP: ${rabDoc.npwp} | Lokasi: ${project?.location || rabDoc.auditLocation}`, 14, 21.5);
+  doc.text(`KONTRAKTOR PELAKSANA & ESTIMATOR | Pemilik Proyek (Owner): ${project?.owner || rabDoc.developer || 'PT. FORESYNDO GLOBAL INDONESIA'}`, 14, 16.5);
+  doc.text(`Proyek: ${project?.name || rabDoc.projectName} | Lokasi: ${project?.location || rabDoc.auditLocation}`, 14, 21.5);
 
   // Document Title
   doc.setTextColor(...navyColor);
@@ -1035,13 +1035,13 @@ export async function generatePDFReport(
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(15);
-  doc.text(project.owner || 'PT. FORESYNDO GLOBAL INDONESIA', 14, 12);
+  doc.setFontSize(14.5);
+  doc.text(project.contractor || 'PT. GONG MBE LINK PAMUNGKAS', 14, 11);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.text(`Sistem Manajemen & Monitoring Konstruksi - ${project.name}`, 14, 18);
-  doc.text(`Lokasi: ${project.location}`, 14, 23);
+  doc.setFontSize(8);
+  doc.text(`Kontraktor Pelaksana Konstruksi Gedung | Proyek: ${project.name}`, 14, 16.5);
+  doc.text(`Pemberi Tugas (Owner): ${project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'} | Lokasi: ${project.location}`, 14, 21.5);
 
   // Document Title & Timestamp
   doc.setTextColor(...navyColor);
@@ -1090,9 +1090,9 @@ export async function generatePDFReport(
     doc.text('Informasi Proyek:', 18, currentY + 6);
 
     doc.setFont('helvetica', 'normal');
-    doc.text(`Nama Proyek: ${project.name}`, 18, currentY + 12);
-    doc.text(`Pemilik (Owner): ${project.owner}`, 18, currentY + 17);
-    doc.text(`Nilai Kontrak: ${formatIDR(project.contractValue)}`, 18, currentY + 22);
+    doc.text(`Nama Proyek: ${project.name}`, 18, currentY + 11);
+    doc.text(`Kontraktor Pelaksana: ${project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}`, 18, currentY + 16);
+    doc.text(`Pemilik Proyek (Owner): ${project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'}`, 18, currentY + 21);
 
     const realizedFisik = calculatePhysicalProgress(workItems);
     const targetFisik = calculateTargetProgress(workItems);
@@ -1665,12 +1665,14 @@ export async function generatePDFReport(
       // 3 Signatures: Kontraktor, Konsultan Pengawas (MK), Owner/Direktur
       const colW = (pageWidth - 28) / 3;
 
-      // Col 1 - Site Manager
+      // Col 1 - Kontraktor Pelaksana
       doc.setFont('helvetica', 'bold');
       doc.text('Dibuat Oleh,', 14 + colW * 0.1, sigY);
-      doc.text('Site Manager Proyek', 14 + colW * 0.1, sigY + 4.5);
+      doc.text('Kontraktor Pelaksana', 14 + colW * 0.1, sigY + 4.5);
       doc.setFont('helvetica', 'normal');
       doc.text(`( ${project.siteManager || 'EKO YULIANTO'} )`, 14 + colW * 0.1, sigY + 23);
+      doc.setFontSize(6.5);
+      doc.text(project.contractor || 'PT. GONG MBE LINK PAMUNGKAS', 14 + colW * 0.1, sigY + 26.5);
 
       // Col 2 - Konsultan Pengawas / MK
       doc.setFont('helvetica', 'bold');
@@ -1678,29 +1680,37 @@ export async function generatePDFReport(
       doc.text('Konsultan Pengawas (MK)', 14 + colW * 1.1, sigY + 4.5);
       doc.setFont('helvetica', 'normal');
       doc.text(`( ${project.consultantMK || 'SAEPUL ANWAR'} )`, 14 + colW * 1.1, sigY + 23);
+      doc.setFontSize(6.5);
+      doc.text('PT. BENNATIN SURYA CIPTA', 14 + colW * 1.1, sigY + 26.5);
 
-      // Col 3 - Direktur Owner
+      // Col 3 - Pemberi Tugas (Owner)
       doc.setFont('helvetica', 'bold');
       doc.text('Disetujui Oleh,', 14 + colW * 2.1, sigY);
-      doc.text(`Direktur Utama (Owner)`, 14 + colW * 2.1, sigY + 4.5);
+      doc.text(`Pemberi Tugas (Owner)`, 14 + colW * 2.1, sigY + 4.5);
       doc.setFont('helvetica', 'normal');
       doc.text(`( ${project.director || 'HASANUDIN'} )`, 14 + colW * 2.1, sigY + 23);
+      doc.setFontSize(6.5);
+      doc.text(project.owner || 'PT. FORESYNDO GLOBAL INDONESIA', 14 + colW * 2.1, sigY + 26.5);
     } else {
       // Standard 2 Signatures
       if (includeSiteManager) {
         doc.setFont('helvetica', 'bold');
         doc.text('Dibuat Oleh,', 25, sigY);
-        doc.text('Site Manager Proyek', 25, sigY + 4.5);
+        doc.text('Kontraktor Pelaksana', 25, sigY + 4.5);
         doc.setFont('helvetica', 'normal');
         doc.text(`( ${project.siteManager || 'EKO YULIANTO'} )`, 25, sigY + 23);
+        doc.setFontSize(6.5);
+        doc.text(project.contractor || 'PT. GONG MBE LINK PAMUNGKAS', 25, sigY + 26.5);
       }
 
       if (includeDirector) {
         doc.setFont('helvetica', 'bold');
         doc.text('Disetujui Oleh,', pageWidth - 65, sigY);
-        doc.text(`Direktur Utama (Owner)`, pageWidth - 65, sigY + 4.5);
+        doc.text(`Pemberi Tugas (Owner)`, pageWidth - 65, sigY + 4.5);
         doc.setFont('helvetica', 'normal');
         doc.text(`( ${project.director || 'HASANUDIN'} )`, pageWidth - 65, sigY + 23);
+        doc.setFontSize(6.5);
+        doc.text(project.owner || 'PT. FORESYNDO GLOBAL INDONESIA', pageWidth - 65, sigY + 26.5);
       }
     }
   }

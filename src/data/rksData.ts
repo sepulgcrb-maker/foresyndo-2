@@ -25,7 +25,7 @@ export interface RKSMetaInfo {
 }
 
 export const RKS_META_INFO: RKSMetaInfo = {
-  projectTitle: 'Pembangunan Gedung Kantor & Fasilitas PT Foresyndo Global Indonesia (FORESYNDO 2)',
+  projectTitle: 'Pembangunan Gedung Kantor & Fasilitas PT. FORESYNDO GLOBAL INDONESIA (FORESYNDO 2)',
   documentTitle: 'RENCANA KERJA DAN SYARAT-SYARAT (RKS) & SPESIFIKASI TEKNIS PELAKSANAAN',
   documentNumber: 'RKS-TEK-01/FGI-KONT/VIII/2026',
   revision: 'Rev. 01 (Final Disetujui Bersama)',
@@ -33,7 +33,7 @@ export const RKS_META_INFO: RKSMetaInfo = {
   ownerName: 'PT. FORESYNDO GLOBAL INDONESIA',
   ownerRepresentative: 'HASANUDIN (Direktur Utama)',
   consultantMK: 'PT. BINA REKAYASA KONSULTAN (Ir. SAEPUL ANWAR, MT)',
-  contractorName: 'PT. BANGUN CIPTA KARYA UTAMA',
+  contractorName: 'PT. GONG MBE LINK PAMUNGKAS',
   contractorSiteManager: 'EKO YULIANTO, ST',
   contractValueIDR: 14461760981,
   durationDays: 270,
@@ -43,7 +43,7 @@ export const RKS_META_INFO: RKSMetaInfo = {
     {
       role: 'Pemberi Tugas (Owner)',
       name: 'HASANUDIN',
-      organization: 'PT. Foresyndo Global Indonesia',
+      organization: 'PT. FORESYNDO GLOBAL INDONESIA',
       signed: true,
       date: '2026-08-31',
     },
@@ -57,7 +57,7 @@ export const RKS_META_INFO: RKSMetaInfo = {
     {
       role: 'Kontraktor Pelaksana',
       name: 'Rohman Priyambodo / Eko Yulianto, ST',
-      organization: 'PT. Bangun Cipta Karya Utama',
+      organization: 'PT. GONG MBE LINK PAMUNGKAS',
       signed: true,
       date: '2026-08-31',
     },
@@ -77,7 +77,7 @@ export const OFFICIAL_RKS_CHAPTERS: RKSChapter[] = [
         title: 'Penjelasan Umum & Hierarki Dokumen Proyek',
         standards: ['UU No. 2 Tahun 2017 tentang Jasa Konstruksi', 'Perlem LKPP No. 12 Tahun 2021'],
         content:
-          'Pekerjaan yang tercakup dalam dokumen ini adalah Pembangunan Gedung PT Foresyndo Global Indonesia (FORESYNDO 2) 14 Sektor. Apabila terdapat pertentangan klausul antara dokumen lelang dan pelaksanaan, maka berlaku hierarki hukum berikut: (1) Surat Perjanjian Kontrak Utama & Addendum, (2) Surat Perintah Kerja (SPK), (3) Rencana Kerja dan Syarat-Syarat (RKS), (4) Gambar Kerja Terlaksana (DED/Approved Shop Drawing), (5) Rencana Anggaran Biaya (RAB resmi).',
+          'Pekerjaan yang tercakup dalam dokumen ini adalah Pembangunan Gedung PT. FORESYNDO GLOBAL INDONESIA (FORESYNDO 2) 14 Sektor. Apabila terdapat pertentangan klausul antara dokumen lelang dan pelaksanaan, maka berlaku hierarki hukum berikut: (1) Surat Perjanjian Kontrak Utama & Addendum, (2) Surat Perintah Kerja (SPK), (3) Rencana Kerja dan Syarat-Syarat (RKS), (4) Gambar Kerja Terlaksana (DED/Approved Shop Drawing), (5) Rencana Anggaran Biaya (RAB resmi).',
         subClauses: [
           {
             code: '1.1.a',

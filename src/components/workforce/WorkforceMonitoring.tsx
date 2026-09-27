@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { WorkerItem, WorkItem, WorkerAllocation, UserRole, RolePermissions } from '../../types';
+import React, { useState, useMemo } from 'react';
+import { WorkerItem, WorkItem, WorkerAllocation, UserRole, RolePermissions, DailyAttendance } from '../../types';
 import {
   Users,
   Plus,
@@ -23,9 +23,31 @@ import {
   ArrowUpRight,
   Sparkles,
   Flame,
+  HardHat,
+  Wrench,
+  Shield,
+  Zap,
+  Calculator,
+  Wallet,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check,
+  Download,
+  Sliders,
+  Eye,
+  RefreshCw,
+  Info,
+  FileSpreadsheet,
+  Scan,
+  QrCode,
+  Printer,
 } from 'lucide-react';
 import { formatIDR } from '../../utils/calculations';
 import { WorkforceHeatmap } from './WorkforceHeatmap';
+import { WorkerQRScannerModal } from './WorkerQRScannerModal';
+import { WorkerBadgeCardModal } from './WorkerBadgeCardModal';
 
 interface WorkforceMonitoringProps {
   workers: WorkerItem[];
@@ -66,6 +88,120 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
   const [isAllocModalOpen, setIsAllocModalOpen] = useState(false);
   const [editingAllocation, setEditingAllocation] = useState<WorkerAllocation | null>(null);
 
+  // QR Code Scanner & Badge Modal States
+  const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
+  const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
+  const [selectedBadgeWorker, setSelectedBadgeWorker] = useState<WorkerItem | null>(null);
+
+  // Today's Date String
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  // Daily Attendances State (Persistent in localStorage per date)
+  const [dailyAttendances, setDailyAttendances] = useState<DailyAttendance[]>(() => {
+    try {
+      const saved = localStorage.getItem(`FORESYNDO_ATTENDANCE_${new Date().toISOString().split('T')[0]}`);
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // Fallback
+    }
+    // Default initial attendance seeded from workers (mark first 4 as present)
+    return workers.map((w, idx) => ({
+      id: `ATT-${w.id}-${new Date().toISOString().split('T')[0]}`,
+      date: new Date().toISOString().split('T')[0],
+      workerId: w.id,
+      workerName: w.name,
+      role: w.role,
+      isPresent: idx < 4,
+      overtimeHours: 0,
+      checkInTime: idx < 4 ? '07:45 WIB' : undefined,
+      scanMethod: idx < 4 ? 'qr_scanner' : undefined,
+    }));
+  });
+
+  // Handler for validating attendance via QR Code Scanner or direct action
+  const handleValidateAttendance = (
+    workerId: string,
+    checkInTimeStr?: string,
+    customNote?: string
+  ) => {
+    const matchedWorker = workers.find((w) => w.id === workerId);
+    if (!matchedWorker) {
+      return { isNewCheckIn: false, error: 'Pekerja tidak ditemukan dalam daftar proyek' };
+    }
+
+    const now = new Date();
+    const timeFormatted =
+      checkInTimeStr ||
+      `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} WIB`;
+
+    // Check if worker has an allocation
+    const workerAlloc = allocations.find((a) => a.workerId === workerId);
+
+    // Update allocation if handler provided
+    if (workerAlloc && onUpdateAllocation) {
+      onUpdateAllocation({
+        ...workerAlloc,
+        isValidatedByQR: true,
+        qrValidatedAt: timeFormatted,
+        status: workerAlloc.status === 'Tertunda' ? 'Dalam Pengerjaan' : workerAlloc.status,
+      });
+    }
+
+    let isNew = true;
+    setDailyAttendances((prev) => {
+      const existing = prev.find((a) => a.workerId === workerId);
+      let updated: DailyAttendance[];
+      if (existing) {
+        isNew = !existing.isPresent;
+        updated = prev.map((a) =>
+          a.workerId === workerId
+            ? {
+                ...a,
+                isPresent: true,
+                checkInTime: a.checkInTime || timeFormatted,
+                scanMethod: 'qr_scanner',
+                validatedAllocationId: workerAlloc?.id,
+                validatedWorkItemName: workerAlloc?.workItemName,
+                notes: customNote || a.notes,
+              }
+            : a
+        );
+      } else {
+        updated = [
+          ...prev,
+          {
+            id: `ATT-${workerId}-${todayStr}`,
+            date: todayStr,
+            workerId: workerId,
+            workerName: matchedWorker.name,
+            role: matchedWorker.role,
+            isPresent: true,
+            overtimeHours: 0,
+            checkInTime: timeFormatted,
+            scanMethod: 'qr_scanner',
+            validatedAllocationId: workerAlloc?.id,
+            validatedWorkItemName: workerAlloc?.workItemName,
+            notes: customNote,
+          },
+        ];
+      }
+
+      try {
+        localStorage.setItem(`FORESYNDO_ATTENDANCE_${todayStr}`, JSON.stringify(updated));
+      } catch {
+        // Fallback
+      }
+
+      return updated;
+    });
+
+    return {
+      worker: matchedWorker,
+      allocation: workerAlloc,
+      isNewCheckIn: isNew,
+    };
+  };
+
   // New Worker Form
   const [newWorker, setNewWorker] = useState<Omit<WorkerItem, 'id'>>({
     name: '',
@@ -101,8 +237,203 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
       userRole === 'Direktur' ||
       userRole === 'Admin');
 
+  // Role Filter & Wage Simulation for Roster and Allocation
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('ALL');
+  const [wageProjectionDays, setWageProjectionDays] = useState<number>(1);
+  const [isRoleSummaryExpanded, setIsRoleSummaryExpanded] = useState<boolean>(true);
+  const [copiedPayrollToast, setCopiedPayrollToast] = useState<boolean>(false);
+  const [showFormulaDetails, setShowFormulaDetails] = useState<boolean>(false);
+
   // Roster Calculations
   const totalDailyPayroll = workers.reduce((acc, w) => acc + (w.status === 'Aktif' ? w.dailyWage : 0), 0);
+  const totalAccumulatedPayroll = workers.reduce(
+    (acc, w) => acc + (w.dailyWage || 0) * (w.daysWorked || 0),
+    0
+  );
+
+  // Helper to categorize roles dynamically
+  const getRoleCategory = (roleName: string): 'Mandor' | 'Tukang' | 'Helper' | 'Teknisi' | 'Lainnya' => {
+    const r = (roleName || '').toLowerCase();
+    if (r.includes('mandor')) return 'Mandor';
+    if (r.includes('tukang')) return 'Tukang';
+    if (
+      r.includes('helper') ||
+      r.includes('pembantu') ||
+      r.includes('kenek') ||
+      r.includes('buruh') ||
+      r.includes('laden') ||
+      r.includes('kuli')
+    )
+      return 'Helper';
+    if (
+      r.includes('teknisi') ||
+      r.includes('mep') ||
+      r.includes('listrik') ||
+      r.includes('plumbing') ||
+      r.includes('las') ||
+      r.includes('operator') ||
+      r.includes('surveyor') ||
+      r.includes('drafter')
+    )
+      return 'Teknisi';
+    return 'Lainnya';
+  };
+
+  // Real-time Role Breakdown & Wage Calculations
+  const roleBreakdown = useMemo(() => {
+    type RoleGroupData = {
+      category: 'Mandor' | 'Tukang' | 'Helper' | 'Teknisi' | 'Lainnya';
+      title: string;
+      desc: string;
+      totalCount: number;
+      activeCount: number;
+      cutiCount: number;
+      nonAktifCount: number;
+      allocatedCount: number;
+      totalDailyWage: number;
+      avgDailyWage: number;
+      minDailyWage: number;
+      maxDailyWage: number;
+      totalAccumulatedWage: number;
+      workers: WorkerItem[];
+      roles: string[];
+    };
+
+    const groups: Record<'Mandor' | 'Tukang' | 'Helper' | 'Teknisi' | 'Lainnya', RoleGroupData> = {
+      Mandor: {
+        category: 'Mandor',
+        title: 'Mandor',
+        desc: 'Pengawas teknis lapangan & koordinasi kru',
+        totalCount: 0,
+        activeCount: 0,
+        cutiCount: 0,
+        nonAktifCount: 0,
+        allocatedCount: 0,
+        totalDailyWage: 0,
+        avgDailyWage: 0,
+        minDailyWage: 0,
+        maxDailyWage: 0,
+        totalAccumulatedWage: 0,
+        workers: [],
+        roles: [],
+      },
+      Tukang: {
+        category: 'Tukang',
+        title: 'Tukang (Ahli)',
+        desc: 'Tenaga ahli spesialis batu, besi, cor, kayu',
+        totalCount: 0,
+        activeCount: 0,
+        cutiCount: 0,
+        nonAktifCount: 0,
+        allocatedCount: 0,
+        totalDailyWage: 0,
+        avgDailyWage: 0,
+        minDailyWage: 0,
+        maxDailyWage: 0,
+        totalAccumulatedWage: 0,
+        workers: [],
+        roles: [],
+      },
+      Helper: {
+        category: 'Helper',
+        title: 'Helper / Kenek',
+        desc: 'Pekerja pembantu & lansir material lapangan',
+        totalCount: 0,
+        activeCount: 0,
+        cutiCount: 0,
+        nonAktifCount: 0,
+        allocatedCount: 0,
+        totalDailyWage: 0,
+        avgDailyWage: 0,
+        minDailyWage: 0,
+        maxDailyWage: 0,
+        totalAccumulatedWage: 0,
+        workers: [],
+        roles: [],
+      },
+      Teknisi: {
+        category: 'Teknisi',
+        title: 'Teknisi & MEP',
+        desc: 'Spesialis instalasi kelistrikan & pemipaan',
+        totalCount: 0,
+        activeCount: 0,
+        cutiCount: 0,
+        nonAktifCount: 0,
+        allocatedCount: 0,
+        totalDailyWage: 0,
+        avgDailyWage: 0,
+        minDailyWage: 0,
+        maxDailyWage: 0,
+        totalAccumulatedWage: 0,
+        workers: [],
+        roles: [],
+      },
+      Lainnya: {
+        category: 'Lainnya',
+        title: 'Peran Lainnya',
+        desc: 'Tenaga operasional tambahan lainnya',
+        totalCount: 0,
+        activeCount: 0,
+        cutiCount: 0,
+        nonAktifCount: 0,
+        allocatedCount: 0,
+        totalDailyWage: 0,
+        avgDailyWage: 0,
+        minDailyWage: 0,
+        maxDailyWage: 0,
+        totalAccumulatedWage: 0,
+        workers: [],
+        roles: [],
+      },
+    };
+
+    const allocatedWorkerIds = new Set(allocations.map((a) => a.workerId));
+
+    workers.forEach((w) => {
+      const cat = getRoleCategory(w.role);
+      const grp = groups[cat];
+      grp.totalCount += 1;
+      if (w.status === 'Aktif') {
+        grp.activeCount += 1;
+        grp.totalDailyWage += w.dailyWage;
+        if (grp.minDailyWage === 0 || w.dailyWage < grp.minDailyWage) {
+          grp.minDailyWage = w.dailyWage;
+        }
+        if (w.dailyWage > grp.maxDailyWage) {
+          grp.maxDailyWage = w.dailyWage;
+        }
+      } else if (w.status === 'Cuti') {
+        grp.cutiCount += 1;
+      } else {
+        grp.nonAktifCount += 1;
+      }
+      if (allocatedWorkerIds.has(w.id)) {
+        grp.allocatedCount += 1;
+      }
+      grp.totalAccumulatedWage += w.dailyWage * (w.daysWorked || 0);
+      grp.workers.push(w);
+      if (!grp.roles.includes(w.role)) {
+        grp.roles.push(w.role);
+      }
+    });
+
+    Object.values(groups).forEach((grp) => {
+      grp.avgDailyWage = grp.activeCount > 0 ? Math.round(grp.totalDailyWage / grp.activeCount) : 0;
+    });
+
+    // Return active groups, excluding 'Lainnya' if empty
+    return Object.values(groups).filter(
+      (g) => g.totalCount > 0 || g.category !== 'Lainnya'
+    );
+  }, [workers, allocations]);
+
+  // Filtered Roster Workers based on selectedRoleFilter
+  const filteredRosterWorkers = useMemo(() => {
+    return workers.filter((w) => {
+      if (selectedRoleFilter === 'ALL') return true;
+      return getRoleCategory(w.role) === selectedRoleFilter;
+    });
+  }, [workers, selectedRoleFilter]);
 
   // Allocation Calculations & Analytics
   const activeWorkerCount = workers.filter((w) => w.status === 'Aktif').length;
@@ -134,9 +465,135 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
 
     const matchesWorkItem = selectedWorkItemFilter === 'ALL' || a.workItemId === selectedWorkItemFilter;
     const matchesStatus = selectedStatusFilter === 'ALL' || a.status === selectedStatusFilter;
+    const matchesRole = selectedRoleFilter === 'ALL' || getRoleCategory(a.workerRole) === selectedRoleFilter;
 
-    return matchesSearch && matchesWorkItem && matchesStatus;
+    return matchesSearch && matchesWorkItem && matchesStatus && matchesRole;
   });
+
+  // Copy Payroll Summary Text (for WA/Messages)
+  const handleCopyPayrollSummary = () => {
+    const lines = [
+      `📋 REKAPITULASI UPAH TENAGA KERJA (REAL-TIME)`,
+      `Proyek: Pembangunan Gedung 7 Lantai (Foresyndo 2)`,
+      `Pemilik Proyek (Owner): PT. FORESYNDO GLOBAL INDONESIA`,
+      `Direktur Utama (Owner): HASANUDIN`,
+      `Kontraktor Pelaksana: PT. GONG MBE LINK PAMUNGKAS`,
+      `Periode Simulasi: ${wageProjectionDays} Hari Kerja`,
+      `Tanggal: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`,
+      ``,
+      `--- RINCIAN PER PERAN ---`,
+    ];
+
+    roleBreakdown.forEach((grp, idx) => {
+      const projected = grp.totalDailyWage * wageProjectionDays;
+      lines.push(
+        `${idx + 1}. ${grp.title.toUpperCase()} (${grp.activeCount} Personil Aktif / ${grp.totalCount} Terdaftar):`
+      );
+      lines.push(`   - Tarif Upah Rata-rata : ${formatIDR(grp.avgDailyWage)}/hari`);
+      lines.push(`   - Subtotal Upah Harian : ${formatIDR(grp.totalDailyWage)}/hari`);
+      lines.push(`   - Estimasi Upah (${wageProjectionDays} Hari) : ${formatIDR(projected)}`);
+      lines.push(`   - Personel : ${grp.workers.map((w) => w.name).join(', ') || '-'}`);
+      lines.push(``);
+    });
+
+    const grandTotalProjected = totalDailyPayroll * wageProjectionDays;
+    lines.push(`--- TOTAL KONSOLIDASI ---`);
+    lines.push(`Total Tenaga Kerja Aktif : ${activeWorkerCount} Orang`);
+    lines.push(`Total Upah Harian Proyek : ${formatIDR(totalDailyPayroll)}/hari`);
+    lines.push(`💰 TOTAL ESTIMASI PAYROLL (${wageProjectionDays} HARI) : ${formatIDR(grandTotalProjected)}`);
+    lines.push(``);
+    lines.push(`*Dihitung otomatis secara real-time dari Sistem Monitoring Tenaga Kerja`);
+
+    navigator.clipboard.writeText(lines.join('\n'));
+    setCopiedPayrollToast(true);
+    setTimeout(() => setCopiedPayrollToast(false), 3000);
+  };
+
+  // Export Payroll Summary to CSV
+  const handleExportPayrollCSV = () => {
+    const csvRows: (string | number)[][] = [
+      ['\uFEFFREKAPITULASI UPAH TENAGA KERJA BERDASARKAN PERAN (REAL-TIME)'],
+      ['Proyek', 'Pembangunan Gedung 7 Lantai (Foresyndo 2)'],
+      ['Pemilik Proyek (Owner)', 'PT. FORESYNDO GLOBAL INDONESIA'],
+      ['Direktur Utama (Owner)', 'HASANUDIN'],
+      ['Kontraktor Pelaksana', 'PT. GONG MBE LINK PAMUNGKAS'],
+      ['Tanggal Ekspor', new Date().toLocaleString('id-ID')],
+      ['Simulasi Periode Hari', `${wageProjectionDays} Hari Kerja`],
+      [],
+      [
+        'Kategori Peran',
+        'Personel Terdaftar',
+        'Personel Aktif',
+        'Personel Cuti/Nonaktif',
+        'Personel Dialokasikan',
+        'Tarif Rata-rata/Hari (IDR)',
+        'Upah Harian 1 Hari (IDR)',
+        `Estimasi Upah ${wageProjectionDays} Hari (IDR)`,
+        'Upah Mingguan 6 Hari (IDR)',
+        'Upah Bulanan 25 Hari (IDR)',
+        'Porsi Tenaga Kerja (%)',
+        'Porsi Beban Upah (%)',
+        'Daftar Personel',
+      ],
+    ];
+
+    roleBreakdown.forEach((grp) => {
+      const headcountShare = (
+        (grp.totalCount / (workers.length || 1)) *
+        100
+      ).toFixed(1);
+      const payrollShare =
+        totalDailyPayroll > 0
+          ? ((grp.totalDailyWage / totalDailyPayroll) * 100).toFixed(1)
+          : '0';
+
+      csvRows.push([
+        `"${grp.title}"`,
+        grp.totalCount,
+        grp.activeCount,
+        grp.cutiCount + grp.nonAktifCount,
+        grp.allocatedCount,
+        grp.avgDailyWage,
+        grp.totalDailyWage,
+        grp.totalDailyWage * wageProjectionDays,
+        grp.totalDailyWage * 6,
+        grp.totalDailyWage * 25,
+        `"${headcountShare}%"`,
+        `"${payrollShare}%"`,
+        `"${grp.workers.map((w) => w.name).join('; ')}"`,
+      ]);
+    });
+
+    csvRows.push([]);
+    csvRows.push([
+      '"TOTAL KONSOLIDASI"',
+      workers.length,
+      activeWorkerCount,
+      workers.length - activeWorkerCount,
+      assignedWorkerCount,
+      Math.round(totalDailyPayroll / (activeWorkerCount || 1)),
+      totalDailyPayroll,
+      totalDailyPayroll * wageProjectionDays,
+      totalDailyPayroll * 6,
+      totalDailyPayroll * 25,
+      '"100%"',
+      '"100%"',
+      '""',
+    ]);
+
+    const csvContent = csvRows.map((e) => e.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute(
+      'download',
+      `Rekapitulasi_Upah_Tenaga_Kerja_${wageProjectionDays}Hari_${new Date().toISOString().split('T')[0]}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Handlers
   const handleAddWorkerSubmit = (e: React.FormEvent) => {
@@ -328,8 +785,536 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
               {workers.length}
             </span>
           </button>
+
+          {/* Quick QR Attendance Action Group */}
+          <div className="flex items-center gap-1.5 pl-1 sm:border-l border-slate-200 dark:border-slate-700/80">
+            <button
+              type="button"
+              onClick={() => setIsQRScannerOpen(true)}
+              className="px-3.5 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-orange-500/20 cursor-pointer"
+              title="Buka Pemindai QR Code untuk Absensi Harian & Validasi Alokasi Otomatis"
+            >
+              <Scan className="w-4 h-4" />
+              <span>Scan QR Absensi</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-white/20 text-white">
+                {dailyAttendances.filter((a) => a.isPresent).length}/{workers.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedBadgeWorker(null);
+                setIsBadgeModalOpen(true);
+              }}
+              className="p-2 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
+              title="Cetak Kartu Tanda Pengenal ID Badge & QR Code Pekerja"
+            >
+              <Printer className="w-4 h-4 text-orange-500" />
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* KARTU RINGKASAN PEMBAGIAN PEKERJA BERDASARKAN PERAN & KALKULASI UPAH (REAL-TIME) */}
+      {/* ========================================================================= */}
+      {activeSubTab !== 'heatmap' && (
+        <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-5">
+          {/* Header with Title, Period Switcher, and Action Controls */}
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-5">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 text-white flex items-center justify-center font-black shadow-lg shadow-orange-500/20 shrink-0">
+                <Calculator className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                    Ringkasan Tenaga Kerja Berdasarkan Peran &amp; Kalkulator Upah
+                  </h3>
+                  <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    REAL-TIME PAYROLL
+                  </span>
+                  {selectedRoleFilter !== 'ALL' && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500 text-white flex items-center gap-1">
+                      Filter: {selectedRoleFilter}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRoleFilter('ALL')}
+                        className="ml-0.5 hover:text-black font-black cursor-pointer"
+                        title="Reset filter peran"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Pembagian personil Tukang, Helper, Mandor, dan Teknisi secara otomatis untuk mempermudah perhitungan upah harian, mingguan, maupun bulanan proyek.
+                </p>
+              </div>
+            </div>
+
+            {/* Right Controls: Period Selector & Action Buttons */}
+            <div className="flex flex-wrap items-center gap-2 self-start xl:self-center">
+              {/* Wage Projection Days Toggle */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 text-xs">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 px-2 flex items-center gap-1 hidden sm:flex">
+                  <Clock className="w-3.5 h-3.5 text-orange-500" />
+                  Periode:
+                </span>
+                {[
+                  { label: '1 Hari (Harian)', days: 1 },
+                  { label: '6 Hari (Mingguan)', days: 6 },
+                  { label: '14 Hari (2 Minggu)', days: 14 },
+                  { label: '25 Hari (Bulanan)', days: 25 },
+                ].map((p) => (
+                  <button
+                    key={p.days}
+                    type="button"
+                    onClick={() => setWageProjectionDays(p.days)}
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                      wageProjectionDays === p.days
+                        ? 'bg-orange-500 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+
+                {/* Custom Days Input Stepper */}
+                <div className="flex items-center pl-1 sm:pl-2 border-l border-slate-300 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setWageProjectionDays((prev) => Math.max(1, prev - 1))}
+                    className="w-6 h-6 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-black text-xs flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-600 cursor-pointer"
+                    title="Kurangi 1 hari"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={wageProjectionDays}
+                    onChange={(e) => setWageProjectionDays(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-10 text-center font-mono font-black text-xs bg-transparent text-slate-900 dark:text-white outline-none"
+                    title="Ketik jumlah hari kustom"
+                  />
+                  <span className="text-[10px] text-slate-400 mr-1">hr</span>
+                  <button
+                    type="button"
+                    onClick={() => setWageProjectionDays((prev) => prev + 1)}
+                    className="w-6 h-6 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-black text-xs flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-600 cursor-pointer"
+                    title="Tambah 1 hari"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons: Copy, Export, Formula, Collapse */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleCopyPayrollSummary}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    copiedPayrollToast
+                      ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                  }`}
+                  title="Salin ringkasan upah ke clipboard untuk dibagikan via WhatsApp"
+                >
+                  {copiedPayrollToast ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
+                  <span>{copiedPayrollToast ? 'Tersalin!' : 'Salin Rekap (WA)'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportPayrollCSV}
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Unduh data perhitungan upah per peran sebagai file CSV"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="hidden sm:inline">Unduh CSV</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowFormulaDetails((prev) => !prev)}
+                  className={`p-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                    showFormulaDetails
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-md'
+                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                  }`}
+                  title="Tampilkan rincian rumus perhitungan"
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsRoleSummaryExpanded((prev) => !prev)}
+                  className="p-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
+                  title={isRoleSummaryExpanded ? 'Ciutkan kartu ringkasan' : 'Buka kartu ringkasan'}
+                >
+                  {isRoleSummaryExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Copy Toast Alert */}
+          {copiedPayrollToast && (
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>
+                <strong>Berhasil disalin!</strong> Teks ringkasan upah ({wageProjectionDays} Hari Kerja) untuk Mandor, Tukang, dan Helper siap ditempel (paste) di WhatsApp atau dokumen proyek.
+              </span>
+            </div>
+          )}
+
+          {/* Expanded Content: 5 Role Summary Cards Grid */}
+          {isRoleSummaryExpanded ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
+                {roleBreakdown.map((grp) => {
+                  const isSelected = selectedRoleFilter === grp.category;
+                  const projectedWage = grp.totalDailyWage * wageProjectionDays;
+                  const headcountShare = (
+                    (grp.totalCount / (workers.length || 1)) *
+                    100
+                  ).toFixed(0);
+                  const payrollShare =
+                    totalDailyPayroll > 0
+                      ? ((grp.totalDailyWage / totalDailyPayroll) * 100).toFixed(0)
+                      : '0';
+
+                  // Style configs by role
+                  const styleConfig = {
+                    Mandor: {
+                      badgeBg: 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30',
+                      border: 'border-purple-200 dark:border-purple-900/60',
+                      cardBg: 'bg-gradient-to-b from-purple-500/5 to-white dark:from-purple-950/20 dark:to-slate-900',
+                      accentColor: 'text-purple-600 dark:text-purple-400',
+                      barColor: 'bg-purple-500',
+                      icon: <Shield className="w-4 h-4 text-purple-600 dark:text-purple-400" />,
+                    },
+                    Tukang: {
+                      badgeBg: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
+                      border: 'border-amber-200 dark:border-amber-900/60',
+                      cardBg: 'bg-gradient-to-b from-amber-500/5 to-white dark:from-amber-950/20 dark:to-slate-900',
+                      accentColor: 'text-amber-600 dark:text-amber-400',
+                      barColor: 'bg-amber-500',
+                      icon: <Wrench className="w-4 h-4 text-amber-600 dark:text-amber-400" />,
+                    },
+                    Helper: {
+                      badgeBg: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
+                      border: 'border-sky-200 dark:border-sky-900/60',
+                      cardBg: 'bg-gradient-to-b from-sky-500/5 to-white dark:from-sky-950/20 dark:to-slate-900',
+                      accentColor: 'text-sky-600 dark:text-sky-400',
+                      barColor: 'bg-sky-500',
+                      icon: <Users className="w-4 h-4 text-sky-600 dark:text-sky-400" />,
+                    },
+                    Teknisi: {
+                      badgeBg: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
+                      border: 'border-emerald-200 dark:border-emerald-900/60',
+                      cardBg: 'bg-gradient-to-b from-emerald-500/5 to-white dark:from-emerald-950/20 dark:to-slate-900',
+                      accentColor: 'text-emerald-600 dark:text-emerald-400',
+                      barColor: 'bg-emerald-500',
+                      icon: <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />,
+                    },
+                    Lainnya: {
+                      badgeBg: 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30',
+                      border: 'border-slate-200 dark:border-slate-800',
+                      cardBg: 'bg-white dark:bg-slate-900',
+                      accentColor: 'text-slate-600 dark:text-slate-400',
+                      barColor: 'bg-slate-500',
+                      icon: <HardHat className="w-4 h-4 text-slate-500" />,
+                    },
+                  }[grp.category];
+
+                  return (
+                    <div
+                      key={grp.category}
+                      onClick={() =>
+                        setSelectedRoleFilter((prev) => (prev === grp.category ? 'ALL' : grp.category))
+                      }
+                      className={`p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
+                        styleConfig.cardBg
+                      } ${styleConfig.border} ${
+                        isSelected
+                          ? 'ring-2 ring-orange-500 shadow-lg scale-[1.02]'
+                          : 'hover:shadow-md hover:border-orange-300 dark:hover:border-slate-700'
+                      }`}
+                    >
+                      <div>
+                        {/* Top Header */}
+                        <div className="flex items-center justify-between gap-1.5 mb-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-2 rounded-xl ${styleConfig.badgeBg}`}>
+                              {styleConfig.icon}
+                            </div>
+                            <div>
+                              <span className="font-black text-sm text-slate-900 dark:text-white block">
+                                {grp.title}
+                              </span>
+                              <span className="text-[10px] text-slate-400 block truncate max-w-[120px]">
+                                {grp.desc}
+                              </span>
+                            </div>
+                          </div>
+
+                          <span
+                            className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${styleConfig.badgeBg}`}
+                          >
+                            {grp.activeCount} Org
+                          </span>
+                        </div>
+
+                        {/* Headcount Breakdown Stats */}
+                        <div className="grid grid-cols-2 gap-1.5 mb-2.5 text-[10px]">
+                          <div className="p-1.5 rounded-lg bg-white/60 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50">
+                            <span className="text-slate-400 block">Status:</span>
+                            <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                              {grp.activeCount} Aktif {grp.cutiCount > 0 ? `(${grp.cutiCount} Cuti)` : ''}
+                            </span>
+                          </div>
+                          <div className="p-1.5 rounded-lg bg-white/60 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50">
+                            <span className="text-slate-400 block">Dialokasikan:</span>
+                            <span className="font-bold text-blue-600 dark:text-blue-400">
+                              {grp.allocatedCount} Sektor
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Main Wage Display */}
+                        <div className="space-y-1 my-2 bg-white/80 dark:bg-slate-800/80 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60 shadow-xs">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
+                            <span>Estimasi Upah ({wageProjectionDays} Hari):</span>
+                            <span className="font-mono font-bold text-slate-400">
+                              {grp.activeCount} org × {wageProjectionDays} hr
+                            </span>
+                          </div>
+                          <div className="text-lg sm:text-xl font-black font-mono text-slate-900 dark:text-white tracking-tight">
+                            {formatIDR(projectedWage)}
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                            <span>Tarif Rata-rata:</span>
+                            <strong className="text-slate-800 dark:text-slate-200 font-mono">
+                              {formatIDR(grp.avgDailyWage)}/hari
+                            </strong>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-slate-400">
+                            <span>Subtotal 1 Hari:</span>
+                            <span className="font-mono font-bold text-slate-600 dark:text-slate-300">
+                              {formatIDR(grp.totalDailyWage)}/hari
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Proportions & Progress Bar */}
+                        <div className="space-y-1 text-[10px] text-slate-500 dark:text-slate-400 pt-1">
+                          <div className="flex items-center justify-between">
+                            <span>Porsi Tenaga Kerja:</span>
+                            <strong className="text-slate-800 dark:text-slate-200">
+                              {headcountShare}% ({grp.totalCount}/{workers.length})
+                            </strong>
+                          </div>
+                          <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${styleConfig.barColor}`}
+                              style={{ width: `${headcountShare}%` }}
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between pt-0.5">
+                            <span>Porsi Beban Upah:</span>
+                            <strong className="text-slate-800 dark:text-slate-200">{payrollShare}% Total</strong>
+                          </div>
+                        </div>
+
+                        {/* Personnel Chips */}
+                        <div className="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-800/80">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                            Personel ({grp.workers.length}):
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {grp.workers.map((w) => (
+                              <span
+                                key={w.id}
+                                className="text-[9px] px-1.5 py-0.5 rounded-md bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold border border-slate-200 dark:border-slate-700 truncate max-w-[110px]"
+                                title={`${w.name} - ${w.role} (${formatIDR(w.dailyWage)}/hari)`}
+                              >
+                                {w.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Filter Button */}
+                      <div className="mt-3 pt-2">
+                        <button
+                          type="button"
+                          className={`w-full py-1.5 px-2.5 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-orange-500 text-white shadow-xs'
+                              : 'bg-slate-100 dark:bg-slate-800 hover:bg-orange-500 hover:text-white text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          <span>{isSelected ? 'Sedang Memfilter' : `Filter ${grp.title}`}</span>
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Card 5: Grand Total Consolidated Summary Card */}
+                <div className="p-4 rounded-2xl border border-slate-700/80 bg-gradient-to-b from-slate-900 via-slate-850 to-slate-900 text-white shadow-lg flex flex-col justify-between relative overflow-hidden">
+                  <div>
+                    {/* Top Header */}
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                          <Wallet className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="font-black text-sm text-white block">
+                            Total Konsolidasi
+                          </span>
+                          <span className="text-[10px] text-slate-400 block">
+                            Seluruh Peran Lapangan
+                          </span>
+                        </div>
+                      </div>
+
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                        {activeWorkerCount} Org Aktif
+                      </span>
+                    </div>
+
+                    {/* Grand Total Projected Wage */}
+                    <div className="space-y-1 my-2 bg-white/10 dark:bg-black/30 p-3 rounded-xl border border-white/10 shadow-xs">
+                      <div className="flex items-center justify-between text-[10px] text-slate-300">
+                        <span>Total Estimasi ({wageProjectionDays} Hari Kerja):</span>
+                        <span className="text-orange-400 font-bold">{wageProjectionDays} Hari</span>
+                      </div>
+                      <div className="text-xl sm:text-2xl font-black font-mono text-orange-400 tracking-tight">
+                        {formatIDR(totalDailyPayroll * wageProjectionDays)}
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-300 pt-1 border-t border-white/10">
+                        <span>Payroll Harian (1 Hari):</span>
+                        <strong className="font-mono text-white">{formatIDR(totalDailyPayroll)}</strong>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400">
+                        <span>Rata-rata/Pekerja:</span>
+                        <span className="font-mono text-slate-300">
+                          {formatIDR(Math.round(totalDailyPayroll / (activeWorkerCount || 1)))}/hari
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Breakdown Periods */}
+                    <div className="space-y-1.5 text-[10px] text-slate-300 pt-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Estimasi Mingguan (6 Hari):</span>
+                        <span className="font-mono font-bold text-white">{formatIDR(totalDailyPayroll * 6)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Estimasi Bulanan (25 Hari):</span>
+                        <span className="font-mono font-bold text-white">{formatIDR(totalDailyPayroll * 25)}</span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-white/10">
+                        <span className="text-slate-400">Akumulasi Realisasi Gaji:</span>
+                        <span className="font-mono font-bold text-emerald-400">{formatIDR(totalAccumulatedPayroll)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Reset / All Roles Button */}
+                  <div className="mt-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRoleFilter('ALL')}
+                      className={`w-full py-1.5 px-2.5 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                        selectedRoleFilter === 'ALL'
+                          ? 'bg-orange-500 text-white shadow-xs'
+                          : 'bg-white/10 hover:bg-white/20 text-white'
+                      }`}
+                    >
+                      <span>{selectedRoleFilter === 'ALL' ? 'Menampilkan Semua Peran' : 'Tampilkan Semua Peran'}</span>
+                      <RefreshCw className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Formula & Calculation Transparency Drawer */}
+              {showFormulaDetails && (
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2 text-xs">
+                  <div className="flex items-center gap-2 font-black text-slate-900 dark:text-white text-xs">
+                    <Info className="w-4 h-4 text-orange-500" />
+                    <span>Rumus Transparansi Perhitungan Upah ({wageProjectionDays} Hari Kerja):</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
+                    {roleBreakdown.map((grp) => (
+                      <div
+                        key={grp.category}
+                        className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1"
+                      >
+                        <span className="font-sans font-bold text-slate-900 dark:text-white block">
+                          {grp.title}:
+                        </span>
+                        <div className="text-slate-600 dark:text-slate-400 text-[10px]">
+                          {grp.activeCount} org × {formatIDR(grp.avgDailyWage)} × {wageProjectionDays} hari
+                        </div>
+                        <div className="font-black text-orange-500">
+                          = {formatIDR(grp.totalDailyWage * wageProjectionDays)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-400 italic pt-1">
+                    *Kalkulasi upah ini dihitung secara real-time berdasarkan tarif harian aktif masing-masing pekerja untuk membantu Site Manager dan Mandor memverifikasi kasbon dan laporan payroll mingguan.
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Minimized Ribbon View */
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-xs">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-bold text-slate-700 dark:text-slate-300">
+                  Ringkasan Peran ({wageProjectionDays} Hari):
+                </span>
+                {roleBreakdown.map((grp) => (
+                  <span
+                    key={grp.category}
+                    onClick={() => setSelectedRoleFilter(grp.category)}
+                    className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-mono text-[11px] cursor-pointer hover:border-orange-500"
+                  >
+                    <strong>{grp.title}:</strong> {grp.activeCount} org ({formatIDR(grp.totalDailyWage * wageProjectionDays)})
+                  </span>
+                ))}
+                <span className="font-black text-orange-500 font-mono">
+                  Total: {formatIDR(totalDailyPayroll * wageProjectionDays)}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRoleSummaryExpanded(true)}
+                className="text-xs font-bold text-orange-500 hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <span>Buka Detail Ringkasan</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ==================== SUB-TAB 1: ALOKASI PEKERJAAN & PRODUKTIVITAS ==================== */}
       {activeSubTab === 'allocation' && (
@@ -401,6 +1386,28 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
               <p className="text-[11px] text-slate-400 mt-2">Penugasan spesifik per pekerja di lapangan</p>
             </div>
           </div>
+
+          {/* Active Role Filter Banner if filtered */}
+          {selectedRoleFilter !== 'ALL' && (
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-orange-500/10 border border-orange-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <span className="px-2.5 py-1 rounded-lg bg-orange-500 text-white font-black text-[10px] tracking-wider uppercase">
+                  FILTER AKTIF: {selectedRoleFilter}
+                </span>
+                <span className="text-slate-800 dark:text-slate-200">
+                  Menampilkan penugasan Time Schedule khusus kategori peran <strong>{selectedRoleFilter}</strong> (
+                  {roleBreakdown.find((r) => r.category === selectedRoleFilter)?.activeCount || 0} personil aktif)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRoleFilter('ALL')}
+                className="px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-orange-500 hover:text-white text-orange-600 dark:text-orange-400 font-bold border border-orange-200 dark:border-orange-900/50 transition-all cursor-pointer text-xs shrink-0 self-start sm:self-auto"
+              >
+                Reset Filter (Tampilkan Semua)
+              </button>
+            </div>
+          )}
 
           {/* Filter & Controls Toolbar */}
           <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
@@ -488,6 +1495,15 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
                 </button>
               </div>
 
+              <button
+                type="button"
+                onClick={() => setIsQRScannerOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-orange-500/20 shrink-0 cursor-pointer"
+                title="Pindai QR Code untuk memvalidasi alokasi kehadiran harian"
+              >
+                <Scan className="w-4 h-4" /> Pindai QR Absensi
+              </button>
+
               {canEdit && (
                 <button
                   onClick={handleOpenAllocModal}
@@ -511,7 +1527,7 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
                       <th className="py-3.5 px-4 text-center">Alokasi Jam / Tgl</th>
                       <th className="py-3.5 px-4 text-center">Target vs Realisasi Output</th>
                       <th className="py-3.5 px-4 text-center">Skor &amp; Efisiensi Upah</th>
-                      <th className="py-3.5 px-4 text-center">Status</th>
+                      <th className="py-3.5 px-4 text-center">Status &amp; Validasi QR</th>
                       {canEdit && <th className="py-3.5 px-4 text-right">Aksi</th>}
                     </tr>
                   </thead>
@@ -613,10 +1629,10 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
                               </div>
                             </td>
 
-                            {/* Status */}
+                            {/* Status & Validasi QR */}
                             <td className="py-3.5 px-4 text-center">
                               <span
-                                className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold border ${
+                                className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold border block ${
                                   alloc.status === 'Selesai'
                                     ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
                                     : alloc.status === 'Di Bawah Target'
@@ -628,12 +1644,45 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
                               >
                                 {alloc.status}
                               </span>
+
+                              {/* QR Code Validation status */}
+                              {alloc.isValidatedByQR || dailyAttendances.some((att) => att.workerId === alloc.workerId && att.isPresent) ? (
+                                <span className="mt-1 px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-mono text-[9px] font-black border border-emerald-500/30 flex items-center justify-center gap-1">
+                                  <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
+                                  QR VALID ({alloc.qrValidatedAt || dailyAttendances.find((a) => a.workerId === alloc.workerId)?.checkInTime || 'Hadir'})
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleValidateAttendance(alloc.workerId)}
+                                  className="mt-1 px-1.5 py-0.5 rounded-md bg-orange-500/10 hover:bg-orange-500 hover:text-white text-orange-600 dark:text-orange-400 font-mono text-[9px] font-bold border border-orange-500/30 flex items-center justify-center gap-1 cursor-pointer transition-all mx-auto"
+                                  title="Validasi absensi pekerja ini via QR"
+                                >
+                                  <Scan className="w-2.5 h-2.5" />
+                                  Validasi QR
+                                </button>
+                              )}
                             </td>
 
                             {/* Actions */}
                             {canEdit && (
                               <td className="py-3.5 px-4 text-right">
                                 <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const w = workers.find((item) => item.id === alloc.workerId);
+                                      if (w) {
+                                        setSelectedBadgeWorker(w);
+                                        setIsBadgeModalOpen(true);
+                                      }
+                                    }}
+                                    className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-orange-500 hover:text-white text-slate-400 transition-colors cursor-pointer"
+                                    title="Lihat &amp; Cetak Kartu ID Badge QR Pekerja"
+                                  >
+                                    <QrCode className="w-3.5 h-3.5" />
+                                  </button>
+
                                   <button
                                     onClick={() => setEditingAllocation(alloc)}
                                     className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-orange-500 hover:text-white text-slate-400 transition-colors"
@@ -803,19 +1852,46 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
               })}
             </div>
           )}
+
+          {/* VIEW MODE 3: HEATMAP VIEW */}
+          {allocationViewMode === 'heatmap' && (
+            <WorkforceHeatmap
+              workItems={workItems}
+              allocations={allocations}
+              workers={workers}
+              userRole={userRole}
+              canEdit={canEdit}
+              onOpenAllocModal={handleOpenAllocModal}
+            />
+          )}
         </div>
+      )}
+
+      {/* ==================== SUB-TAB 3: HEATMAP KEPADATAN 30 HARI ==================== */}
+      {activeSubTab === 'heatmap' && (
+        <WorkforceHeatmap
+          workItems={workItems}
+          allocations={allocations}
+          workers={workers}
+          userRole={userRole}
+          canEdit={canEdit}
+          onOpenAllocModal={handleOpenAllocModal}
+        />
       )}
 
       {/* ==================== SUB-TAB 2: ROSTER & DAFTAR PEKERJA (Original View) ==================== */}
       {activeSubTab === 'roster' && (
         <div className="space-y-6">
           {/* Roster & Payroll Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md">
               <span className="text-xs font-semibold text-slate-400 block">Total Tenaga Kerja Aktif</span>
-              <span className="text-2xl font-black text-slate-900 dark:text-white mt-1 block">
-                {workers.filter((w) => w.status === 'Aktif').length} Orang
-              </span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-2xl font-black text-slate-900 dark:text-white">
+                  {workers.filter((w) => w.status === 'Aktif').length}
+                </span>
+                <span className="text-xs text-slate-400 font-semibold">dari {workers.length} Terdaftar</span>
+              </div>
             </div>
 
             <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md">
@@ -829,23 +1905,220 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
                 {formatIDR(Math.round(totalDailyPayroll / (workers.length || 1)))}
               </span>
             </div>
+
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md">
+              <span className="text-xs font-semibold text-slate-400 block">Akumulasi Realisasi Gaji</span>
+              <span className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1 block">
+                {formatIDR(totalAccumulatedPayroll)}
+              </span>
+            </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* KARTU RINGKASAN PEMBAGIAN PEKERJA BERDASARKAN PERAN & KALKULASI UPAH */}
+          {/* ========================================================================= */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
+            {/* Header of Matrix Table */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-emerald-500" />
+                  <span>Matriks Komparasi Upah &amp; Beban Payroll Antar Peran</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Tabel rincian komparasi beban upah personil Tukang, Helper, Mandor, dan Teknisi berdasarkan durasi kerja proyek
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportPayrollCSV}
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer border border-slate-200 dark:border-slate-700 transition-all"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Ekspor CSV</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Wage Calculation Summary Matrix Table */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-emerald-500" />
+                  <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    Tabel Rekapitulasi &amp; Estimasi Upah Berdasarkan Peran
+                  </span>
+                </div>
+                {selectedRoleFilter !== 'ALL' && (
+                  <button
+                    onClick={() => setSelectedRoleFilter('ALL')}
+                    className="text-xs font-bold text-orange-500 hover:underline cursor-pointer"
+                  >
+                    Reset Filter (Tampilkan Semua Peran)
+                  </button>
+                )}
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold uppercase text-[10px]">
+                      <th className="py-2.5 px-3">Kategori Peran</th>
+                      <th className="py-2.5 px-3 text-center">Personel Aktif</th>
+                      <th className="py-2.5 px-3 text-right">Upah Rata-rata / Hari</th>
+                      <th className="py-2.5 px-3 text-right">Subtotal Harian (1 Hari)</th>
+                      <th className="py-2.5 px-3 text-right">Mingguan (6 Hari)</th>
+                      <th className="py-2.5 px-3 text-right">Bulanan (25 Hari)</th>
+                      <th className="py-2.5 px-3 text-right">Akumulasi Realisasi Gaji</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 font-mono text-[11px]">
+                    {roleBreakdown.map((grp) => (
+                      <tr
+                        key={grp.category}
+                        onClick={() =>
+                          setSelectedRoleFilter((prev) => (prev === grp.category ? 'ALL' : grp.category))
+                        }
+                        className={`cursor-pointer transition-colors ${
+                          selectedRoleFilter === grp.category
+                            ? 'bg-orange-500/10 font-bold'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800/30'
+                        }`}
+                      >
+                        <td className="py-2 px-3 font-sans font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span
+                            className={`w-2.5 h-2.5 rounded-full ${
+                              grp.category === 'Mandor'
+                                ? 'bg-purple-500'
+                                : grp.category === 'Tukang'
+                                ? 'bg-amber-500'
+                                : grp.category === 'Helper'
+                                ? 'bg-sky-500'
+                                : grp.category === 'Teknisi'
+                                ? 'bg-emerald-500'
+                                : 'bg-slate-400'
+                            }`}
+                          />
+                          <span>{grp.title}</span>
+                        </td>
+                        <td className="py-2 px-3 text-center text-slate-700 dark:text-slate-300">
+                          {grp.activeCount} Orang
+                        </td>
+                        <td className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">
+                          {formatIDR(grp.avgDailyWage)}
+                        </td>
+                        <td className="py-2 px-3 text-right font-black text-slate-900 dark:text-white">
+                          {formatIDR(grp.totalDailyWage)}
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold text-slate-800 dark:text-slate-200">
+                          {formatIDR(grp.totalDailyWage * 6)}
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold text-slate-800 dark:text-slate-200">
+                          {formatIDR(grp.totalDailyWage * 25)}
+                        </td>
+                        <td className="py-2 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">
+                          {formatIDR(grp.totalAccumulatedWage)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-900 text-white font-bold border-t-2 border-slate-700 text-[11px] font-mono">
+                      <td className="py-2.5 px-3 font-sans font-black text-orange-400 uppercase">
+                        TOTAL ESTIMASI PAYROLL
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-sans font-black text-orange-400">
+                        {activeWorkerCount} Orang
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-sans text-slate-300">
+                        {formatIDR(Math.round(totalDailyPayroll / (activeWorkerCount || 1)))}/org
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-black text-orange-400">
+                        {formatIDR(totalDailyPayroll)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-bold text-white">
+                        {formatIDR(totalDailyPayroll * 6)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-bold text-white">
+                        {formatIDR(totalDailyPayroll * 25)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-black text-emerald-400">
+                        {formatIDR(totalAccumulatedPayroll)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
           </div>
 
           {/* Action Bar for Workers */}
-          <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md">
             <div>
-              <h3 className="text-sm font-black text-slate-900 dark:text-white">Daftar Roster &amp; Upah Personel Lapangan</h3>
-              <p className="text-xs text-slate-400">Gaji dan akumulasi hari kerja tenaga kerja aktif proyek</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                  Daftar Roster &amp; Upah Personel Lapangan
+                </h3>
+                {selectedRoleFilter !== 'ALL' ? (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400 border border-orange-500/30 flex items-center gap-1.5">
+                    <span>Filter: {selectedRoleFilter} ({filteredRosterWorkers.length} Orang)</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRoleFilter('ALL')}
+                      className="hover:text-red-500 cursor-pointer font-black"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
+                    Semua Peran ({workers.length} Orang)
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Gaji harian, peran klasifikasi, dan akumulasi hari kerja tenaga kerja aktif proyek
+              </p>
             </div>
 
-            {canEdit && (
+            <div className="flex items-center gap-2 self-stretch sm:self-auto flex-wrap sm:flex-nowrap">
+              {selectedRoleFilter !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedRoleFilter('ALL')}
+                  className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold transition-all cursor-pointer"
+                >
+                  Reset Filter
+                </button>
+              )}
               <button
-                onClick={() => setIsWorkerModalOpen(true)}
-                className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-orange-500/20 shrink-0"
+                type="button"
+                onClick={() => setIsQRScannerOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-orange-500/20 shrink-0 cursor-pointer"
               >
-                <Plus className="w-4 h-4" /> Tambah Tenaga Kerja
+                <Scan className="w-4 h-4" /> Pindai QR Absensi
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedBadgeWorker(null);
+                  setIsBadgeModalOpen(true);
+                }}
+                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 transition-all shrink-0 cursor-pointer"
+                title="Cetak Kartu Tanda Pengenal & QR Code"
+              >
+                <Printer className="w-3.5 h-3.5 text-orange-500" /> Cetak ID Card &amp; QR
+              </button>
+              {canEdit && (
+                <button
+                  onClick={() => setIsWorkerModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-orange-500/20 shrink-0 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" /> Tambah Tenaga Kerja
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Workers Table */}
@@ -855,30 +2128,127 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
                 <thead>
                   <tr className="bg-slate-900 text-white border-b border-slate-800 font-bold uppercase text-[10px]">
                     <th className="py-3 px-3">Nama Pekerja</th>
-                    <th className="py-3 px-3">Jabatan / Role</th>
+                    <th className="py-3 px-3">Klasifikasi &amp; Role</th>
                     <th className="py-3 px-3 text-right">Hari Kerja</th>
                     <th className="py-3 px-3 text-right">Upah Harian</th>
                     <th className="py-3 px-3 text-right">Total Akumulasi Gaji</th>
                     <th className="py-3 px-3 text-center">Status</th>
+                    <th className="py-3 px-3 text-center">Absensi Hari Ini (QR)</th>
+                    <th className="py-3 px-3 text-center">ID Badge &amp; QR</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {workers.map((w) => (
-                    <tr key={w.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className="py-3 px-3 font-bold text-slate-900 dark:text-white">{w.name}</td>
-                      <td className="py-3 px-3 text-slate-400">{w.role}</td>
-                      <td className="py-3 px-3 text-right font-medium">{w.daysWorked} Hari</td>
-                      <td className="py-3 px-3 text-right font-semibold">{formatIDR(w.dailyWage)}</td>
-                      <td className="py-3 px-3 text-right font-black text-emerald-500">
-                        {formatIDR(w.dailyWage * w.daysWorked)}
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold border border-emerald-500/30">
-                          {w.status}
-                        </span>
+                  {filteredRosterWorkers.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-10 text-center text-slate-400 font-medium">
+                        Tidak ada pekerja yang terdaftar dengan kategori peran "{selectedRoleFilter}".
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRoleFilter('ALL')}
+                          className="text-orange-500 hover:underline font-bold ml-2 cursor-pointer"
+                        >
+                          Reset Filter
+                        </button>
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredRosterWorkers.map((w) => {
+                      const cat = getRoleCategory(w.role);
+                      const att = dailyAttendances.find((a) => a.workerId === w.id);
+                      const isPresent = !!att?.isPresent;
+
+                      return (
+                        <tr key={w.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                                  cat === 'Mandor'
+                                    ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30'
+                                    : cat === 'Tukang'
+                                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                                    : cat === 'Helper'
+                                    ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30'
+                                    : cat === 'Teknisi'
+                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                    : 'bg-slate-200 text-slate-700'
+                                }`}
+                              >
+                                {w.name.charAt(0)}
+                              </div>
+                              <div>
+                                <span className="font-bold text-slate-900 dark:text-white block">{w.name}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">{w.id}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span
+                                className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-md border ${
+                                  cat === 'Mandor'
+                                    ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+                                    : cat === 'Tukang'
+                                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                                    : cat === 'Helper'
+                                    ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20'
+                                    : cat === 'Teknisi'
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                                }`}
+                              >
+                                {cat}
+                              </span>
+                              <span className="text-slate-700 dark:text-slate-300 font-medium">{w.role}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-right font-medium">{w.daysWorked} Hari</td>
+                          <td className="py-3 px-3 text-right font-semibold">{formatIDR(w.dailyWage)}</td>
+                          <td className="py-3 px-3 text-right font-black text-emerald-500">
+                            {formatIDR(w.dailyWage * w.daysWorked)}
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold border border-emerald-500/30">
+                              {w.status}
+                            </span>
+                          </td>
+                          {/* Daily Attendance Column */}
+                          <td className="py-3 px-3 text-center">
+                            {isPresent ? (
+                              <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] border border-emerald-500/30 inline-flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                Hadir ({att?.checkInTime || 'QR Valid'})
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleValidateAttendance(w.id)}
+                                className="px-2.5 py-1 rounded-full bg-slate-100 hover:bg-orange-500 hover:text-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700 cursor-pointer inline-flex items-center gap-1 transition-all"
+                              >
+                                <Scan className="w-2.5 h-2.5" />
+                                Belum Absen (Pindai)
+                              </button>
+                            )}
+                          </td>
+                          {/* ID Badge & QR Column */}
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedBadgeWorker(w);
+                                setIsBadgeModalOpen(true);
+                              }}
+                              className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-orange-500 hover:text-white text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold"
+                              title="Lihat &amp; Cetak Kartu ID Badge QR"
+                            >
+                              <QrCode className="w-3.5 h-3.5 text-orange-500" />
+                              <span>Kartu QR</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1262,6 +2632,30 @@ export const WorkforceMonitoring: React.FC<WorkforceMonitoringProps> = ({
           </div>
         </div>
       )}
+
+      {/* ==================== MODAL 4: PEMINDAI QR CODE ABSENSI HARIAN PEKERJA ==================== */}
+      <WorkerQRScannerModal
+        isOpen={isQRScannerOpen}
+        onClose={() => setIsQRScannerOpen(false)}
+        workers={workers}
+        allocations={allocations}
+        workItems={workItems}
+        todayAttendances={dailyAttendances}
+        onValidateAttendance={handleValidateAttendance}
+        onOpenWorkerBadge={(worker) => {
+          setSelectedBadgeWorker(worker);
+          setIsBadgeModalOpen(true);
+        }}
+      />
+
+      {/* ==================== MODAL 5: CETAK KARTU ID BADGE & QR CODE ==================== */}
+      <WorkerBadgeCardModal
+        isOpen={isBadgeModalOpen}
+        onClose={() => setIsBadgeModalOpen(false)}
+        workers={workers}
+        selectedWorker={selectedBadgeWorker}
+        allocations={allocations}
+      />
     </div>
   );
 };

@@ -117,7 +117,8 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
             <h2 className="text-lg font-black text-slate-900 dark:text-white">Pusat Laporan &amp; Export Dokumen</h2>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Generate otomatis Laporan PDF, Spreadsheet Excel, dan Cetak dengan Kop Resmi PT. FORESYNDO GLOBAL INDONESIA
+            Generate otomatis Laporan PDF, Spreadsheet Excel, dan Cetak resmi atas nama Kontraktor Pelaksana:{' '}
+            <strong className="text-slate-800 dark:text-slate-200 font-bold">{project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}</strong> (Ditujukan kepada Pemberi Tugas / Owner: {project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'})
           </p>
         </div>
 
@@ -147,6 +148,37 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
           >
             <Printer className="w-4 h-4 text-slate-500" /> Cetak
           </button>
+        </div>
+      </div>
+
+      {/* Contractor Official Issuer Identity Card */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white border border-slate-700 shadow-md flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-orange-500/20 border border-orange-500/30 text-orange-400 flex items-center justify-center shrink-0">
+            <Building2 className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-orange-500/25 text-orange-300 border border-orange-500/40">
+                KONTRAKTOR PELAKSANA (PENERBIT RESMI LAPORAN)
+              </span>
+              <span className="text-[11px] font-mono text-slate-300">
+                NIB: {project.contractorProfile?.nib || '1410220080338'} &bull; NPWP: {project.contractorProfile?.npwp || '61.289.845.2-404.000'}
+              </span>
+            </div>
+            <h3 className="text-sm font-black text-white mt-1">
+              {project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}
+            </h3>
+            <p className="text-xs text-slate-300 mt-0.5">
+              {project.contractorProfile?.address || 'Bukit Cimanggu City, Jl. Raya Baru Ruko No. 5, Bogor'} &bull; Direktur: {project.contractorProfile?.management?.director || 'Rohman Priyambodo'} &bull; Site Manager: {project.siteManager || 'EKO YULIANTO'}
+            </p>
+          </div>
+        </div>
+
+        <div className="text-left lg:text-right shrink-0 border-t lg:border-t-0 border-slate-700/80 pt-2 lg:pt-0">
+          <span className="text-[10px] text-slate-400 block uppercase font-bold">Pemberi Tugas (Owner Proyek):</span>
+          <span className="text-xs font-bold text-orange-400">{project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'}</span>
+          <span className="text-[11px] text-slate-300 block">Direktur Utama: {project.director || 'HASANUDIN'}</span>
         </div>
       </div>
 
@@ -211,33 +243,55 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
           <div className="flex items-center gap-3">
             <img
               src="/assets/logo.png"
-              alt="Logo PT Foresyndo Global Indonesia"
+              alt="Logo Kontraktor"
               className="w-12 h-12 object-contain shrink-0"
               referrerPolicy="no-referrer"
             />
             <div>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">PT. FORESYNDO GLOBAL INDONESIA</h1>
-              <p className="text-xs text-slate-600 font-medium">
-                Kontraktor Utama & Real Estate Developer &bull; Proyek FORESYNDO 2
+              <h1 className="text-xl font-black text-slate-900 tracking-tight">
+                {project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}
+              </h1>
+              <p className="text-xs text-slate-700 font-semibold">
+                Kontraktor Pelaksana Konstruksi Gedung &bull; {project.contractorProfile?.classification || 'Kualifikasi Menengah (M1)'}
               </p>
-              <p className="text-[10px] text-slate-500">Lokasi: {project.location}</p>
+              <p className="text-[10px] text-slate-500">
+                {project.contractorProfile?.address || 'Bukit Cimanggu City, Jl. Raya Baru Ruko No. 5, Bogor'} &bull; Telp/WA: {project.contractorProfile?.whatsapp || '+62 812-8807-7097'}
+              </p>
+              <p className="text-[10px] text-slate-500">
+                NIB: {project.contractorProfile?.nib || '1410220080338'} &bull; NPWP: {project.contractorProfile?.npwp || '61.289.845.2-404.000'} &bull; IUJK: {project.contractorProfile?.iujkNumber || '141022008033803380001'}
+              </p>
             </div>
           </div>
           <div className="text-right text-xs">
-            <span className="font-bold block uppercase text-orange-600">LAPORAN MONITORING</span>
-            <span className="text-[11px] text-slate-500">No. Dok: 048/LOK-FGI/VII/2026</span>
+            <span className="font-bold block uppercase text-orange-600">LAPORAN RESMI KONTRAKTOR</span>
+            <span className="text-[11px] text-slate-500 font-mono">No. Dok: 048/LOK-GMP/VII/2026</span>
+            <span className="text-[10px] text-slate-500 block mt-1">
+              Ditujukan Kepada: <strong>{project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'}</strong>
+            </span>
           </div>
         </div>
 
         {/* Project Info Table */}
-        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <span className="text-slate-500 block">Nama Proyek:</span>
             <strong className="text-slate-900">{project.name}</strong>
           </div>
           <div>
+            <span className="text-slate-500 block">Kontraktor Pelaksana:</span>
+            <strong className="text-orange-600 font-black">{project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}</strong>
+          </div>
+          <div>
             <span className="text-slate-500 block">Pemilik (Owner):</span>
-            <strong className="text-slate-900">{project.owner}</strong>
+            <strong className="text-slate-900">{project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'}</strong>
+          </div>
+          <div>
+            <span className="text-slate-500 block">Konsultan Pengawas (MK):</span>
+            <strong className="text-slate-900">{project.consultantMK || 'SAEPUL ANWAR'}</strong>
+          </div>
+          <div>
+            <span className="text-slate-500 block">Nomor Kontrak:</span>
+            <strong className="text-slate-900">{project.contractNumber || 'PR-2026-FGI-004'}</strong>
           </div>
           <div>
             <span className="text-slate-500 block">Nilai Kontrak:</span>
@@ -245,16 +299,12 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
           </div>
           <div>
             <span className="text-slate-500 block">Progress Fisik:</span>
-            <strong className="text-emerald-600">{realizedFisik}%</strong>
+            <strong className="text-emerald-600 font-bold">{realizedFisik}%</strong>
           </div>
           <div>
-            <span className="text-slate-500 block">Target Schedule:</span>
-            <strong className="text-orange-600">{targetFisik}%</strong>
-          </div>
-          <div>
-            <span className="text-slate-500 block">Deviasi:</span>
+            <span className="text-slate-500 block">Target / Deviasi:</span>
             <strong className={deviasi < -5 ? 'text-red-600 font-black' : 'text-slate-900'}>
-              {deviasi > 0 ? `+${deviasi}%` : `${deviasi}%`}
+              {targetFisik}% ({deviasi > 0 ? `+${deviasi}%` : `${deviasi}%`})
             </strong>
           </div>
         </div>
@@ -343,24 +393,39 @@ export const ReportCenter: React.FC<ReportCenterProps> = ({
           </table>
         </div>
 
-        {/* Signatures Block */}
-        <div className="pt-8 border-t border-slate-200 flex justify-between text-xs font-bold text-slate-900">
+        {/* Signatures Block - Tripartite (Kontraktor, Pengawas MK, Owner) */}
+        <div className="pt-8 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs text-slate-900">
           <div className="text-center">
-            <p>Dibuat Oleh,</p>
-            <p className="text-slate-500 font-normal">Site Manager Proyek</p>
-            <div className="h-16 flex items-center justify-center text-slate-400 font-normal italic text-[11px]">
-              (Tanda Tangan Digital Tersimpan)
+            <p className="font-bold">Dibuat Oleh,</p>
+            <p className="text-slate-600 font-semibold">Kontraktor Pelaksana</p>
+            <p className="text-[10px] text-slate-500 font-medium">{project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}</p>
+            <div className="h-14 flex items-center justify-center text-slate-400 font-normal italic text-[11px]">
+              (Tanda Tangan Digital Terverifikasi)
             </div>
-            <p>( {project.siteManager || 'EKO YULIANTO'} )</p>
+            <p className="font-bold">( {project.siteManager || 'EKO YULIANTO'} )</p>
+            <p className="text-[10px] text-slate-500 font-normal">Site Manager Pelaksana</p>
           </div>
 
           <div className="text-center">
-            <p>Disetujui Oleh,</p>
-            <p className="text-slate-500 font-normal">Direktur PT. Foresyndo</p>
-            <div className="h-16 flex items-center justify-center text-slate-400 font-normal italic text-[11px]">
-              (Tanda Tangan Digital Tersimpan)
+            <p className="font-bold">Diperiksa Oleh,</p>
+            <p className="text-slate-600 font-semibold">Konsultan Pengawas (MK)</p>
+            <p className="text-[10px] text-slate-500 font-medium">PT. BENNATIN SURYA CIPTA</p>
+            <div className="h-14 flex items-center justify-center text-slate-400 font-normal italic text-[11px]">
+              (Tanda Tangan Digital Terverifikasi)
             </div>
-            <p>( {project.director || 'HASANUDIN'} )</p>
+            <p className="font-bold">( {project.consultantMK || 'SAEPUL ANWAR'} )</p>
+            <p className="text-[10px] text-slate-500 font-normal">Kuasa Direktur MK</p>
+          </div>
+
+          <div className="text-center">
+            <p className="font-bold">Disetujui Oleh,</p>
+            <p className="text-slate-600 font-semibold">Pemberi Tugas (Owner)</p>
+            <p className="text-[10px] text-slate-500 font-medium">{project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'}</p>
+            <div className="h-14 flex items-center justify-center text-slate-400 font-normal italic text-[11px]">
+              (Tanda Tangan Digital Terverifikasi)
+            </div>
+            <p className="font-bold">( {project.director || 'HASANUDIN'} )</p>
+            <p className="text-[10px] text-slate-500 font-normal">Direktur Utama</p>
           </div>
         </div>
       </div>

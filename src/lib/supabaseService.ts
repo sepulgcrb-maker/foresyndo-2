@@ -401,7 +401,7 @@ VALUES (
   'FORESYNDO-PROJECT-2',
   'Pembangunan Gedung Kantor & Fasilitas Produksi Foresyndo 2',
   'FS-2025-002',
-  'PT. Foresyndo Global Indonesia',
+  'PT. FORESYNDO GLOBAL INDONESIA',
   'PT. Konstruksi Nusantara Prima',
   'PT. Mitra Cipta Engineering (Konsultan MK)',
   'Kecamatan Jatitujuh, Kabupaten Majalengka, Jawa Barat',
@@ -1670,7 +1670,14 @@ export async function pullAllDataFromSupabase(
     const projectInfo: ProjectInfo = {
       id: resolvedProjectId,
       name: String(rawProject.name || matchedProjectRow?.name || 'Pembangunan Gedung 7 Lantai (Foresyndo 2)'),
-      owner: String(rawProject.owner || matchedProjectRow?.owner || 'PT. FORESYNDO GLOBAL INDONESIA'),
+      // Pemilik Proyek (Owner): PT. FORESYNDO GLOBAL INDONESIA
+      owner: String(
+        rawProject.owner &&
+          !rawProject.owner.toLowerCase().includes('gong mbe') &&
+          !rawProject.owner.toLowerCase().includes('bangun cipta')
+          ? (rawProject.owner.toLowerCase().includes('foresyndo') ? 'PT. FORESYNDO GLOBAL INDONESIA' : rawProject.owner)
+          : 'PT. FORESYNDO GLOBAL INDONESIA'
+      ),
       location: String(rawProject.location || matchedProjectRow?.location || 'Jatitujuh, Majalengka, Jawa Barat'),
       contractValue: Number(rawProject.contractValue ?? matchedProjectRow?.contract_value ?? 14461760981),
       startDate: String(rawProject.startDate || matchedProjectRow?.start_date || '2026-09-01'),
@@ -1687,8 +1694,10 @@ export async function pullAllDataFromSupabase(
       contractorProfile: rawProject.contractorProfile,
       // Direktur Utama Owner: HASANUDIN (bukan Rohman Priyambodo yang merupakan Direktur Kontraktor)
       director: String(
-        rawProject.director && !rawProject.director.toLowerCase().includes('rohman')
-          ? rawProject.director
+        rawProject.director &&
+          !rawProject.director.toLowerCase().includes('rohman') &&
+          !rawProject.director.toLowerCase().includes('eko')
+          ? (rawProject.director.toLowerCase().includes('hasanudin') ? 'HASANUDIN' : rawProject.director)
           : 'HASANUDIN'
       ),
       siteManager: String(rawProject.siteManager || 'EKO YULIANTO'),

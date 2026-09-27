@@ -87,7 +87,7 @@ export const PDFCustomizationModal: React.FC<PDFCustomizationModalProps> = ({
   const [includeProjectInfo, setIncludeProjectInfo] = useState(true);
   const [includeDataTable, setIncludeDataTable] = useState(true);
   const [includeSignatures, setIncludeSignatures] = useState(true);
-  const [includeSupervisoryMK, setIncludeSupervisoryMK] = useState(false);
+  const [includeSupervisoryMK, setIncludeSupervisoryMK] = useState(true);
   const [customNotes, setCustomNotes] = useState('');
   const [customTitle, setCustomTitle] = useState('');
 
@@ -280,7 +280,7 @@ export const PDFCustomizationModal: React.FC<PDFCustomizationModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Atur rentang tanggal, filter kategori foto dokumentasi site, dan tata letak resmi
+                Kop Dokumen Resmi: <strong className="text-slate-700 dark:text-slate-200">{project.contractor || 'PT. GONG MBE LINK PAMUNGKAS'}</strong> (Ditujukan kepada: {project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'})
               </p>
             </div>
           </div>

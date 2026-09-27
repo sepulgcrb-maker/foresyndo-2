@@ -401,7 +401,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     type="text"
                     value={owner}
                     onChange={(e) => isOwnerRole && setOwner(e.target.value)}
-                    placeholder="Contoh: PT Foresyndo Global Indonesia"
+                    placeholder="Contoh: PT. FORESYNDO GLOBAL INDONESIA"
                     required
                     disabled={!isOwnerRole}
                     className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-semibold outline-none transition-all ${

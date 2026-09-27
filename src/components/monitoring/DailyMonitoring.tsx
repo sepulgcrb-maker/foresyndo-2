@@ -63,7 +63,7 @@ export const DailyMonitoring: React.FC<DailyMonitoringProps> = ({
       : userRole === 'Kontraktor'
       ? 'EKO YULIANTO (Kontraktor Pelaksana)'
       : userRole === 'Owner' || userRole === 'Direktur'
-      ? 'HASANUDIN (Direktur Utama PT. Foresyndo Global Indonesia)'
+      ? 'HASANUDIN (Direktur Utama PT. FORESYNDO GLOBAL INDONESIA)'
       : 'EKO YULIANTO');
 
   const [newLog, setNewLog] = useState<Omit<DailyLog, 'id'>>({

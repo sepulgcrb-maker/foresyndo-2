@@ -2581,7 +2581,7 @@ export const FinalInspection: React.FC<FinalInspectionProps> = ({
                   />
                   <div>
                     <span className="text-xs font-black tracking-widest text-blue-900 uppercase block">
-                      {project.owner || 'PT FORESYNDO GLOBAL INDONESIA'}
+                      {project.owner || 'PT. FORESYNDO GLOBAL INDONESIA'}
                     </span>
                     <span className="text-[10px] font-bold text-slate-600 block">
                       {project.name} &bull; PEMILIK PROYEK
